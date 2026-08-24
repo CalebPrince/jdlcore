@@ -313,6 +313,14 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--g
 .stack-tile h4 { margin: 0 0 2px; font-size: .95rem; }
 .stack-tile p { margin: 0; font-size: .78rem; color: var(--ink-faint); }
 
+/* -------------------- Hosting badge override -------------------- */
+/* Netlify injects a "Powered by Netlify" iframe (#nl-badge-frame) at
+   deploy time, bottom-right, at a near-max z-index — it was covering
+   the chat launcher. This can also be turned off from the Netlify
+   dashboard (Site configuration > General > Netlify badge); hiding it
+   here works regardless of that setting. */
+#nl-badge-frame { display: none !important; }
+
 /* -------------------- Support chat widget -------------------- */
 .chat-launcher {
   position: fixed; right: 20px; bottom: 20px; z-index: 200;
