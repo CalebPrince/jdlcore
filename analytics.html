@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JDL Core Analytics | Data. Insight. Performance.</title>
+<meta name="description" content="JDL Core Analytics is a subscription platform for chatting with an industry-data assistant fed on oil &amp; gas inspection and market data. Coming soon.">
+<link rel="icon" type="image/png" href="assets/logo-analytics.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!--
+  DEMO CONTENT MANIFEST — see index.html for the full note. This
+  division does not exist yet: everything below is a description of
+  the PLANNED product from the one-line brief ("subscription chatbot
+  for industry data"), written as coming-soon, not as a live feature
+  list. The waitlist form has no backend — script.js only shows a
+  client-side confirmation message. The hero chat panel is a
+  hand-built UI mockup, not a real conversation or real data.
+-->
+
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="JDL Core home">
+      <img src="assets/logo-analytics.png" alt="JDL Core Analytics logo">
+    </a>
+    <nav class="site-nav" id="site-nav" aria-label="Primary">
+      <a href="index.html">Home</a>
+      <a href="inspection.html">Inspection Services</a>
+      <a href="analytics.html" class="is-active">Analytics</a>
+      <a href="academy.html">Academy</a>
+      <a class="btn btn-primary nav-cta" href="#waitlist">Join Waitlist</a>
+    </nav>
+    <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap hero-inner has-mockup">
+      <div class="hero-copy reveal">
+        <span class="badge badge-soon" style="margin-bottom:16px;display:inline-block;">Coming Soon</span>
+        <p class="eyebrow">JDL Core Analytics</p>
+        <h1>Ask Your <span class="accent">Industry Data</span> a Question</h1>
+        <p class="lede">
+          A subscription platform where you chat directly with an assistant
+          fed on JDL Core's own inspection and market data — insight on
+          demand, instead of waiting on a static report.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="#waitlist">Join the Waitlist</a>
+          <a class="btn btn-ghost btn-lg" href="inspection.html">Explore Inspection Services</a>
+        </div>
+      </div>
+
+      <div class="mockup-wrap reveal" aria-hidden="true">
+        <span class="mockup-tag">Preview</span>
+        <div class="mockup-frame">
+          <div class="mockup-bar"><span class="mockup-dot"></span>analytics.jdlcore.com</div>
+          <div class="mockup-body">
+            <div class="mockup-chat">
+              <div class="mockup-bubble user">What's our average GSV variance across Tema depots this quarter?</div>
+              <div class="mockup-bubble bot">
+                Average variance is 0.6% across 14 inspections, down from 1.1%
+                last quarter.
+                <div class="mockup-sparkline">
+                  <span style="height:40%;"></span><span style="height:70%;"></span><span style="height:35%;"></span><span style="height:55%;"></span><span style="height:20%;"></span><span style="height:30%;"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ VALUE STRIP ============ -->
+  <section class="value-strip">
+    <div class="wrap grid-3 reveal">
+      <div class="value-item">
+        <div class="icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 5h16v11H8l-4 4V5Z"/><path d="M8 9h8M8 12h5"/>
+          </svg>
+        </div>
+        <h3>Ask in Plain Language</h3>
+        <p>No dashboards to learn — ask a question about stock, trends, or a past inspection and get a direct answer.</p>
+      </div>
+      <div class="value-item">
+        <div class="icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="10" width="4" height="10" rx="1"/><rect x="10" y="5" width="4" height="15" rx="1"/><rect x="17" y="13" width="4" height="7" rx="1"/>
+          </svg>
+        </div>
+        <h3>Grounded in Real Data</h3>
+        <p>Fed on JDL Core's own inspection and industry data, not generic public sources.</p>
+      </div>
+      <div class="value-item">
+        <div class="icon-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="4" y="4" width="16" height="16" rx="3"/><path d="M9 12h6M12 9v6"/>
+          </svg>
+        </div>
+        <h3>Subscription Access</h3>
+        <p>A recurring subscription keeps the assistant available whenever you need it, not a one-off purchase.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ HOW IT WILL WORK ============ -->
+  <section class="section section-alt">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">How It Will Work</p>
+        <h2>Subscribe, Ask, Get an Answer</h2>
+      </div>
+      <div class="process-grid reveal" style="grid-template-columns:repeat(3,1fr);">
+        <div class="process-step"><div class="step-num">1</div><h3>Subscribe</h3><p>Sign up for access to the Analytics chatbot once it launches.</p></div>
+        <div class="process-step"><div class="step-num">2</div><h3>Ask</h3><p>Chat with the assistant about stock levels, trends, or past inspection data.</p></div>
+        <div class="process-step process-step-highlight"><div class="step-num">3</div><h3>Get Answers</h3><p>Receive a direct answer grounded in JDL Core's own industry data.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WAITLIST ============ -->
+  <section class="section" id="waitlist">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Get Notified</p>
+        <h2>Join the Waitlist</h2>
+        <p class="section-lede">Be first to know when JDL Core Analytics opens for subscriptions.</p>
+      </div>
+      <form class="waitlist-form reveal" novalidate>
+        <input type="email" placeholder="you@company.com" aria-label="Email address" required>
+        <button class="btn btn-primary btn-lg" type="submit">Notify Me</button>
+        <p class="form-note" role="status" aria-live="polite" style="width:100%;"></p>
+      </form>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand brand-footer" href="index.html" aria-label="JDL Core home">
+        <img src="assets/logo-inspection.png" alt="JDL Core logo">
+      </a>
+      <p>A subscription platform for chatting with an assistant grounded in JDL Core's own industry data. Coming soon.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Divisions</h4>
+      <nav aria-label="Footer divisions">
+        <a href="index.html">JDL Core Home</a>
+        <a href="inspection.html">Inspection Services</a>
+        <a href="academy.html">Academy</a>
+      </nav>
+    </div>
+    <div class="footer-col">
+      <h4>This Division</h4>
+      <nav aria-label="Footer analytics links">
+        <a href="#waitlist">Join Waitlist</a>
+      </nav>
+    </div>
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul class="footer-regions">
+        <li><span>Email (placeholder)</span><a href="mailto:analytics@jdlcore.com">analytics@jdlcore.com</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <p>&copy; <span id="year">2026</span> JDL Core Analytics. All rights reserved. Data. Insight. Performance.</p>
+    <p class="footer-credit">Built by <a href="https://princecaleb.dev" target="_blank" rel="noopener">princecaleb.dev</a></p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+<script src="chat-widget.js"></script>
+</body>
+</html>

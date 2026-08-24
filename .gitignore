@@ -1,0 +1,9 @@
+# Source/reference materials, not part of the published site
+/*.docx
+/Here are the details.txt
+/logo (1).png
+/logo-analytics.png
+
+# OS junk
+Thumbs.db
+.DS_Store

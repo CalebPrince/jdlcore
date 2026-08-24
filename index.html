@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JDL Core | Integrity at the Core</title>
+<meta name="description" content="JDL Core is a group of three oil &amp; gas focused businesses: independent inspection services, an industry-data analytics platform, and an education academy.">
+<link rel="icon" type="image/png" href="assets/logo-inspection.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!--
+  ============================================================
+  DEMO CONTENT MANIFEST: READ BEFORE PUBLISHING THIS SITE
+  ============================================================
+  Structure and copy here are original, based on the client's brief
+  and proposal document. Items still needing real information before
+  launch:
+    - Contact details in the footer (phone/email/address) are
+      PLACEHOLDERS — replace with real JDL Core contact info.
+    - The quote request form (on inspection.html) and the waitlist
+      forms (on analytics.html / academy.html) are client-side only
+      right now — no backend, nothing is actually sent or stored.
+    - Analytics and Academy pages describe the PLANNED product based
+      on the one-line brief ("subscription chatbot for industry data"
+      / "tutorials + practice tests"). Neither product exists yet —
+      copy is written as "coming soon", not as if already live.
+    - No stats, testimonials, or client names have been invented
+      anywhere on this site — add real ones once available instead
+      of filling this gap with fabricated numbers.
+    - The "overview.jdlcore.com" dashboard panel in the hero is a
+      hand-built UI mockup, not a real screenshot or real data.
+    - The support chat launcher (bottom-right, all pages) is a
+      SAMPLE: a scripted, menu-driven demo with no AI and no
+      backend (see chat-widget.js). It's meant to show what
+      menu-driven support + human handoff could look like, not a
+      working assistant — the handoff form doesn't send anywhere.
+  ============================================================
+-->
+
+<a class="skip-link" href="#main">Skip to main content</a>
+
+<header class="site-header" id="top">
+  <div class="wrap header-inner">
+    <a class="brand" href="index.html" aria-label="JDL Core home">
+      <img src="assets/logo-inspection.png" alt="JDL Core logo">
+    </a>
+
+    <nav class="site-nav" id="site-nav" aria-label="Primary">
+      <a href="index.html" class="is-active">Home</a>
+      <a href="inspection.html">Inspection Services</a>
+      <a href="analytics.html">Analytics</a>
+      <a href="academy.html">Academy</a>
+      <a class="btn btn-primary nav-cta" href="inspection.html#quote">Get Started</a>
+    </nav>
+
+    <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="site-nav" aria-label="Open menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ============ HERO ============ -->
+  <section class="hero">
+    <div class="hero-glow" aria-hidden="true"></div>
+    <div class="wrap hero-inner has-mockup">
+      <div class="hero-copy reveal">
+        <p class="eyebrow">The JDL Core Group</p>
+        <h1>Three Businesses, <span class="accent">One Standard</span> of Integrity</h1>
+        <p class="lede">
+          JDL Core brings independent inspection, industry data intelligence, and
+          hands-on training together under one standard: accurate numbers,
+          honest reporting, and people who know the oil &amp; gas value chain
+          from the ground up.
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary btn-lg" href="inspection.html">Explore Inspection Services</a>
+          <a class="btn btn-ghost btn-lg" href="#divisions">See All Divisions</a>
+        </div>
+      </div>
+
+      <div class="mockup-wrap reveal" aria-hidden="true">
+        <span class="mockup-tag">Preview</span>
+        <div class="mockup-frame">
+          <div class="mockup-bar"><span class="mockup-dot"></span>overview.jdlcore.com</div>
+          <div class="mockup-body">
+            <div class="mockup-stats">
+              <div class="mockup-stat"><div class="num">Live</div><div class="lbl">Inspection</div></div>
+              <div class="mockup-stat"><div class="num">Soon</div><div class="lbl">Analytics</div></div>
+              <div class="mockup-stat"><div class="num">Soon</div><div class="lbl">Academy</div></div>
+            </div>
+            <div class="mockup-row">
+              <span class="ref">JDL-2026-00041</span>
+              <span class="mockup-pill pill-done">Verified</span>
+            </div>
+            <div class="mockup-row">
+              <span>Analytics waitlist</span>
+              <span class="mockup-pill pill-progress">+12 this wk</span>
+            </div>
+            <div class="mockup-row">
+              <span>Academy curriculum</span>
+              <span class="mockup-pill pill-review">In Progress</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ DIVISIONS ============ -->
+  <section class="section" id="divisions">
+    <div class="wrap">
+      <div class="section-head reveal">
+        <p class="eyebrow">Our Divisions</p>
+        <h2>Three Companies Working the Same Value Chain</h2>
+        <p class="section-lede">Each division stands on its own, built around one part of the same problem: giving oil &amp; gas operators numbers and knowledge they can trust.</p>
+      </div>
+
+      <div class="grid-3 reveal">
+        <div class="division-card">
+          <img class="division-logo" src="assets/logo-inspection.png" alt="JDL Core Inspection Services logo">
+          <span class="badge division-tag">Flagship</span>
+          <h3>Inspection Services</h3>
+          <p>Independent stock monitoring, collateral verification, tank &amp; depot inspections, and quantity assurance across the oil &amp; gas and commodity value chains.</p>
+          <a class="link-arrow" href="inspection.html">Explore Inspection Services →</a>
+        </div>
+
+        <div class="division-card">
+          <img class="division-logo" src="assets/logo-analytics.png" alt="JDL Core Analytics logo">
+          <span class="badge badge-soon division-tag">Coming Soon</span>
+          <h3>Analytics</h3>
+          <p>A subscription platform where clients chat with an industry-data assistant fed on JDL Core's own inspection and market data — insight on demand, not a static report.</p>
+          <a class="link-arrow" href="analytics.html">Preview Analytics →</a>
+        </div>
+
+        <div class="division-card">
+          <span class="badge badge-soon division-tag">Coming Soon</span>
+          <h3>Academy</h3>
+          <p>An oil &amp; gas education center: structured tutorials and practice tests built by the same people who perform the inspections, aimed at industry newcomers and working professionals.</p>
+          <a class="link-arrow" href="academy.html">Preview Academy →</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ WHY JDL CORE ============ -->
+  <section class="section section-alt">
+    <div class="wrap about-layout">
+      <div class="about-copy reveal">
+        <p class="eyebrow">Why JDL Core</p>
+        <h2>Built by People Who Work the Value Chain, Not Around It</h2>
+        <p>
+          JDL Core started as an inspection company because operators kept
+          running into the same problem: numbers that didn't add up, and
+          nobody independent to check them. The Analytics and Academy
+          divisions grew out of the same insight, that good data and real
+          training are just as scarce as an honest inspection.
+        </p>
+        <ul class="checklist">
+          <li>Independent, third-party verification — no conflict of interest with either side of a transaction</li>
+          <li>Field-tested processes, documented at every step</li>
+          <li>One standard of integrity applied across all three divisions</li>
+        </ul>
+        <a class="link-arrow" href="inspection.html#services">See how inspections work →</a>
+      </div>
+
+      <div class="about-stats reveal">
+        <div class="stat-block">
+          <h4>Inspection Services</h4>
+          <p style="margin-bottom:0;color:var(--ink-soft);font-size:.92rem;">Live and taking requests. Ten inspection and verification services across the oil &amp; gas value chain.</p>
+        </div>
+        <div class="stat-block">
+          <h4>Analytics &amp; Academy</h4>
+          <p style="margin-bottom:0;color:var(--ink-soft);font-size:.92rem;">In development. Join the waitlist on either division page to hear when they open.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FINAL CTA ============ -->
+  <section class="section section-dark final-cta">
+    <div class="wrap final-cta-inner reveal">
+      <p class="eyebrow eyebrow-light">Ready When You Are</p>
+      <h2>Start With an Inspection Request</h2>
+      <p class="section-lede-light">
+        Inspection Services is the division open for business today. Reach out
+        and we'll walk you through how the request and reporting process works.
+      </p>
+      <div class="final-cta-actions">
+        <a class="btn btn-primary btn-lg" href="inspection.html#quote">Request an Inspection</a>
+        <a class="btn btn-outline-light btn-lg" href="inspection.html#services">View Services</a>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ FOOTER ============ -->
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-brand">
+      <a class="brand brand-footer" href="index.html" aria-label="JDL Core home">
+        <img src="assets/logo-inspection.png" alt="JDL Core logo">
+      </a>
+      <p>Independent inspection, industry data analytics, and oil &amp; gas education — one standard of integrity, three divisions.</p>
+    </div>
+
+    <div class="footer-col">
+      <h4>Divisions</h4>
+      <nav aria-label="Footer divisions">
+        <a href="inspection.html">Inspection Services</a>
+        <a href="analytics.html">Analytics</a>
+        <a href="academy.html">Academy</a>
+      </nav>
+    </div>
+
+    <div class="footer-col">
+      <h4>Quick Links</h4>
+      <nav aria-label="Footer quick links">
+        <a href="index.html">Home</a>
+        <a href="inspection.html#services">Services</a>
+        <a href="inspection.html#quote">Request an Inspection</a>
+      </nav>
+    </div>
+
+    <div class="footer-col">
+      <h4>Contact</h4>
+      <ul class="footer-regions">
+        <li><span>Phone / WhatsApp (placeholder)</span><a href="tel:+000000000000">+000 000 000 000</a></li>
+        <li><span>Email (placeholder)</span><a href="mailto:info@jdlcore.com">info@jdlcore.com</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <p>&copy; <span id="year">2026</span> JDL Core. All rights reserved. Integrity at the Core.</p>
+    <p class="footer-credit">Built by <a href="https://princecaleb.dev" target="_blank" rel="noopener">princecaleb.dev</a></p>
+  </div>
+</footer>
+
+<script src="script.js"></script>
+<script src="chat-widget.js"></script>
+</body>
+</html>
