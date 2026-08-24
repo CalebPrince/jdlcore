@@ -390,5 +390,33 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--g
   .chat-launcher { right: 14px; bottom: 14px; }
 }
 
+/* -------------------- Contact page -------------------- */
+.contact-form-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px; box-shadow: var(--shadow-sm); }
+.contact-form-card h2 { font-size: 1.3rem; margin-bottom: .3em; }
+.contact-form-card > p { color: var(--ink-soft); margin-bottom: 24px; }
+.contact-form-card .quote-form { max-width: none; }
+.contact-details-card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); padding: 28px; display: flex; flex-direction: column; gap: 22px; box-shadow: var(--shadow-sm); }
+.contact-detail-row { display: flex; gap: 14px; align-items: flex-start; }
+.contact-detail-icon { width: 40px; height: 40px; border-radius: 10px; background: var(--navy-100); color: var(--navy-800); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.contact-detail-icon svg { width: 19px; height: 19px; }
+.contact-detail-row h4 { margin: 0 0 2px; font-size: .9rem; }
+.contact-detail-row p, .contact-detail-row a { margin: 0; font-size: .92rem; color: var(--ink-soft); }
+.contact-detail-row a:hover { color: var(--navy-950); }
+
+.whatsapp-btn {
+  display: inline-flex; align-items: center; gap: .6em; background: #25d366; color: #fff;
+  padding: .8em 1.4em; border-radius: 999px; font-weight: 600; font-size: .95rem;
+  box-shadow: 0 10px 26px rgba(37, 211, 102, .35);
+  transition: transform .2s var(--ease), box-shadow .2s var(--ease);
+}
+.whatsapp-btn:hover { transform: translateY(-2px); box-shadow: 0 14px 32px rgba(37, 211, 102, .45); }
+.whatsapp-btn svg { width: 20px; height: 20px; flex-shrink: 0; }
+
+/* -------------------- Footer WhatsApp -------------------- */
+.footer-whatsapp { display: inline-flex; align-items: center; gap: .55em; color: rgba(248, 247, 243, .85); font-size: .92rem; }
+.footer-whatsapp:hover { color: var(--gold-300); }
+.footer-whatsapp .wa-icon { width: 28px; height: 28px; border-radius: 50%; background: #25d366; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.footer-whatsapp .wa-icon svg { width: 15px; height: 15px; fill: #fff; }
+
 /* -------------------- Demo notice banner -------------------- */
 .notice-banner { background: rgba(246, 207, 110, 0.16); border-bottom: 1px solid rgba(201, 142, 18, 0.3); font-size: .84rem; color: var(--navy-800); text-align: center; padding: 8px 16px; }
