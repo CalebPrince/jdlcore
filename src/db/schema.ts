@@ -8,6 +8,7 @@ import {
   jsonb,
   index,
   uniqueIndex,
+  date,
 } from "drizzle-orm/pg-core";
 
 export const settings = pgTable("settings", {
@@ -173,6 +174,7 @@ export const analyticsUsers = pgTable(
     setupToken: text("setup_token").unique(),
     setupTokenExpires: timestamp("setup_token_expires", { withTimezone: true }),
     status: text("status").notNull().default("invited"), // invited | active | disabled
+    dailyLimit: integer("daily_limit").notNull().default(100),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
@@ -245,6 +247,21 @@ export const knowledgeDocuments = pgTable(
   (table) => [
     index("knowledge_docs_scope_idx").on(table.scope),
     index("knowledge_docs_client_idx").on(table.clientId),
+  ],
+);
+
+export const analyticsDailyUsage = pgTable(
+  "analytics_daily_usage",
+  {
+    id: serial("id").primaryKey(),
+    userId: integer("user_id").notNull().references(() => analyticsUsers.id, { onDelete: "cascade" }),
+    usageDate: date("usage_date", { mode: "string" }).notNull(),
+    messageCount: integer("message_count").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("analytics_daily_usage_user_date_idx").on(table.userId, table.usageDate),
+    index("analytics_daily_usage_date_idx").on(table.usageDate),
   ],
 );
 

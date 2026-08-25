@@ -1,34 +1,17 @@
 import { NextResponse } from "next/server";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { analyticsChats, analyticsMessages } from "@/db/schema";
+import { analyticsChats, analyticsDailyUsage, analyticsMessages } from "@/db/schema";
 import { getAnalyticsUser } from "@/lib/analytics-auth";
 import { buildAnalyticsSystemPrompt } from "@/lib/ai/analytics-prompt";
 import { runCompletion, AiUnavailableError } from "@/lib/ai/gateway";
 import { retrieveKnowledge } from "@/lib/analytics-knowledge";
 
-const DAILY_LIMIT = 100;
-
 const bodySchema = z.object({
   chatId: z.coerce.number().int().positive().optional(),
   message: z.string().trim().min(1).max(2000),
 });
-
-/** In-memory per-user daily counter (resets on restart; per-instance). */
-const usage = new Map<string, { day: string; count: number }>();
-function withinDailyLimit(userId: number): boolean {
-  const day = new Date().toISOString().slice(0, 10);
-  const key = String(userId);
-  const entry = usage.get(key);
-  if (!entry || entry.day !== day) {
-    usage.set(key, { day, count: 1 });
-    return true;
-  }
-  if (entry.count >= DAILY_LIMIT) return false;
-  entry.count += 1;
-  return true;
-}
 
 export async function POST(req: Request) {
   const user = await getAnalyticsUser();
@@ -49,20 +32,31 @@ export async function POST(req: Request) {
       { status: 400 },
     );
   }
-  if (!withinDailyLimit(user.id)) {
-    return NextResponse.json(
-      {
-        error: `Daily limit of ${DAILY_LIMIT} messages reached. Your limit resets at midnight.`,
-      },
-      { status: 429 },
-    );
-  }
-
   let database;
   try {
     database = requireDb();
   } catch {
     return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const usageRows = await database
+    .insert(analyticsDailyUsage)
+    .values({ userId: user.id, usageDate: today, messageCount: 1 })
+    .onConflictDoUpdate({
+      target: [analyticsDailyUsage.userId, analyticsDailyUsage.usageDate],
+      set: {
+        messageCount: sql`${analyticsDailyUsage.messageCount} + 1`,
+        updatedAt: new Date(),
+      },
+      setWhere: lt(analyticsDailyUsage.messageCount, user.dailyLimit),
+    })
+    .returning({ count: analyticsDailyUsage.messageCount });
+  if (!usageRows[0]) {
+    return NextResponse.json(
+      { error: `Daily limit of ${user.dailyLimit} messages reached. Your limit resets at midnight UTC.` },
+      { status: 429 },
+    );
   }
 
   // Resolve or create the chat, verifying ownership
@@ -122,7 +116,7 @@ export async function POST(req: Request) {
       sources,
     });
 
-    return NextResponse.json({ reply: completion.text, chatId, provider: completion.provider, sources });
+    return NextResponse.json({ reply: completion.text, chatId, provider: completion.provider, sources, usage: { used: usageRows[0].count, limit: user.dailyLimit } });
   } catch (err) {
     if (err instanceof AiUnavailableError) {
       return NextResponse.json(

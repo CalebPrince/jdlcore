@@ -22,16 +22,21 @@ export function ChatWorkspace({
   chats,
   activeChatId,
   initialMessages,
+  initialUsedToday,
+  dailyLimit,
 }: {
   userName: string;
   chats: ChatSummary[];
   activeChatId: number | null;
   initialMessages: ChatMessage[];
+  initialUsedToday: number;
+  dailyLimit: number;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [chatList, setChatList] = useState<ChatSummary[]>(chats);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [usedToday, setUsedToday] = useState(initialUsedToday);
   const [error, setError] = useState<string | null>(null);
   const [currentChatId, setCurrentChatId] = useState<number | null>(activeChatId);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -60,11 +65,13 @@ export function ChatWorkspace({
         chatId?: number;
         error?: string;
         sources?: ChatSource[];
+        usage?: { used: number; limit: number };
       };
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
         setMessages((m) => m.slice(0, -1));
       } else {
+        if (data.usage) setUsedToday(data.usage.used);
         if (data.chatId && data.chatId !== currentChatId) {
           setCurrentChatId(data.chatId);
           setChatList((items) => items.some((item) => item.id === data.chatId)
@@ -282,7 +289,7 @@ export function ChatWorkspace({
             </Button>
           </form>
           <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] text-muted-foreground">
-            Beta — answers are AI-generated. Verify critical figures with your JDL Core account manager.
+            {usedToday} of {dailyLimit} messages used today · Resets at midnight UTC · Verify critical figures with your JDL Core account manager.
           </p>
         </div>
       </div>

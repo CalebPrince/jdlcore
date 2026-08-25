@@ -142,6 +142,17 @@ export async function deleteAnalyticsUser(formData: FormData): Promise<void> {
   revalidatePath("/admin/analytics");
 }
 
+export async function setAnalyticsUserDailyLimit(formData: FormData): Promise<void> {
+  if (!(await isAuthenticated())) return;
+  const parsed = z.object({
+    userId: z.coerce.number().int().positive(),
+    dailyLimit: z.coerce.number().int().min(1).max(1000),
+  }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  await requireDb().update(analyticsUsers).set({ dailyLimit: parsed.data.dailyLimit }).where(eq(analyticsUsers.id, parsed.data.userId));
+  revalidatePath("/admin/analytics");
+}
+
 export type KnowledgeUploadState = { ok: boolean; message: string };
 
 export async function uploadKnowledgeDocument(

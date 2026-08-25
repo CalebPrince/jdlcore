@@ -1,11 +1,12 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { requireDb } from "@/db";
-import { analyticsChats, analyticsMessages, analyticsUsers, knowledgeDocuments, submissions } from "@/db/schema";
+import { analyticsChats, analyticsDailyUsage, analyticsMessages, analyticsUsers, knowledgeDocuments, submissions } from "@/db/schema";
 import {
   setAnalyticsUserStatus,
   deleteAnalyticsUser,
   deleteKnowledgeDocument,
+  setAnalyticsUserDailyLimit,
 } from "@/app/actions/analytics-admin";
 import {
   AnalyticsGrantSheet,
@@ -56,11 +57,14 @@ export default async function AdminAnalyticsPage() {
     status: string;
     lastLoginAt: Date | null;
     messages: number;
+    dailyLimit: number;
+    usedToday: number;
   }[] = [];
   let knowledge: (typeof knowledgeDocuments.$inferSelect)[] = [];
   try {
     const database = requireDb();
-    const [wlRows, userRows, knowledgeRows] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [wlRows, userRows, knowledgeRows, usageRows] = await Promise.all([
       database
         .select({
           id: submissions.id,
@@ -80,11 +84,13 @@ export default async function AdminAnalyticsPage() {
           company: analyticsUsers.company,
           status: analyticsUsers.status,
           lastLoginAt: analyticsUsers.lastLoginAt,
+          dailyLimit: analyticsUsers.dailyLimit,
         })
         .from(analyticsUsers)
         .orderBy(desc(analyticsUsers.createdAt))
         .limit(200),
       database.select().from(knowledgeDocuments).where(eq(knowledgeDocuments.scope, "global")).orderBy(desc(knowledgeDocuments.createdAt)).limit(100),
+      database.select({ userId: analyticsDailyUsage.userId, count: analyticsDailyUsage.messageCount }).from(analyticsDailyUsage).where(eq(analyticsDailyUsage.usageDate, today)),
     ]);
     knowledge = knowledgeRows;
 
@@ -95,7 +101,8 @@ export default async function AdminAnalyticsPage() {
     });
 
     const msgCounts = await messageCounts(database);
-    users = userRows.map((u) => ({ ...u, messages: msgCounts.get(u.id) ?? 0 }));
+    const todayByUser = new Map(usageRows.map((row) => [row.userId, row.count]));
+    users = userRows.map((u) => ({ ...u, messages: msgCounts.get(u.id) ?? 0, usedToday: todayByUser.get(u.id) ?? 0 }));
   } catch (err) {
     console.error("admin analytics page:", err);
   }
@@ -158,7 +165,8 @@ export default async function AdminAnalyticsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Messages</TableHead>
+                  <TableHead>Usage today</TableHead>
+                  <TableHead>Daily limit</TableHead>
                   <TableHead>Last login</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
@@ -178,7 +186,18 @@ export default async function AdminAnalyticsPage() {
                         {u.status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="tabular-nums">{u.messages}</TableCell>
+                    <TableCell className="tabular-nums">
+                      <span className={u.usedToday >= u.dailyLimit ? "font-bold text-red-700" : ""}>{u.usedToday}</span>
+                      <span className="text-muted-foreground"> / {u.dailyLimit}</span>
+                      <span className="block text-[10px] text-muted-foreground">{u.messages} total messages</span>
+                    </TableCell>
+                    <TableCell>
+                      <form action={setAnalyticsUserDailyLimit} className="flex items-center gap-1">
+                        <input type="hidden" name="userId" value={u.id} />
+                        <input name="dailyLimit" type="number" min="1" max="1000" defaultValue={u.dailyLimit} className="h-8 w-20 rounded-md border bg-white px-2 text-xs tabular-nums" aria-label={`Daily message limit for ${u.name}`} />
+                        <Button type="submit" size="sm" variant="outline" className="h-8 px-2 text-xs">Save</Button>
+                      </form>
+                    </TableCell>
                     <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                       {u.lastLoginAt
                         ? new Date(u.lastLoginAt).toLocaleDateString("en-GB", {

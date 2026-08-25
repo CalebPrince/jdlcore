@@ -1,6 +1,6 @@
 import { and, asc, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { analyticsChats, analyticsMessages } from "@/db/schema";
+import { analyticsChats, analyticsDailyUsage, analyticsMessages } from "@/db/schema";
 import { getAnalyticsUser } from "@/lib/analytics-auth";
 import { ChatWorkspace } from "@/components/analytics/chat-workspace";
 
@@ -18,15 +18,16 @@ export default async function AnalyticsAppPage({
   let chats: { id: number; title: string }[] = [];
   let activeChatId: number | null = null;
   let initialMessages: { role: "user" | "assistant"; content: string; sources?: { docId: number; title: string; quote: string }[] }[] = [];
+  let usedToday = 0;
 
   try {
     const database = requireDb();
-    chats = await database
-      .select({ id: analyticsChats.id, title: analyticsChats.title })
-      .from(analyticsChats)
-      .where(eq(analyticsChats.userId, user.id))
-      .orderBy(desc(analyticsChats.createdAt))
-      .limit(30);
+    const [chatRows, usage] = await Promise.all([
+      database.select({ id: analyticsChats.id, title: analyticsChats.title }).from(analyticsChats).where(eq(analyticsChats.userId, user.id)).orderBy(desc(analyticsChats.createdAt)).limit(30),
+      database.select({ count: analyticsDailyUsage.messageCount }).from(analyticsDailyUsage).where(and(eq(analyticsDailyUsage.userId, user.id), eq(analyticsDailyUsage.usageDate, new Date().toISOString().slice(0, 10)))).limit(1),
+    ]);
+    chats = chatRows;
+    usedToday = usage[0]?.count ?? 0;
 
     const requestedId = Number(c);
     if (Number.isInteger(requestedId)) {
@@ -71,6 +72,8 @@ export default async function AnalyticsAppPage({
       chats={chats}
       activeChatId={activeChatId}
       initialMessages={initialMessages}
+      initialUsedToday={usedToday}
+      dailyLimit={user.dailyLimit}
     />
   );
 }
