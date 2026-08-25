@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, BookOpen, Loader2, Plus } from "lucide-react";
+import { ArrowUp, BookOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -29,6 +29,7 @@ export function ChatWorkspace({
   initialMessages: ChatMessage[];
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
+  const [chatList, setChatList] = useState<ChatSummary[]>(chats);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,7 +65,13 @@ export function ChatWorkspace({
         setError(data.error ?? "Something went wrong.");
         setMessages((m) => m.slice(0, -1));
       } else {
-        if (data.chatId && data.chatId !== currentChatId) setCurrentChatId(data.chatId);
+        if (data.chatId && data.chatId !== currentChatId) {
+          setCurrentChatId(data.chatId);
+          setChatList((items) => items.some((item) => item.id === data.chatId)
+            ? items
+            : [{ id: data.chatId!, title: trimmed.slice(0, 60) }, ...items]);
+          router.replace(`/analytics/app?c=${data.chatId}`);
+        }
         setMessages((m) => {
           const next = [...m];
           next[next.length - 1] = { role: "assistant", content: data.reply ?? "", sources: data.sources };
@@ -83,11 +90,40 @@ export function ChatWorkspace({
     setCurrentChatId(null);
     setMessages([]);
     setError(null);
+    router.push("/analytics/app?new=1");
     taRef.current?.focus();
   }
 
   function switchChat(id: number) {
     router.push(`/analytics/app?c=${id}`);
+  }
+
+  async function renameChat(chat: ChatSummary) {
+    const title = window.prompt("Rename conversation", chat.title)?.trim();
+    if (!title || title === chat.title) return;
+    const res = await fetch(`/api/analytics/chats/${chat.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+    if (!res.ok) return setError("Could not rename this conversation.");
+    setChatList((items) => items.map((item) => item.id === chat.id ? { ...item, title } : item));
+    router.refresh();
+  }
+
+  async function deleteChat(chat: ChatSummary) {
+    if (!window.confirm(`Delete “${chat.title}”? This cannot be undone.`)) return;
+    const res = await fetch(`/api/analytics/chats/${chat.id}`, { method: "DELETE" });
+    if (!res.ok) return setError("Could not delete this conversation.");
+    const remaining = chatList.filter((item) => item.id !== chat.id);
+    setChatList(remaining);
+    if (currentChatId === chat.id) {
+      setMessages([]);
+      setCurrentChatId(remaining[0]?.id ?? null);
+      router.push(remaining[0] ? `/analytics/app?c=${remaining[0].id}` : "/analytics/app");
+    } else {
+      router.refresh();
+    }
   }
 
   return (
@@ -101,24 +137,15 @@ export function ChatWorkspace({
           History
         </p>
         <div className="-mr-2 flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
-          {chats.length === 0 && (
+          {chatList.length === 0 && (
             <p className="m-0 text-xs text-muted-foreground">No conversations yet.</p>
           )}
-          {chats.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => switchChat(c.id)}
-              className={cn(
-                "truncate rounded-md px-3 py-2 text-left text-xs transition-colors",
-                c.id === currentChatId
-                  ? "bg-navy-950 font-semibold text-paper"
-                  : "text-ink-soft hover:bg-navy-50",
-              )}
-              title={c.title}
-            >
-              {c.title}
-            </button>
+          {chatList.map((c) => (
+            <div key={c.id} className={cn("group flex items-center rounded-md transition-colors", c.id === currentChatId ? "bg-navy-950 text-paper" : "text-ink-soft hover:bg-navy-50")}>
+              <button type="button" onClick={() => switchChat(c.id)} className="min-w-0 flex-1 truncate px-3 py-2 text-left text-xs" title={c.title}>{c.title}</button>
+              <button type="button" onClick={() => renameChat(c)} className="p-1 opacity-60 hover:opacity-100" aria-label={`Rename ${c.title}`}><Pencil className="h-3 w-3" /></button>
+              <button type="button" onClick={() => deleteChat(c)} className="mr-1 p-1 opacity-60 hover:text-red-500 hover:opacity-100" aria-label={`Delete ${c.title}`}><Trash2 className="h-3 w-3" /></button>
+            </div>
           ))}
         </div>
       </aside>
@@ -205,6 +232,20 @@ export function ChatWorkspace({
 
         {/* Composer */}
         <div className="border-t bg-white px-4 py-4 sm:px-8" style={{ borderColor: "var(--border)" }}>
+          {chatList.length > 0 && (
+            <div className="mx-auto mb-2 flex w-full items-center gap-1 md:hidden">
+              <select value={currentChatId ?? ""} onChange={(event) => switchChat(Number(event.target.value))} className="min-w-0 flex-1 rounded-md border bg-white px-3 py-2 text-xs" aria-label="Conversation history">
+                <option value="">New conversation</option>
+                {chatList.map((chat) => <option key={chat.id} value={chat.id}>{chat.title}</option>)}
+              </select>
+              {currentChatId && chatList.find((chat) => chat.id === currentChatId) ? (
+                <>
+                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => renameChat(chatList.find((chat) => chat.id === currentChatId)!)} aria-label="Rename conversation"><Pencil className="h-3.5 w-3.5" /></Button>
+                  <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-red-700" onClick={() => deleteChat(chatList.find((chat) => chat.id === currentChatId)!)} aria-label="Delete conversation"><Trash2 className="h-3.5 w-3.5" /></Button>
+                </>
+              ) : null}
+            </div>
+          )}
           <form
             onSubmit={(e) => {
               e.preventDefault();

@@ -9,11 +9,11 @@ export const dynamic = "force-dynamic";
 export default async function AnalyticsAppPage({
   searchParams,
 }: {
-  searchParams: Promise<{ c?: string }>;
+  searchParams: Promise<{ c?: string; new?: string }>;
 }) {
   const user = await getAnalyticsUser();
   if (!user) return null;
-  const { c } = await searchParams;
+  const { c, new: startNew } = await searchParams;
 
   let chats: { id: number; title: string }[] = [];
   let activeChatId: number | null = null;
@@ -42,7 +42,7 @@ export default async function AnalyticsAppPage({
         .limit(1);
       if (owned[0]) activeChatId = requestedId;
     }
-    activeChatId ??= chats[0]?.id ?? null;
+    if (startNew !== "1") activeChatId ??= chats[0]?.id ?? null;
 
     if (activeChatId) {
       const rows = await database
@@ -66,6 +66,7 @@ export default async function AnalyticsAppPage({
 
   return (
     <ChatWorkspace
+      key={activeChatId ?? "new"}
       userName={user.name}
       chats={chats}
       activeChatId={activeChatId}
