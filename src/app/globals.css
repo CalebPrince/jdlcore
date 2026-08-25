@@ -1,0 +1,297 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   JDL Core design system — palette hand-sampled from the brand logos.
+   Deep navy, industrial gold, warm off-white. Display: Space Grotesk,
+   body: IBM Plex Sans. Ported from the original static stylesheet.
+   ========================================================================== */
+
+:root {
+  --navy-950: #081826;
+  --navy-900: #0d2540;
+  --navy-800: #133a63;
+  --navy-700: #1c4d80;
+  --navy-100: #e7edf3;
+  --gold-300: #f6cf6e;
+  --gold-500: #eeb02b;
+  --gold-600: #c98e12;
+  --paper: #f8f7f3;
+  --paper-deep: #eee9dc;
+  --ink: #101c2b;
+  --ink-soft: #4c5c6e;
+  --ink-faint: #7c8a9a;
+
+  --radius: 1rem;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --card: #ffffff;
+  --card-foreground: var(--ink);
+  --popover: #ffffff;
+  --popover-foreground: var(--ink);
+  --primary: var(--navy-950);
+  --primary-foreground: var(--paper);
+  --secondary: var(--paper-deep);
+  --secondary-foreground: var(--navy-950);
+  --muted: var(--paper-deep);
+  --muted-foreground: var(--ink-faint);
+  --accent: var(--navy-100);
+  --accent-foreground: var(--navy-800);
+  --destructive: #b3261e;
+  --border: rgba(13, 37, 64, 0.12);
+  --input: rgba(13, 37, 64, 0.12);
+  --ring: var(--gold-600);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-navy-950: var(--navy-950);
+  --color-navy-900: var(--navy-900);
+  --color-navy-800: var(--navy-800);
+  --color-navy-700: var(--navy-700);
+  --color-navy-100: var(--navy-100);
+  --color-gold-300: var(--gold-300);
+  --color-gold-500: var(--gold-500);
+  --color-gold-600: var(--gold-600);
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+
+  --font-display: var(--font-space-grotesk), "Segoe UI", sans-serif;
+  --font-body: var(--font-ibm-plex-sans), "Segoe UI", sans-serif;
+
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
+  --radius-lg: var(--radius);
+
+  --ease-jdl: cubic-bezier(0.22, 1, 0.36, 1);
+
+  --shadow-sm-soft: 0 2px 10px rgba(8, 24, 38, 0.08);
+  --shadow-md-soft: 0 16px 40px rgba(8, 24, 38, 0.14);
+  --shadow-gold: 0 10px 26px rgba(201, 142, 18, 0.35);
+}
+
+@layer base {
+  body {
+    font-family: var(--font-body);
+    background: var(--paper);
+    color: var(--ink);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display);
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+    color: var(--navy-950);
+  }
+
+  h1,
+  h2 {
+    margin-bottom: 0.5em;
+  }
+
+  h3,
+  h4 {
+    margin-bottom: 0.35em;
+  }
+
+  :focus-visible {
+    outline: 2.5px solid var(--gold-600);
+    outline-offset: 3px;
+  }
+
+  ::selection {
+    background: rgba(238, 176, 43, 0.35);
+  }
+}
+
+@layer components {
+  .wrap {
+    max-width: 1180px;
+    margin-inline: auto;
+    padding-inline: 24px;
+  }
+
+  .eyebrow {
+    font-weight: 700;
+    font-size: 0.78rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--gold-600);
+    margin-bottom: 0.75em;
+  }
+
+  .btn-gold {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    padding: 0.8em 1.6em;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    background: linear-gradient(135deg, var(--gold-300), var(--gold-600));
+    color: var(--navy-950);
+    box-shadow: var(--shadow-gold);
+    transition:
+      transform 0.2s var(--ease-jdl),
+      box-shadow 0.2s var(--ease-jdl);
+  }
+  .btn-gold:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 34px rgba(201, 142, 18, 0.45);
+  }
+  .btn-gold-lg {
+    padding: 1em 2em;
+    font-size: 1rem;
+  }
+
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5em;
+    padding: 0.8em 1.6em;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    white-space: nowrap;
+    background: transparent;
+    color: var(--navy-950);
+    border: 1.5px solid var(--border);
+    transition:
+      transform 0.2s var(--ease-jdl),
+      box-shadow 0.2s var(--ease-jdl),
+      background 0.2s var(--ease-jdl);
+  }
+  .btn-ghost:hover {
+    background: var(--navy-950);
+    color: var(--paper);
+    border-color: var(--navy-950);
+  }
+
+  .link-arrow {
+    display: inline-block;
+    font-weight: 600;
+    color: var(--navy-800);
+    border-bottom: 1.5px solid transparent;
+    transition:
+      border-color 0.2s var(--ease-jdl),
+      color 0.2s var(--ease-jdl);
+  }
+  .link-arrow:hover {
+    border-color: var(--navy-800);
+  }
+  .link-arrow-light {
+    color: var(--gold-300);
+  }
+  .link-arrow-light:hover {
+    border-color: var(--gold-300);
+  }
+
+  .badge-soon {
+    background: rgba(246, 207, 110, 0.2);
+    color: var(--gold-600);
+  }
+
+  .section-dark {
+    background: linear-gradient(160deg, var(--navy-950), var(--navy-800));
+    color: var(--paper);
+  }
+  .section-dark h2,
+  .section-dark h3 {
+    color: var(--paper);
+  }
+
+  .hero-glow {
+    position: absolute;
+    inset: -20% -10% auto -10%;
+    height: 480px;
+    background: radial-gradient(
+      60% 60% at 30% 30%,
+      rgba(238, 176, 43, 0.16),
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+
+  .checklist li {
+    position: relative;
+    padding-left: 30px;
+    margin-bottom: 12px;
+    color: var(--ink-soft);
+  }
+  .checklist li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 6px;
+    width: 18px;
+    height: 18px;
+    border-radius: 5px;
+    background: var(--gold-500);
+  }
+  .checklist li::after {
+    content: "";
+    position: absolute;
+    left: 5px;
+    top: 9px;
+    width: 8px;
+    height: 4px;
+    border-left: 2px solid var(--navy-950);
+    border-bottom: 2px solid var(--navy-950);
+    transform: rotate(-45deg);
+  }
+
+  /* -------------------- Reveal on scroll -------------------- */
+  .reveal {
+    opacity: 0;
+    transform: translateY(18px);
+    transition:
+      opacity 0.7s var(--ease-jdl),
+      transform 0.7s var(--ease-jdl);
+  }
+  .reveal.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

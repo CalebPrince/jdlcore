@@ -1,0 +1,274 @@
+import { desc, eq, sql } from "drizzle-orm";
+import type { Metadata } from "next";
+import { requireDb } from "@/db";
+import { analyticsChats, analyticsMessages, analyticsUsers, submissions } from "@/db/schema";
+import {
+  setAnalyticsUserStatus,
+  deleteAnalyticsUser,
+} from "@/app/actions/analytics-admin";
+import {
+  AnalyticsGrantSheet,
+  ConfirmSubmitButton,
+} from "@/components/admin/analytics-admin-forms";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+
+export const dynamic = "force-dynamic";
+export const metadata: Metadata = { title: "Analytics Access | JDL Core Admin" };
+
+const STATUS_BADGE: Record<string, string> = {
+  active: "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]",
+  invited: "bg-[rgba(201,142,18,0.14)] text-gold-700",
+  disabled: "bg-muted text-muted-foreground",
+};
+
+export default async function AdminAnalyticsPage() {
+  let waitlist: {
+    id: number;
+    name: string;
+    email: string | null;
+    createdAt: Date;
+    userId: number | null;
+    userStatus: string | null;
+  }[] = [];
+  let users: {
+    id: number;
+    name: string;
+    email: string;
+    company: string | null;
+    status: string;
+    lastLoginAt: Date | null;
+    messages: number;
+  }[] = [];
+  try {
+    const database = requireDb();
+    const [wlRows, userRows] = await Promise.all([
+      database
+        .select({
+          id: submissions.id,
+          name: submissions.name,
+          email: submissions.email,
+          createdAt: submissions.createdAt,
+        })
+        .from(submissions)
+        .where(eqType("waitlist_analytics"))
+        .orderBy(desc(submissions.createdAt))
+        .limit(100),
+      database
+        .select({
+          id: analyticsUsers.id,
+          name: analyticsUsers.name,
+          email: analyticsUsers.email,
+          company: analyticsUsers.company,
+          status: analyticsUsers.status,
+          lastLoginAt: analyticsUsers.lastLoginAt,
+        })
+        .from(analyticsUsers)
+        .orderBy(desc(analyticsUsers.createdAt))
+        .limit(200),
+    ]);
+
+    const byEmail = new Map(userRows.map((u) => [u.email.toLowerCase(), u]));
+    waitlist = wlRows.map((r) => {
+      const u = r.email ? byEmail.get(r.email.toLowerCase()) : undefined;
+      return { ...r, userId: u?.id ?? null, userStatus: u?.status ?? null };
+    });
+
+    const msgCounts = await messageCounts(database);
+    users = userRows.map((u) => ({ ...u, messages: msgCounts.get(u.id) ?? 0 }));
+  } catch (err) {
+    console.error("admin analytics page:", err);
+  }
+
+  return (
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-navy-950">Analytics Access</h1>
+          <p className="text-sm text-muted-foreground">
+            Grant beta access to waitlist signups and manage subscribers.
+          </p>
+        </div>
+        <AnalyticsGrantSheet label="+ Grant Access" />
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Subscribers</CardTitle>
+          <CardDescription>
+            {users.length === 0
+              ? "Nobody has been granted access yet."
+              : `${users.length} ${users.length === 1 ? "account" : "accounts"}`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {users.length === 0 ? (
+            <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Grant access to your first Analytics subscriber above.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Messages</TableHead>
+                  <TableHead>Last login</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {users.map((u) => (
+                  <TableRow key={u.id}>
+                    <TableCell className="whitespace-nowrap font-medium">
+                      {u.name}
+                      {u.company && (
+                        <span className="block text-xs text-muted-foreground">{u.company}</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs">{u.email}</TableCell>
+                    <TableCell>
+                      <Badge variant="secondary" className={STATUS_BADGE[u.status] ?? ""}>
+                        {u.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="tabular-nums">{u.messages}</TableCell>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {u.lastLoginAt
+                        ? new Date(u.lastLoginAt).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "short",
+                          })
+                        : "Never"}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {u.status === "active" ? (
+                          <form action={setAnalyticsUserStatus}>
+                            <input type="hidden" name="userId" value={u.id} />
+                            <input type="hidden" name="status" value="disabled" />
+                            <Button type="submit" size="sm" variant="ghost" className="h-8 px-2 text-xs">
+                              Disable
+                            </Button>
+                          </form>
+                        ) : (
+                          <form action={setAnalyticsUserStatus}>
+                            <input type="hidden" name="userId" value={u.id} />
+                            <input type="hidden" name="status" value="active" />
+                            <Button type="submit" size="sm" variant="ghost" className="h-8 px-2 text-xs">
+                              Enable
+                            </Button>
+                          </form>
+                        )}
+                        <AnalyticsGrantSheet label="Re-invite" variant="ghost" defaults={{ name: u.name, email: u.email, company: u.company }} />
+                        <form action={deleteAnalyticsUser}>
+                          <input type="hidden" name="userId" value={u.id} />
+                          <ConfirmSubmitButton>Remove</ConfirmSubmitButton>
+                        </form>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Waitlist</CardTitle>
+          <CardDescription>
+            People who asked to be notified when Analytics launches.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {waitlist.length === 0 ? (
+            <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              No waitlist signups yet.
+            </p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Email</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {waitlist.map((w) => (
+                  <TableRow key={w.id}>
+                    <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                      {new Date(w.createdAt).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </TableCell>
+                    <TableCell className="font-medium">{w.name}</TableCell>
+                    <TableCell className="text-xs">{w.email ?? "—"}</TableCell>
+                    <TableCell>
+                      {w.userStatus ? (
+                        <Badge variant="secondary" className={STATUS_BADGE[w.userStatus] ?? ""}>
+                          {w.userStatus}
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-navy-100 text-navy-800">
+                          pending
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex justify-end">
+                        {!w.userId && w.email && (
+                          <AnalyticsGrantSheet
+                            label="Grant Access"
+                            defaults={{ name: w.name, email: w.email }}
+                          />
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function eqType(type: string) {
+  return eq(submissions.type, type);
+}
+
+async function messageCounts(
+  database: NonNullable<ReturnType<typeof requireDb>>,
+): Promise<Map<number, number>> {
+  const rows = await database
+    .select({ userId: analyticsChats.userId, total: sql<number>`count(*)::int` })
+    .from(analyticsMessages)
+    .innerJoin(analyticsChats, eq(analyticsMessages.chatId, analyticsChats.id))
+    .groupBy(analyticsChats.userId);
+  return new Map(rows.map((r) => [r.userId, Number(r.total)]));
+}
