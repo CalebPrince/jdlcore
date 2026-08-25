@@ -42,7 +42,7 @@ export function AnalyticsGrantSheet({
           {label}
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto px-6 sm:max-w-md">
         <SheetHeader>
           <SheetTitle className="font-display">Grant Analytics access</SheetTitle>
           <SheetDescription>
