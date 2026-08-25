@@ -1,5 +1,7 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { BarChart3 } from "lucide-react";
 import { requireDb } from "@/db";
 import { analyticsChats, analyticsDailyUsage, analyticsMessages, analyticsUsers, clients, knowledgeDocuments, submissions } from "@/db/schema";
 import {
@@ -122,7 +124,7 @@ export default async function AdminAnalyticsPage() {
             Grant beta access to waitlist signups and manage subscribers.
           </p>
         </div>
-        <AnalyticsGrantSheet label="+ Grant Access" />
+        <div className="flex gap-2"><Button asChild size="sm" variant="outline"><Link href="/admin/analytics/reports"><BarChart3 className="h-4 w-4" />Reports</Link></Button><AnalyticsGrantSheet label="+ Grant Access" /></div>
       </div>
 
       <Card>
