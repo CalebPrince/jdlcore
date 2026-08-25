@@ -1,14 +1,16 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { requireDb } from "@/db";
-import { analyticsChats, analyticsMessages, analyticsUsers, submissions } from "@/db/schema";
+import { analyticsChats, analyticsMessages, analyticsUsers, knowledgeDocuments, submissions } from "@/db/schema";
 import {
   setAnalyticsUserStatus,
   deleteAnalyticsUser,
+  deleteKnowledgeDocument,
 } from "@/app/actions/analytics-admin";
 import {
   AnalyticsGrantSheet,
   ConfirmSubmitButton,
+  KnowledgeUploadForm,
 } from "@/components/admin/analytics-admin-forms";
 import {
   Card,
@@ -55,9 +57,10 @@ export default async function AdminAnalyticsPage() {
     lastLoginAt: Date | null;
     messages: number;
   }[] = [];
+  let knowledge: (typeof knowledgeDocuments.$inferSelect)[] = [];
   try {
     const database = requireDb();
-    const [wlRows, userRows] = await Promise.all([
+    const [wlRows, userRows, knowledgeRows] = await Promise.all([
       database
         .select({
           id: submissions.id,
@@ -81,7 +84,9 @@ export default async function AdminAnalyticsPage() {
         .from(analyticsUsers)
         .orderBy(desc(analyticsUsers.createdAt))
         .limit(200),
+      database.select().from(knowledgeDocuments).where(eq(knowledgeDocuments.scope, "global")).orderBy(desc(knowledgeDocuments.createdAt)).limit(100),
     ]);
+    knowledge = knowledgeRows;
 
     const byEmail = new Map(userRows.map((u) => [u.email.toLowerCase(), u]));
     waitlist = wlRows.map((r) => {
@@ -106,6 +111,31 @@ export default async function AdminAnalyticsPage() {
         </div>
         <AnalyticsGrantSheet label="+ Grant Access" />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Knowledge base</CardTitle>
+          <CardDescription>Upload trusted industry material used to ground subscriber answers. PDF and text-based files up to 8 MB are supported.</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-5">
+          <KnowledgeUploadForm />
+          {knowledge.length > 0 && (
+            <Table>
+              <TableHeader><TableRow><TableHead>Document</TableHead><TableHead>Status</TableHead><TableHead>Added</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {knowledge.map((doc) => (
+                  <TableRow key={doc.id}>
+                    <TableCell className="font-medium">{doc.title}{doc.error && <span className="block max-w-xl text-xs font-normal text-red-700">{doc.error}</span>}</TableCell>
+                    <TableCell><Badge variant="secondary" className={doc.status === "ready" ? STATUS_BADGE.active : doc.status === "failed" ? "bg-red-50 text-red-700" : STATUS_BADGE.invited}>{doc.status}</Badge></TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString("en-GB")}</TableCell>
+                    <TableCell className="text-right"><form action={deleteKnowledgeDocument}><input type="hidden" name="documentId" value={doc.id} /><ConfirmSubmitButton>Remove</ConfirmSubmitButton></form></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -1,61 +1,55 @@
+require("dotenv").config();
 const postgres = require("postgres");
-const sql = postgres(process.env.DATABASE_URL, { prepare: false });
 
-(async () => {
-  await sql`CREATE TABLE IF NOT EXISTS analytics_users (
-    id serial PRIMARY KEY,
-    name text NOT NULL,
-    email text NOT NULL UNIQUE,
-    company text,
-    phone text,
-    password_hash text,
-    setup_token text UNIQUE,
-    setup_token_expires timestamptz,
-    status text NOT NULL DEFAULT 'invited',
-    last_login_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
-  )`;
-  await sql`CREATE INDEX IF NOT EXISTS analytics_users_email_idx ON analytics_users (email)`;
-  await sql`CREATE INDEX IF NOT EXISTS analytics_users_status_idx ON analytics_users (status)`;
+const url = process.env.DATABASE_URL;
+if (!url || url.includes("<")) throw new Error("Set DATABASE_URL before running the Analytics migration.");
+const sql = postgres(url, { prepare: false, max: 1 });
 
-  await sql`CREATE TABLE IF NOT EXISTS analytics_chats (
-    id serial PRIMARY KEY,
-    user_id integer NOT NULL REFERENCES analytics_users(id) ON DELETE CASCADE,
-    title text NOT NULL DEFAULT 'New chat',
-    created_at timestamptz NOT NULL DEFAULT now()
-  )`;
-  await sql`CREATE INDEX IF NOT EXISTS analytics_chats_user_idx ON analytics_chats (user_id)`;
-
-  await sql`CREATE TABLE IF NOT EXISTS analytics_messages (
-    id serial PRIMARY KEY,
-    chat_id integer NOT NULL REFERENCES analytics_chats(id) ON DELETE CASCADE,
-    role text NOT NULL,
-    content text NOT NULL,
-    sources jsonb,
-    created_at timestamptz NOT NULL DEFAULT now()
-  )`;
-  await sql`CREATE INDEX IF NOT EXISTS analytics_messages_chat_idx ON analytics_messages (chat_id)`;
-
-  await sql`CREATE TABLE IF NOT EXISTS knowledge_documents (
-    id serial PRIMARY KEY,
-    scope text NOT NULL DEFAULT 'global',
-    client_id integer REFERENCES clients(id) ON DELETE CASCADE,
-    title text NOT NULL,
-    url text,
-    file_data text,
-    mime_type text,
-    size_bytes integer,
-    status text NOT NULL DEFAULT 'uploaded',
-    error text,
-    processed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
-  )`;
-  await sql`CREATE INDEX IF NOT EXISTS knowledge_docs_scope_idx ON knowledge_documents (scope)`;
-  await sql`CREATE INDEX IF NOT EXISTS knowledge_docs_client_idx ON knowledge_documents (client_id)`;
-
-  console.log("analytics tables ready");
+async function run() {
+  await sql.begin(async (tx) => {
+    await tx.unsafe(`
+      create table if not exists analytics_users (
+        id serial primary key, name text not null, email text not null unique,
+        company text, phone text, password_hash text, setup_token text unique,
+        setup_token_expires timestamptz, status text not null default 'invited',
+        last_login_at timestamptz, created_at timestamptz not null default now()
+      );
+      create index if not exists analytics_users_email_idx on analytics_users(email);
+      create index if not exists analytics_users_status_idx on analytics_users(status);
+      create table if not exists analytics_chats (
+        id serial primary key, user_id integer not null references analytics_users(id) on delete cascade,
+        title text not null default 'New chat', created_at timestamptz not null default now()
+      );
+      create index if not exists analytics_chats_user_idx on analytics_chats(user_id);
+      create table if not exists analytics_messages (
+        id serial primary key, chat_id integer not null references analytics_chats(id) on delete cascade,
+        role text not null, content text not null, sources jsonb, created_at timestamptz not null default now()
+      );
+      create index if not exists analytics_messages_chat_idx on analytics_messages(chat_id);
+      create table if not exists knowledge_documents (
+        id serial primary key, scope text not null default 'global',
+        client_id integer references clients(id) on delete cascade,
+        title text not null, url text, file_data text, mime_type text, size_bytes integer,
+        status text not null default 'uploaded', error text, processed_at timestamptz,
+        created_at timestamptz not null default now()
+      );
+      create index if not exists knowledge_docs_scope_idx on knowledge_documents(scope);
+      create index if not exists knowledge_docs_client_idx on knowledge_documents(client_id);
+      create table if not exists knowledge_document_chunks (
+        id serial primary key,
+        document_id integer not null references knowledge_documents(id) on delete cascade,
+        position integer not null, content text not null, created_at timestamptz not null default now()
+      );
+      create index if not exists knowledge_chunks_document_idx on knowledge_document_chunks(document_id);
+      create unique index if not exists knowledge_chunks_position_idx on knowledge_document_chunks(document_id, position);
+    `);
+  });
+  console.log("Analytics migration complete: platform and document-index tables are ready.");
   await sql.end();
-})().catch((e) => {
-  console.error(e.message);
+}
+
+run().catch(async (error) => {
+  console.error("Analytics migration failed:", error.message || error);
+  await sql.end();
   process.exit(1);
 });

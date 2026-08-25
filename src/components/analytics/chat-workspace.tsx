@@ -2,12 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, Loader2, Plus } from "lucide-react";
+import { ArrowUp, BookOpen, Loader2, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type ChatSummary = { id: number; title: string };
-export type ChatMessage = { role: "user" | "assistant"; content: string };
+export type ChatSource = { docId: number; title: string; quote: string };
+export type ChatMessage = { role: "user" | "assistant"; content: string; sources?: ChatSource[] };
 
 const SUGGESTIONS = [
   "Explain how a quantity certification protects a lender.",
@@ -57,6 +58,7 @@ export function ChatWorkspace({
         reply?: string;
         chatId?: number;
         error?: string;
+        sources?: ChatSource[];
       };
       if (!res.ok) {
         setError(data.error ?? "Something went wrong.");
@@ -65,7 +67,7 @@ export function ChatWorkspace({
         if (data.chatId && data.chatId !== currentChatId) setCurrentChatId(data.chatId);
         setMessages((m) => {
           const next = [...m];
-          next[next.length - 1] = { role: "assistant", content: data.reply ?? "" };
+          next[next.length - 1] = { role: "assistant", content: data.reply ?? "", sources: data.sources };
           return next;
         });
       }
@@ -173,7 +175,19 @@ export function ChatWorkspace({
                           <Loader2 className="h-3.5 w-3.5 animate-spin" /> Thinking…
                         </span>
                       ) : (
-                        <Markdownish text={m.content} />
+                        <>
+                          <Markdownish text={m.content} />
+                          {m.role === "assistant" && m.sources && m.sources.length > 0 && (
+                            <div className="mt-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                              <p className="mb-2 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground"><BookOpen className="h-3 w-3" /> Sources</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {m.sources.map((source, sourceIndex) => (
+                                  <span key={`${source.docId}-${sourceIndex}`} title={source.quote} className="rounded-full bg-navy-50 px-2 py-1 text-[10px] font-semibold text-navy-800">[Doc {sourceIndex + 1}] {source.title}</span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                   </div>

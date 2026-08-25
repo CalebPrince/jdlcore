@@ -4,7 +4,9 @@ import { useState } from "react";
 import { useActionState } from "react";
 import {
   grantAnalyticsAccess,
+  uploadKnowledgeDocument,
   type GrantState,
+  type KnowledgeUploadState,
 } from "@/app/actions/analytics-admin";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -118,5 +120,31 @@ export function ConfirmSubmitButton({
     >
       {children}
     </Button>
+  );
+}
+
+const initialUpload: KnowledgeUploadState = { ok: false, message: "" };
+
+export function KnowledgeUploadForm() {
+  const [state, action, pending] = useActionState(uploadKnowledgeDocument, initialUpload);
+  return (
+    <form action={action} className="grid gap-3 sm:grid-cols-[1fr_1.35fr_auto] sm:items-end">
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="knowledge-title">Display title</Label>
+        <Input id="knowledge-title" name="title" placeholder="Optional document title" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="knowledge-file">Document</Label>
+        <Input id="knowledge-file" name="file" type="file" accept=".pdf,.txt,.md,.csv,.json" required />
+      </div>
+      <Button type="submit" disabled={pending} className="btn-gold">
+        {pending ? "Indexing…" : "Upload & index"}
+      </Button>
+      {state.message && (
+        <Alert variant={state.ok ? "default" : "destructive"} className="sm:col-span-3">
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+      )}
+    </form>
   );
 }

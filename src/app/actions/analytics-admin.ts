@@ -6,7 +6,8 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { isAuthenticated } from "@/lib/auth";
 import { requireDb } from "@/db";
-import { analyticsUsers } from "@/db/schema";
+import { analyticsUsers, knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
+import { chunkDocument, extractDocumentText } from "@/lib/analytics-knowledge";
 import { issueSetupToken } from "@/lib/analytics-auth";
 import { isEmailConfigured, getEmailConfig, sendNotification } from "@/lib/email";
 
@@ -138,5 +139,57 @@ export async function deleteAnalyticsUser(formData: FormData): Promise<void> {
   if (!parsed.success) return;
   const database = requireDb();
   await database.delete(analyticsUsers).where(eq(analyticsUsers.id, parsed.data.userId));
+  revalidatePath("/admin/analytics");
+}
+
+export type KnowledgeUploadState = { ok: boolean; message: string };
+
+export async function uploadKnowledgeDocument(
+  _prev: KnowledgeUploadState,
+  formData: FormData,
+): Promise<KnowledgeUploadState> {
+  if (!(await isAuthenticated())) return { ok: false, message: "Unauthorized" };
+  const file = formData.get("file");
+  const requestedTitle = String(formData.get("title") ?? "").trim();
+  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a document." };
+  if (file.size > 8 * 1024 * 1024) return { ok: false, message: "Documents must be 8 MB or smaller." };
+
+  const database = requireDb();
+  const title = requestedTitle || file.name.replace(/\.[^.]+$/, "");
+  const inserted = await database.insert(knowledgeDocuments).values({
+    title,
+    scope: "global",
+    mimeType: file.type || null,
+    sizeBytes: file.size,
+    status: "processing",
+  }).returning({ id: knowledgeDocuments.id });
+  const documentId = inserted[0].id;
+
+  try {
+    const chunks = chunkDocument(await extractDocumentText(file));
+    if (chunks.length === 0) throw new Error("No readable text was found in this document.");
+    await database.insert(knowledgeDocumentChunks).values(
+      chunks.map((content, position) => ({ documentId, position, content })),
+    );
+    await database.update(knowledgeDocuments).set({
+      status: "ready",
+      processedAt: new Date(),
+      error: null,
+    }).where(eq(knowledgeDocuments.id, documentId));
+    revalidatePath("/admin/analytics");
+    return { ok: true, message: `Indexed ${chunks.length} searchable sections from ${file.name}.` };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Document processing failed.";
+    await database.update(knowledgeDocuments).set({ status: "failed", error: message }).where(eq(knowledgeDocuments.id, documentId));
+    revalidatePath("/admin/analytics");
+    return { ok: false, message };
+  }
+}
+
+export async function deleteKnowledgeDocument(formData: FormData): Promise<void> {
+  if (!(await isAuthenticated())) return;
+  const id = Number(formData.get("documentId"));
+  if (!Number.isInteger(id) || id <= 0) return;
+  await requireDb().delete(knowledgeDocuments).where(eq(knowledgeDocuments.id, id));
   revalidatePath("/admin/analytics");
 }

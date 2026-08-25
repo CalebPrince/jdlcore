@@ -6,6 +6,7 @@ import { analyticsChats, analyticsMessages } from "@/db/schema";
 import { getAnalyticsUser } from "@/lib/analytics-auth";
 import { buildAnalyticsSystemPrompt } from "@/lib/ai/analytics-prompt";
 import { runCompletion, AiUnavailableError } from "@/lib/ai/gateway";
+import { retrieveKnowledge } from "@/lib/analytics-knowledge";
 
 const DAILY_LIMIT = 100;
 
@@ -99,8 +100,8 @@ export async function POST(req: Request) {
     .orderBy(asc(analyticsMessages.createdAt));
   const recent = history.slice(-14);
 
-  // RAG seam: retrieved document context goes here in a later iteration.
-  const contextBlocks: string[] = [];
+  const sources = await retrieveKnowledge(parsed.data.message);
+  const contextBlocks = sources.map((source) => `${source.title}\n${source.quote}`);
   const system = await buildAnalyticsSystemPrompt(user, contextBlocks);
 
   try {
@@ -118,9 +119,10 @@ export async function POST(req: Request) {
       chatId,
       role: "assistant",
       content: completion.text,
+      sources,
     });
 
-    return NextResponse.json({ reply: completion.text, chatId, provider: completion.provider });
+    return NextResponse.json({ reply: completion.text, chatId, provider: completion.provider, sources });
   } catch (err) {
     if (err instanceof AiUnavailableError) {
       return NextResponse.json(

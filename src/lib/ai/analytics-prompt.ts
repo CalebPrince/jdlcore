@@ -41,6 +41,7 @@ export async function buildAnalyticsSystemPrompt(
     `- JDL Core contact points${contactLines ? `: ${contactLines}` : " are on the website."} The subscriber can also reach their account manager through the client portal.`,
     "- Stay professional but human. You represent JDL Core's analytical rigour.",
     "- Reply in the language the subscriber writes in.",
+    "- When REFERENCE MATERIAL is present and relevant, cite factual claims with its exact [Doc n] marker. Do not cite documents you did not use.",
   ];
 
   if (contextBlocks.length > 0) {

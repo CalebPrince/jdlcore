@@ -17,7 +17,7 @@ export default async function AnalyticsAppPage({
 
   let chats: { id: number; title: string }[] = [];
   let activeChatId: number | null = null;
-  let initialMessages: { role: "user" | "assistant"; content: string }[] = [];
+  let initialMessages: { role: "user" | "assistant"; content: string; sources?: { docId: number; title: string; quote: string }[] }[] = [];
 
   try {
     const database = requireDb();
@@ -49,6 +49,7 @@ export default async function AnalyticsAppPage({
         .select({
           role: analyticsMessages.role,
           content: analyticsMessages.content,
+          sources: analyticsMessages.sources,
         })
         .from(analyticsMessages)
         .where(eq(analyticsMessages.chatId, activeChatId))
@@ -56,6 +57,7 @@ export default async function AnalyticsAppPage({
       initialMessages = rows.map((r) => ({
         role: r.role === "assistant" ? ("assistant" as const) : ("user" as const),
         content: r.content,
+        sources: Array.isArray(r.sources) ? r.sources as { docId: number; title: string; quote: string }[] : undefined,
       }));
     }
   } catch (err) {

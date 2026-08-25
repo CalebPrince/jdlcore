@@ -7,6 +7,7 @@ import {
   boolean,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const settings = pgTable("settings", {
@@ -247,6 +248,25 @@ export const knowledgeDocuments = pgTable(
   ],
 );
 
+export const knowledgeDocumentChunks = pgTable(
+  "knowledge_document_chunks",
+  {
+    id: serial("id").primaryKey(),
+    documentId: integer("document_id")
+      .notNull()
+      .references(() => knowledgeDocuments.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    content: text("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("knowledge_chunks_document_idx").on(table.documentId),
+    uniqueIndex("knowledge_chunks_position_idx").on(table.documentId, table.position),
+  ],
+);
+
 /* ---------------- Academy LMS ---------------- */
 
 export const academyLearners = pgTable(
@@ -414,6 +434,7 @@ export type AnalyticsUser = typeof analyticsUsers.$inferSelect;
 export type AnalyticsChat = typeof analyticsChats.$inferSelect;
 export type AnalyticsMessage = typeof analyticsMessages.$inferSelect;
 export type KnowledgeDocument = typeof knowledgeDocuments.$inferSelect;
+export type KnowledgeDocumentChunk = typeof knowledgeDocumentChunks.$inferSelect;
 export type AcademyLearner = typeof academyLearners.$inferSelect;
 export type AcademyCourse = typeof academyCourses.$inferSelect;
 export type AcademyModule = typeof academyModules.$inferSelect;
