@@ -8,6 +8,7 @@ import { z } from "zod";
 import { requireDb } from "@/db";
 import { academyCertificates, academyCourses, academyEnrollments, academyLearners, academyLessonProgress, academyLessons, academyModules, academyQuizAttempts, academyQuizOptions, academyQuizQuestions } from "@/db/schema";
 import { createAcademySession, destroyAcademySession, getAcademyLearner } from "@/lib/academy-auth";
+import { sendNotification } from "@/lib/email";
 import { hashPassword, verifyPassword } from "@/lib/portal-auth";
 import type { FormState } from "./submissions";
 
@@ -44,6 +45,20 @@ const registerSchema = z.object({
   password: z.string().min(8).max(200),
 });
 
+function academyEmailHtml(heading: string, bodyLines: string[], href: string, buttonLabel: string): string {
+  return [
+    `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2733">`,
+    `<div style="background:#081826;padding:18px 24px;border-radius:8px 8px 0 0">`,
+    `<strong style="color:#f6cf6e;font-size:15px;letter-spacing:1px">JDL CORE ACADEMY</strong>`,
+    `</div>`,
+    `<div style="border:1px solid #e5e2da;border-top:0;padding:24px;border-radius:0 0 8px 8px">`,
+    `<h2 style="margin:0 0 12px;font-size:18px">${heading}</h2>`,
+    ...bodyLines.map((line) => `<p style="margin:0 0 10px;font-size:14px;line-height:1.55">${line}</p>`),
+    `<p style="margin:18px 0 0"><a href="${href}" style="display:inline-block;background:#c98e12;color:#081826;font-weight:bold;font-size:13px;padding:10px 20px;border-radius:999px;text-decoration:none">${buttonLabel}</a></p>`,
+    `</div></div>`,
+  ].join("");
+}
+
 export async function academyRegister(_previous: FormState, formData: FormData): Promise<FormState> {
   const parsed = registerSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Enter valid details and a password of at least 8 characters." };
@@ -62,6 +77,19 @@ export async function academyRegister(_previous: FormState, formData: FormData):
       lastLoginAt: new Date(),
     }).returning({ id: academyLearners.id });
     await createAcademySession(inserted[0].id);
+    await sendNotification({
+      to: email,
+      subject: "Welcome to JDL Core Academy",
+      html: academyEmailHtml(
+        `Welcome, ${parsed.data.name}`,
+        [
+          "Your learner account is ready.",
+          "Browse the course catalogue, enrol in a programme, and track your progress from your LMS dashboard.",
+        ],
+        "https://jdlcore.com/academy/lms",
+        "Open your dashboard",
+      ),
+    });
   } catch (error) {
     console.error("academyRegister:", error);
     return { ok: false, message: "Could not create your account. Check that the Academy database tables are ready." };
@@ -164,5 +192,28 @@ async function checkAcademyCourseCompletion(learnerId: number, lessonId: number)
   if (!certificate.length) {
     const number = `JDL-${now.getUTCFullYear()}-${String(learnerId).padStart(4,"0")}-${randomBytes(3).toString("hex").toUpperCase()}`;
     await database.insert(academyCertificates).values({ learnerId, courseId: link[0].courseId, certificateNumber: number });
+    const recipient = await database.select({
+      email: academyLearners.email,
+      name: academyLearners.name,
+      courseTitle: academyCourses.title,
+    }).from(academyLearners)
+      .innerJoin(academyCourses, eq(academyCourses.id, link[0].courseId))
+      .where(eq(academyLearners.id, learnerId))
+      .limit(1);
+    if (recipient[0]) {
+      await sendNotification({
+        to: recipient[0].email,
+        subject: `Course completed: ${recipient[0].courseTitle}`,
+        html: academyEmailHtml(
+          `Congratulations, ${recipient[0].name}!`,
+          [
+            `You have completed <strong>${recipient[0].courseTitle}</strong>.`,
+            `Your certificate number is <strong>${number}</strong>. It is ready to view, verify, and download.`,
+          ],
+          `https://jdlcore.com/academy/certificates/${encodeURIComponent(number)}`,
+          "View your certificate",
+        ),
+      });
+    }
   }
 }

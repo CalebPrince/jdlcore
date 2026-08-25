@@ -4,6 +4,7 @@ import { useActionState } from "react";
 import {
   addDocument,
   createInvoice,
+  sendInvoiceReminder,
   updateJobStatus,
 } from "@/app/actions/portal-admin";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -150,6 +151,24 @@ export function CreateInvoiceForm({ jobId }: { jobId: number }) {
         {pending ? "Issuing…" : "Issue Invoice"}
       </Button>
       <Feedback state={state} />
+    </form>
+  );
+}
+
+export function InvoiceReminderButton({ invoiceId, jobId }: { invoiceId: number; jobId: number }) {
+  const [state, action, pending] = useActionState(sendInvoiceReminder, initial);
+  return (
+    <form action={action} className="flex items-center gap-2">
+      <input type="hidden" name="invoiceId" value={invoiceId} />
+      <input type="hidden" name="jobId" value={jobId} />
+      <Button type="submit" variant="ghost" size="sm" disabled={pending}>
+        {pending ? "Sending…" : "Send reminder"}
+      </Button>
+      {state.message && (
+        <span className={`text-xs ${state.ok ? "text-[#1f7a4d]" : "text-destructive"}`} role="status">
+          {state.ok ? "Sent" : "Not sent"}
+        </span>
+      )}
     </form>
   );
 }

@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   AddDocumentForm,
   CreateInvoiceForm,
+  InvoiceReminderButton,
   StatusUpdateForm,
 } from "@/components/admin/portal-job-forms";
 import {
@@ -186,13 +187,16 @@ export default async function AdminJobDetailPage({
                       {inv.status === "paid" ? "Paid" : inv.status === "sent" ? "Sent" : "Draft"}
                     </Badge>
                     {inv.status !== "paid" && (
-                      <form action={markInvoicePaid} className="ml-auto">
-                        <input type="hidden" name="invoiceId" value={inv.id} />
-                        <input type="hidden" name="jobId" value={job.id} />
-                        <Button type="submit" variant="ghost" size="sm">
-                          Mark paid
-                        </Button>
-                      </form>
+                      <div className="ml-auto flex flex-wrap items-center gap-1">
+                        <InvoiceReminderButton invoiceId={inv.id} jobId={job.id} />
+                        <form action={markInvoicePaid}>
+                          <input type="hidden" name="invoiceId" value={inv.id} />
+                          <input type="hidden" name="jobId" value={job.id} />
+                          <Button type="submit" variant="ghost" size="sm">
+                            Mark paid
+                          </Button>
+                        </form>
+                      </div>
                     )}
                     <a
                       href={`/api/portal/invoices/${inv.id}/pdf`}

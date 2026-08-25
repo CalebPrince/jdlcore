@@ -371,6 +371,52 @@ export async function markInvoicePaid(formData: FormData): Promise<void> {
   revalidatePath(`/admin/jobs/${jobId}`);
 }
 
+const reminderSchema = z.object({
+  invoiceId: z.coerce.number().int().positive(),
+  jobId: z.coerce.number().int().positive(),
+});
+
+export async function sendInvoiceReminder(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  const parsed = reminderSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail("Invalid invoice.");
+
+  const database = requireDb();
+  const rows = await database
+    .select({ invoice: invoices, email: clients.email, ref: jobs.ref })
+    .from(invoices)
+    .innerJoin(jobs, eq(invoices.jobId, jobs.id))
+    .innerJoin(clients, eq(jobs.clientId, clients.id))
+    .where(eq(invoices.id, parsed.data.invoiceId))
+    .limit(1);
+  const row = rows[0];
+  if (!row || row.invoice.jobId !== parsed.data.jobId) return initialFail("Invoice not found.");
+  if (row.invoice.status === "paid") return initialFail("This invoice is already paid.");
+
+  const amount = `${row.invoice.currency} ${(row.invoice.amountCents / 100).toLocaleString("en-GH", { minimumFractionDigits: 2 })}`;
+  const result = await sendNotification({
+    to: row.email,
+    subject: `[${row.ref}] Invoice reminder - JDL Core`,
+    html: notifyHtml(
+      `Reminder: invoice ${row.invoice.number} is outstanding`,
+      [
+        `Amount due: <strong>${amount}</strong>`,
+        row.invoice.dueDate
+          ? `Due date: ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(new Date(row.invoice.dueDate))}.`
+          : "Please arrange payment at your earliest convenience.",
+        "You can download the invoice PDF from the client portal.",
+      ],
+      row.ref,
+    ),
+  });
+  return result.sent
+    ? { ok: true, message: "Reminder sent." }
+    : { ok: false, message: "Reminder logged, but email delivery is not configured or failed." };
+}
+
 /* ---------------- Quote conversion ---------------- */
 
 const convertSchema = z.object({
