@@ -108,6 +108,45 @@ export async function createAcademyQuizQuestion(formData: FormData) {
   revalidatePath(`/admin/academy/courses/${courseId}`);
 }
 
+const quizQuestionSchema = z.object({
+  courseId: z.coerce.number().int().positive(),
+  questionId: z.coerce.number().int().positive(),
+  prompt: z.string().trim().min(5).max(1000),
+  explanation: z.string().trim().max(3000).optional(),
+  correctIndex: z.coerce.number().int().min(0).max(3),
+  option0: z.string().trim().min(1).max(500),
+  option1: z.string().trim().min(1).max(500),
+  option2: z.string().trim().min(1).max(500),
+  option3: z.string().trim().min(1).max(500),
+  option0Id: z.coerce.number().int().positive(),
+  option1Id: z.coerce.number().int().positive(),
+  option2Id: z.coerce.number().int().positive(),
+  option3Id: z.coerce.number().int().positive(),
+});
+
+export async function updateAcademyQuizQuestion(formData: FormData) {
+  await requireAdmin();
+  const parsed = quizQuestionSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error("Complete the question and all four answer options.");
+  const data = parsed.data;
+  const labels = [data.option0, data.option1, data.option2, data.option3];
+  const optionIds = [data.option0Id, data.option1Id, data.option2Id, data.option3Id];
+  const database = requireDb();
+  await database.transaction(async (tx) => {
+    await tx.update(academyQuizQuestions).set({ prompt: data.prompt, explanation: data.explanation || null }).where(eq(academyQuizQuestions.id, data.questionId));
+    await Promise.all(optionIds.map((id, position) => tx.update(academyQuizOptions).set({ label: labels[position], correct: position === data.correctIndex, position }).where(and(eq(academyQuizOptions.id, id), eq(academyQuizOptions.questionId, data.questionId)))));
+  });
+  revalidatePath(`/admin/academy/courses/${data.courseId}`);
+}
+
+export async function deleteAcademyQuizQuestion(formData: FormData) {
+  await requireAdmin();
+  const parsed = z.object({ courseId: z.coerce.number().int().positive(), questionId: z.coerce.number().int().positive() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error("Invalid quiz question.");
+  await requireDb().delete(academyQuizQuestions).where(eq(academyQuizQuestions.id, parsed.data.questionId));
+  revalidatePath(`/admin/academy/courses/${parsed.data.courseId}`);
+}
+
 export async function deleteAcademyLesson(formData: FormData) {
   await requireAdmin();
   const courseId = Number(formData.get("courseId"));
