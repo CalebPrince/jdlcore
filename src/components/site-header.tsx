@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { usePathname } from "next/navigation";
+import { LockKeyhole } from "lucide-react";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
@@ -16,10 +17,12 @@ export function SiteHeader({
   logo = "/logo-inspection.png",
   logoAlt = "JDL Core logo",
   cta = { href: "/inspection#quote", label: "Get Started" },
+  showAdminLogin = false,
 }: {
   logo?: string;
   logoAlt?: string;
   cta?: { href: string; label: string };
+  showAdminLogin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -81,6 +84,17 @@ export function SiteHeader({
             <Link href={cta.href} onClick={close} className="btn-gold mt-3 lg:mt-0">
               {cta.label}
             </Link>
+            {showAdminLogin && (
+              <Link
+                href="/admin/login"
+                onClick={close}
+                aria-label="Admin login"
+                title="Admin login"
+                className="mt-2 inline-flex h-10 w-10 shrink-0 items-center justify-center self-start rounded-full border border-navy-200 text-navy-800 transition-colors hover:border-gold-600 hover:bg-gold-100 hover:text-navy-950 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-600 lg:mt-0 lg:self-auto"
+              >
+                <LockKeyhole aria-hidden="true" className="h-[18px] w-[18px]" strokeWidth={1.8} />
+              </Link>
+            )}
           </nav>
 
           <button

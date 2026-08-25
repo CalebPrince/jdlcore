@@ -17,7 +17,10 @@ export default async function HomePage() {
   const settings = await getContactSettings();
   return (
     <>
-      <SiteHeader cta={{ href: "/inspection#quote", label: "Get Started" }} />
+      <SiteHeader
+        cta={{ href: "/inspection#quote", label: "Get Started" }}
+        showAdminLogin
+      />
 
       <main>
         {/* ============ HERO ============ */}
