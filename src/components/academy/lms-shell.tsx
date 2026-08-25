@@ -8,7 +8,7 @@ import { academyLogout } from "@/app/actions/academy";
 
 const nav = [
   { href: "/academy/lms", label: "Overview", icon: Gauge, exact: true },
-  { href: "/academy/lms/courses/tank-gauging", label: "My learning", icon: BookOpen },
+  { href: "/academy/lms#learning-plan", label: "My learning", icon: BookOpen, exact: true },
   { href: "/academy/courses", label: "Course library", icon: GraduationCap },
   { href: "/academy/lms#certificates", label: "Certificates", icon: Trophy },
 ];

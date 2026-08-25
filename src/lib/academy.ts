@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray } from "drizzle-orm";
 import { requireDb } from "@/db";
 import {
   academyCertificates,
@@ -109,6 +109,19 @@ export async function getCourseForLearner(learnerId: number, slug: string) {
 
 export async function listPublishedAcademyCourses() {
   return requireDb().select().from(academyCourses).where(eq(academyCourses.status, "published")).orderBy(asc(academyCourses.id));
+}
+
+export async function listPublishedAcademyCoursesWithCounts(){
+  return requireDb().select({
+    id:academyCourses.id,slug:academyCourses.slug,code:academyCourses.code,title:academyCourses.title,
+    summary:academyCourses.summary,level:academyCourses.level,accent:academyCourses.accent,
+    estimatedMinutes:academyCourses.estimatedMinutes,lessonCount:count(academyLessons.id),
+  }).from(academyCourses)
+    .leftJoin(academyModules,eq(academyModules.courseId,academyCourses.id))
+    .leftJoin(academyLessons,and(eq(academyLessons.moduleId,academyModules.id),eq(academyLessons.published,true)))
+    .where(eq(academyCourses.status,"published"))
+    .groupBy(academyCourses.id)
+    .orderBy(asc(academyCourses.id));
 }
 
 export async function getLessonForLearner(learnerId: number, courseSlug: string, lessonSlug: string) {

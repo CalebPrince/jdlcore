@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { academyCourses, academyEnrollments, academyLearners, academyLessons, academyModules, academyQuizOptions, academyQuizQuestions } from "@/db/schema";
+import { academyCertificates, academyCourses, academyEnrollments, academyLearners, academyLessons, academyModules, academyQuizOptions, academyQuizQuestions } from "@/db/schema";
 import { isAuthenticated } from "@/lib/auth";
 import type { FormState } from "./submissions";
 
@@ -115,4 +115,13 @@ export async function deleteAcademyLesson(formData: FormData) {
   if (!Number.isInteger(courseId) || !Number.isInteger(lessonId)) throw new Error("Invalid lesson");
   await requireDb().delete(academyLessons).where(eq(academyLessons.id, lessonId));
   revalidatePath(`/admin/academy/courses/${courseId}`);
+}
+
+export async function setAcademyCertificateRevoked(formData:FormData){
+  await requireAdmin();
+  const id=Number(formData.get("id"));
+  const revoke=String(formData.get("revoke"))==="true";
+  if(!Number.isInteger(id))throw new Error("Invalid certificate");
+  await requireDb().update(academyCertificates).set({revokedAt:revoke?new Date():null}).where(eq(academyCertificates.id,id));
+  revalidatePath("/admin/academy/credentials");
 }

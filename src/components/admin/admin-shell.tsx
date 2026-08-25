@@ -15,6 +15,7 @@ import {
   Mail,
   BarChart3,
   GraduationCap,
+  Award,
 } from "lucide-react";
 import {
   Sheet,
@@ -34,6 +35,7 @@ const NAV: { href: string; label: string; icon: React.ElementType; exact?: boole
   { href: "/admin/clients", label: "Clients", icon: Users },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
   { href: "/admin/academy", label: "Academy", icon: GraduationCap },
+  { href: "/admin/academy/credentials", label: "Credentials", icon: Award },
   { href: "/admin/settings", label: "Site Settings", icon: Settings2 },
   { href: "/admin/email", label: "Email", icon: Mail },
   { href: "/admin/ai", label: "AI Settings", icon: Bot },
