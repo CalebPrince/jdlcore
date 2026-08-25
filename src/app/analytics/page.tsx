@@ -12,10 +12,10 @@ import { getContactSettings } from "@/lib/settings";
 export const metadata: Metadata = {
   title: "JDL Core Analytics | Data. Insight. Performance.",
   description:
-    "JDL Core Analytics is a subscription platform for chatting with an industry-data assistant fed on oil & gas inspection and market data. Coming soon.",
+    "Source-grounded oil and gas industry intelligence with cited answers, searchable conversations, and exportable reports.",
 };
 
-const submitAnalyticsWaitlist = submitWaitlist.bind(null, "analytics");
+const submitAnalyticsAccessRequest = submitWaitlist.bind(null, "analytics");
 
 function StepIcon({ children }: { children: React.ReactNode }) {
   return (
@@ -34,7 +34,7 @@ export default async function AnalyticsPage() {
       <SiteHeader
         logo="/logo-analytics.png"
         logoAlt="JDL Core Analytics logo"
-        cta={{ href: "#waitlist", label: "Join Waitlist" }}
+        cta={{ href: "/analytics/login", label: "Subscriber Sign In" }}
       />
 
       <main>
@@ -44,7 +44,7 @@ export default async function AnalyticsPage() {
           <div className="wrap relative grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
             <Reveal className="max-w-[720px]">
               <span className="badge-soon mb-4 inline-block rounded-full bg-[rgba(246,207,110,0.2)] px-[0.8em] py-[0.3em] text-[0.72rem] font-bold tracking-[0.06em] uppercase text-gold-600">
-                Coming Soon
+                Live Beta
               </span>
               <p className="eyebrow">JDL Core Analytics</p>
               <h1 className="text-[clamp(2.2rem,4.4vw,3.4rem)] font-bold">
@@ -56,19 +56,14 @@ export default async function AnalyticsPage() {
                 — insight on demand, instead of waiting on a static report.
               </p>
               <div className="mt-7 mb-2 flex flex-wrap items-center gap-3.5">
-                <Link href="#pricing" className="btn-gold btn-gold-lg">
-                  See Pricing
+                <Link href="/analytics/login" className="btn-gold btn-gold-lg">
+                  Open Analytics
                 </Link>
                 <Link href="/inspection" className="btn-ghost px-8 py-4 text-base">
                   Explore Inspection Services
                 </Link>
               </div>
-              <p className="m-0 mt-1 text-xs text-muted-foreground">
-                Beta subscriber already?{" "}
-                <Link href="/analytics/login" className="font-semibold text-gold-700 hover:underline">
-                  Sign in
-                </Link>
-              </p>
+              <p className="m-0 mt-1 text-xs text-muted-foreground">Access is currently approved in small subscriber cohorts.</p>
             </Reveal>
 
             <Reveal className="max-lg:max-w-[520px] max-lg:mx-auto w-full">
@@ -117,20 +112,20 @@ export default async function AnalyticsPage() {
           </div>
         </section>
 
-        {/* ============ HOW IT WILL WORK ============ */}
+        {/* ============ HOW IT WORKS ============ */}
         <section className="bg-paper-deep py-21">
           <div className="wrap">
             <Reveal className="mb-11">
-              <p className="eyebrow">How It Will Work</p>
-              <h2 className="text-[clamp(1.6rem,3vw,2.2rem)] font-bold">Subscribe, Ask, Get an Answer</h2>
+              <p className="eyebrow">How It Works</p>
+              <h2 className="text-[clamp(1.6rem,3vw,2.2rem)] font-bold">Get Access, Ask, Verify</h2>
             </Reveal>
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               <Reveal>
                 <div className="rounded-[var(--radius)] border bg-white p-6.5" style={{ borderColor: "var(--border)" }}>
                   <div className="mb-2.5 font-display text-[1.6rem] font-bold text-gold-600">1</div>
-                  <h3 className="text-lg font-bold">Subscribe</h3>
+                  <h3 className="text-lg font-bold">Get Access</h3>
                   <p className="m-0 text-[0.93rem] text-ink-soft">
-                    Sign up for access to the Analytics chatbot once it launches.
+                    Request subscriber access and activate your secure account from the invitation link.
                   </p>
                 </div>
               </Reveal>
@@ -207,10 +202,9 @@ export default async function AnalyticsPage() {
             </div>
             <Reveal className="mt-8">
               <p className="m-0 max-w-[720px] text-[0.88rem] text-ink-faint">
-                Planned capability, shown as illustrative examples — not live
-                features. The assistant is fed on JDL Core&apos;s own
-                inspection and market data, so answers are grounded in verified
-                field records rather than public estimates.
+                Source-grounded answers, citations, conversation history, usage controls,
+                and report exports are live. Connecting a company&apos;s private inspection
+                dataset requires managed onboarding.
               </p>
             </Reveal>
           </div>
@@ -247,8 +241,8 @@ export default async function AnalyticsPage() {
                     <li>Industry &amp; market assistant</li>
                     <li>Email support</li>
                   </ul>
-                  <Link href="#waitlist" className="btn-ghost mt-auto w-full py-3 text-center text-sm">
-                    Reserve Depot
+                  <Link href="#access" className="btn-ghost mt-auto w-full py-3 text-center text-sm">
+                    Request Depot Access
                   </Link>
                 </div>
               </Reveal>
@@ -273,8 +267,8 @@ export default async function AnalyticsPage() {
                     <li>Variance &amp; trend briefings</li>
                     <li>Priority support</li>
                   </ul>
-                  <Link href="#waitlist" className="btn-gold mt-auto w-full py-3 text-center text-sm">
-                    Reserve Trader
+                  <Link href="#access" className="btn-gold mt-auto w-full py-3 text-center text-sm">
+                    Request Trader Access
                   </Link>
                 </div>
               </Reveal>
@@ -293,7 +287,7 @@ export default async function AnalyticsPage() {
                     <li>Your documents connected to the assistant</li>
                     <li>Dedicated onboarding &amp; SLA</li>
                   </ul>
-                  <Link href="#waitlist" className="btn-ghost mt-auto w-full py-3 text-center text-sm">
+                  <Link href="#access" className="btn-ghost mt-auto w-full py-3 text-center text-sm">
                     Talk to Us
                   </Link>
                 </div>
@@ -302,27 +296,27 @@ export default async function AnalyticsPage() {
 
             <Reveal className="mt-8">
               <p className="m-0 max-w-[720px] text-[0.82rem] text-ink-faint">
-                Prices exclude VAT and applicable levies. Billing opens at
-                launch — card, mobile money or bank transfer, invoiced monthly.
-                Founding-member pricing applies to the first cohort only.
+                Prices exclude VAT and applicable levies. Beta access and billing
+                are confirmed directly during onboarding. Founding-member pricing
+                applies to the first cohort only.
               </p>
             </Reveal>
           </div>
         </section>
 
-        {/* ============ WAITLIST ============ */}
-        <section id="waitlist" className="scroll-mt-20 bg-paper-deep py-21">
+        {/* ============ ACCESS ============ */}
+        <section id="access" className="scroll-mt-20 bg-paper-deep py-21">
           <div className="wrap">
             <Reveal className="mb-11">
-              <p className="eyebrow">Get Notified</p>
-              <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">Join the Waitlist</h2>
+              <p className="eyebrow">Subscriber Access</p>
+              <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">Request Beta Access</h2>
               <p className="max-w-[640px] text-ink-soft">
-                Be first to know when JDL Core Analytics opens for
-                subscriptions — founding members keep the rate they reserved.
+                Tell us where Analytics fits your operation. Approved subscribers
+                receive a private activation link and onboarding guidance.
               </p>
             </Reveal>
             <Reveal>
-              <WaitlistForm action={submitAnalyticsWaitlist} />
+              <WaitlistForm action={submitAnalyticsAccessRequest} />
             </Reveal>
           </div>
         </section>
@@ -330,14 +324,14 @@ export default async function AnalyticsPage() {
 
       <SiteFooter
         settings={settings}
-        brandLine="A subscription platform for chatting with an industry-data assistant fed on oil & gas inspection and market data. Coming soon."
+        brandLine="Source-grounded industry intelligence with cited answers and exportable reports."
         copyrightName="JDL Core Analytics"
         divisionLinks={[
           { href: "/", label: "JDL Core Home" },
           { href: "/inspection", label: "Inspection Services" },
           { href: "/academy", label: "Academy" },
         ]}
-        thisDivision={[{ href: "/analytics#waitlist", label: "Join Waitlist" }]}
+        thisDivision={[{ href: "/analytics/login", label: "Subscriber Sign In" }, { href: "/analytics#access", label: "Request Access" }]}
       />
 
       <ChatWidget phoneHref={settings.phoneHref} />

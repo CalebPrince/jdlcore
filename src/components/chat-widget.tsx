@@ -83,9 +83,10 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
   {
     test: /analytics|chatbot|industry data/i,
     reply: () => ({
-      text: "JDL Core Analytics — a subscription assistant for industry data — is coming soon.",
+      text: "JDL Core Analytics is live in beta, with source-grounded answers, citations, conversation history, and report exports.",
       quickReplies: [
-        { label: "Preview Analytics", href: "/analytics" },
+        { label: "Explore Analytics", href: "/analytics" },
+        { label: "Subscriber Sign In", href: "/analytics/login" },
         "Our Services",
       ],
     }),
@@ -93,9 +94,10 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
   {
     test: /academy|course|tutorial|training|learn|practice test/i,
     reply: () => ({
-      text: "JDL Core Academy — tutorials and practice tests for the oil & gas value chain — is coming soon.",
+      text: "JDL Core Academy is open. Learners can register, complete petroleum operations courses, take assessments, and earn verifiable certificates.",
       quickReplies: [
-        { label: "Preview Academy", href: "/academy" },
+        { label: "Explore Academy", href: "/academy" },
+        { label: "Create Learner Account", href: "/academy/register" },
         "Our Services",
       ],
     }),

@@ -55,15 +55,15 @@ forms and the admin panel need the database.
 src/app/
   page.tsx               Hub page — group intro + links to all three divisions
   inspection/page.tsx    Inspection Services (flagship) — services, process, quote form
-  analytics/page.tsx     Analytics (coming soon) — expanded concept + waitlist
-  academy/page.tsx       Academy (coming soon) — planned modules + waitlist
+  analytics/             Live beta assistant, subscriber auth, history, citations, exports
+  academy/               Public catalogue, learner LMS, assessments, certificates
   contact/page.tsx       Contact — message form + live details from DB
   actions/               Server Actions: form submissions + admin auth/settings
   admin/                 Password-protected admin panel
     login/               Sign-in
-    (dashboard)/         Inbox (all submissions) + Site Settings (contact details)
+    (dashboard)/         Operations, clients, Analytics, Academy, inbox, and settings
 src/components/          Header/footer, chat widget, mockups, forms, ui/
-src/db/                  Drizzle client + schema (settings, submissions)
+src/db/                  Drizzle client + platform schema
 _legacy/                 Original static site, kept for reference
 docs/                    Client requirements document (future portal spec)
 ```
@@ -78,6 +78,10 @@ Visit `/admin` and sign in with the `ADMIN_PASSWORD` from `.env`
 - **Site Settings** — edit the phone/email/address/WhatsApp details shown in
   every footer and on the contact page; saves straight to the database and is
   live immediately.
+- **Analytics** — grant subscriber access, set usage limits, and manage the
+  source-grounded knowledge base.
+- **Academy** — publish courses, build curriculum, manage learners, and revoke
+  or verify credentials.
 
 ## Chat widget
 

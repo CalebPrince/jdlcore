@@ -81,20 +81,18 @@ export default async function HomePage() {
                 <DivisionCard
                   logo="/logo-analytics.png"
                   logoAlt="JDL Core Analytics logo"
-                  tag="Coming Soon"
-                  tagSoon
+                  tag="Live Beta"
                   title="Analytics"
                   body="A subscription platform where clients chat with an industry-data assistant fed on JDL Core's own inspection and market data — insight on demand, not a static report."
-                  link={{ href: "/analytics", label: "Preview Analytics →" }}
+                  link={{ href: "/analytics", label: "Explore Analytics →" }}
                 />
               </Reveal>
               <Reveal className="h-full">
                 <DivisionCard
-                  tag="Coming Soon"
-                  tagSoon
+                  tag="Now Enrolling"
                   title="Academy"
                   body="An oil & gas education center: structured tutorials and practice tests built by the same people who perform the inspections, aimed at industry newcomers and working professionals."
-                  link={{ href: "/academy", label: "Preview Academy →" }}
+                  link={{ href: "/academy", label: "Explore Academy →" }}
                 />
               </Reveal>
             </div>
@@ -137,8 +135,8 @@ export default async function HomePage() {
               <div className="rounded-[var(--radius)] border bg-white p-5.5 shadow-[var(--shadow-sm-soft)]" style={{ borderColor: "var(--border)" }}>
                 <h4 className="font-display font-bold">Analytics &amp; Academy</h4>
                 <p className="m-0 text-[0.92rem] text-ink-soft">
-                  In development. Join the waitlist on either division page to
-                  hear when they open.
+                  Analytics is open to approved beta subscribers, and Academy
+                  learners can register, take courses, and earn certificates now.
                 </p>
               </div>
             </Reveal>
