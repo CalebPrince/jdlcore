@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, BookOpen, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowUp, BookOpen, Download, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -161,6 +161,12 @@ export function ChatWorkspace({
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8">
           <div className="mx-auto max-w-3xl">
+            {currentChatId && messages.length > 0 && (
+              <div className="mb-4 flex items-center justify-end gap-2">
+                <a href={`/api/analytics/chats/${currentChatId}/export`} className="inline-flex items-center gap-1.5 rounded-md border bg-white px-2.5 py-1.5 text-[11px] font-semibold text-navy-900 hover:border-gold-600"><Download className="h-3 w-3" /> PDF report</a>
+                <a href={`/api/analytics/chats/${currentChatId}/export?format=txt`} className="rounded-md border bg-white px-2.5 py-1.5 text-[11px] font-semibold text-navy-900 hover:border-gold-600">Text</a>
+              </div>
+            )}
             {messages.length === 0 ? (
               <div className="pt-8 pb-4">
                 <h1 className="font-display text-xl font-bold text-navy-950 sm:text-2xl">
