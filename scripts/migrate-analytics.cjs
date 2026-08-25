@@ -17,6 +17,8 @@ async function run() {
       create index if not exists analytics_users_email_idx on analytics_users(email);
       create index if not exists analytics_users_status_idx on analytics_users(status);
       alter table analytics_users add column if not exists daily_limit integer not null default 100;
+      alter table analytics_users add column if not exists client_id integer references clients(id) on delete set null;
+      create index if not exists analytics_users_client_idx on analytics_users(client_id);
       create table if not exists analytics_chats (
         id serial primary key, user_id integer not null references analytics_users(id) on delete cascade,
         title text not null default 'New chat', created_at timestamptz not null default now()

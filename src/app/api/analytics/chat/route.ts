@@ -94,7 +94,7 @@ export async function POST(req: Request) {
     .orderBy(asc(analyticsMessages.createdAt));
   const recent = history.slice(-14);
 
-  const sources = await retrieveKnowledge(parsed.data.message);
+  const sources = await retrieveKnowledge(parsed.data.message, user.clientId);
   const contextBlocks = sources.map((source) => `${source.title}\n${source.quote}`);
   const system = await buildAnalyticsSystemPrompt(user, contextBlocks);
 

@@ -153,6 +153,16 @@ export async function setAnalyticsUserDailyLimit(formData: FormData): Promise<vo
   revalidatePath("/admin/analytics");
 }
 
+export async function setAnalyticsUserClient(formData: FormData): Promise<void> {
+  if (!(await isAuthenticated())) return;
+  const parsed = z.object({ userId: z.coerce.number().int().positive(), clientId: z.string() }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  const clientId = parsed.data.clientId ? Number(parsed.data.clientId) : null;
+  if (clientId !== null && (!Number.isInteger(clientId) || clientId <= 0)) return;
+  await requireDb().update(analyticsUsers).set({ clientId }).where(eq(analyticsUsers.id, parsed.data.userId));
+  revalidatePath("/admin/analytics");
+}
+
 export type KnowledgeUploadState = { ok: boolean; message: string };
 
 export async function uploadKnowledgeDocument(
@@ -162,14 +172,20 @@ export async function uploadKnowledgeDocument(
   if (!(await isAuthenticated())) return { ok: false, message: "Unauthorized" };
   const file = formData.get("file");
   const requestedTitle = String(formData.get("title") ?? "").trim();
+  const scope = String(formData.get("scope") ?? "global");
+  const requestedClientId = Number(formData.get("clientId"));
   if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a document." };
   if (file.size > 8 * 1024 * 1024) return { ok: false, message: "Documents must be 8 MB or smaller." };
+  if (!['global', 'client'].includes(scope)) return { ok: false, message: "Choose a valid document audience." };
+  const clientId = scope === "client" && Number.isInteger(requestedClientId) && requestedClientId > 0 ? requestedClientId : null;
+  if (scope === "client" && !clientId) return { ok: false, message: "Choose a client for a private document." };
 
   const database = requireDb();
   const title = requestedTitle || file.name.replace(/\.[^.]+$/, "");
   const inserted = await database.insert(knowledgeDocuments).values({
     title,
-    scope: "global",
+    scope,
+    clientId,
     mimeType: file.type || null,
     sizeBytes: file.size,
     status: "processing",

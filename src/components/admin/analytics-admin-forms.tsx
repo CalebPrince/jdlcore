@@ -125,13 +125,17 @@ export function ConfirmSubmitButton({
 
 const initialUpload: KnowledgeUploadState = { ok: false, message: "" };
 
-export function KnowledgeUploadForm() {
+export function KnowledgeUploadForm({ clients }: { clients: { id: number; label: string }[] }) {
   const [state, action, pending] = useActionState(uploadKnowledgeDocument, initialUpload);
   return (
-    <form action={action} className="grid gap-3 sm:grid-cols-[1fr_1.35fr_auto] sm:items-end">
+    <form action={action} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.35fr_auto] lg:items-end">
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="knowledge-title">Display title</Label>
         <Input id="knowledge-title" name="title" placeholder="Optional document title" />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div className="flex flex-col gap-1.5"><Label htmlFor="knowledge-scope">Audience</Label><select id="knowledge-scope" name="scope" className="h-8 rounded-lg border bg-white px-2 text-sm"><option value="global">All subscribers</option><option value="client">One client</option></select></div>
+        <div className="flex flex-col gap-1.5"><Label htmlFor="knowledge-client">Client</Label><select id="knowledge-client" name="clientId" className="h-8 rounded-lg border bg-white px-2 text-sm"><option value="">Select client</option>{clients.map((client) => <option key={client.id} value={client.id}>{client.label}</option>)}</select></div>
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="knowledge-file">Document</Label>
@@ -141,7 +145,7 @@ export function KnowledgeUploadForm() {
         {pending ? "Indexing…" : "Upload & index"}
       </Button>
       {state.message && (
-        <Alert variant={state.ok ? "default" : "destructive"} className="sm:col-span-3">
+        <Alert variant={state.ok ? "default" : "destructive"} className="sm:col-span-2 lg:col-span-4">
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
       )}

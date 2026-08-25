@@ -170,6 +170,7 @@ export const analyticsUsers = pgTable(
     email: text("email").notNull().unique(),
     company: text("company"),
     phone: text("phone"),
+    clientId: integer("client_id").references(() => clients.id, { onDelete: "set null" }),
     passwordHash: text("password_hash"), // null until first-login setup
     setupToken: text("setup_token").unique(),
     setupTokenExpires: timestamp("setup_token_expires", { withTimezone: true }),
@@ -183,6 +184,7 @@ export const analyticsUsers = pgTable(
   (table) => [
     index("analytics_users_email_idx").on(table.email),
     index("analytics_users_status_idx").on(table.status),
+    index("analytics_users_client_idx").on(table.clientId),
   ],
 );
 

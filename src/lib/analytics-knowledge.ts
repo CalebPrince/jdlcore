@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, or } from "drizzle-orm";
 import { PDFParse } from "pdf-parse";
 import { requireDb } from "@/db";
 import { knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
@@ -56,7 +56,7 @@ export function chunkDocument(text: string, maxLength = 1400): string[] {
   return chunks.slice(0, 500);
 }
 
-export async function retrieveKnowledge(query: string, limit = 5): Promise<KnowledgeSource[]> {
+export async function retrieveKnowledge(query: string, clientId: number | null, limit = 5): Promise<KnowledgeSource[]> {
   const database = requireDb();
   const rows = await database
     .select({
@@ -66,7 +66,12 @@ export async function retrieveKnowledge(query: string, limit = 5): Promise<Knowl
     })
     .from(knowledgeDocumentChunks)
     .innerJoin(knowledgeDocuments, eq(knowledgeDocumentChunks.documentId, knowledgeDocuments.id))
-    .where(and(eq(knowledgeDocuments.scope, "global"), eq(knowledgeDocuments.status, "ready")))
+    .where(and(
+      eq(knowledgeDocuments.status, "ready"),
+      clientId
+        ? or(eq(knowledgeDocuments.scope, "global"), and(eq(knowledgeDocuments.scope, "client"), eq(knowledgeDocuments.clientId, clientId)))
+        : eq(knowledgeDocuments.scope, "global"),
+    ))
     .limit(1000);
 
   const terms = [...new Set(query.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [])];

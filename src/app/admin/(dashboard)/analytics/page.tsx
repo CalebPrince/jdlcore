@@ -1,12 +1,13 @@
 import { desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import { requireDb } from "@/db";
-import { analyticsChats, analyticsDailyUsage, analyticsMessages, analyticsUsers, knowledgeDocuments, submissions } from "@/db/schema";
+import { analyticsChats, analyticsDailyUsage, analyticsMessages, analyticsUsers, clients, knowledgeDocuments, submissions } from "@/db/schema";
 import {
   setAnalyticsUserStatus,
   deleteAnalyticsUser,
   deleteKnowledgeDocument,
   setAnalyticsUserDailyLimit,
+  setAnalyticsUserClient,
 } from "@/app/actions/analytics-admin";
 import {
   AnalyticsGrantSheet,
@@ -59,12 +60,14 @@ export default async function AdminAnalyticsPage() {
     messages: number;
     dailyLimit: number;
     usedToday: number;
+    clientId: number | null;
   }[] = [];
   let knowledge: (typeof knowledgeDocuments.$inferSelect)[] = [];
+  let clientOptions: { id: number; label: string }[] = [];
   try {
     const database = requireDb();
     const today = new Date().toISOString().slice(0, 10);
-    const [wlRows, userRows, knowledgeRows, usageRows] = await Promise.all([
+    const [wlRows, userRows, knowledgeRows, usageRows, clientRows] = await Promise.all([
       database
         .select({
           id: submissions.id,
@@ -85,14 +88,17 @@ export default async function AdminAnalyticsPage() {
           status: analyticsUsers.status,
           lastLoginAt: analyticsUsers.lastLoginAt,
           dailyLimit: analyticsUsers.dailyLimit,
+          clientId: analyticsUsers.clientId,
         })
         .from(analyticsUsers)
         .orderBy(desc(analyticsUsers.createdAt))
         .limit(200),
-      database.select().from(knowledgeDocuments).where(eq(knowledgeDocuments.scope, "global")).orderBy(desc(knowledgeDocuments.createdAt)).limit(100),
+      database.select().from(knowledgeDocuments).orderBy(desc(knowledgeDocuments.createdAt)).limit(100),
       database.select({ userId: analyticsDailyUsage.userId, count: analyticsDailyUsage.messageCount }).from(analyticsDailyUsage).where(eq(analyticsDailyUsage.usageDate, today)),
+      database.select({ id: clients.id, name: clients.name, company: clients.company }).from(clients).where(eq(clients.active, true)).orderBy(clients.company, clients.name),
     ]);
     knowledge = knowledgeRows;
+    clientOptions = clientRows.map((client) => ({ id: client.id, label: client.company || client.name }));
 
     const byEmail = new Map(userRows.map((u) => [u.email.toLowerCase(), u]));
     waitlist = wlRows.map((r) => {
@@ -125,14 +131,15 @@ export default async function AdminAnalyticsPage() {
           <CardDescription>Upload trusted industry material used to ground subscriber answers. PDF and text-based files up to 8 MB are supported.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
-          <KnowledgeUploadForm />
+          <KnowledgeUploadForm clients={clientOptions} />
           {knowledge.length > 0 && (
             <Table>
-              <TableHeader><TableRow><TableHead>Document</TableHead><TableHead>Status</TableHead><TableHead>Added</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Document</TableHead><TableHead>Audience</TableHead><TableHead>Status</TableHead><TableHead>Added</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
                 {knowledge.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="font-medium">{doc.title}{doc.error && <span className="block max-w-xl text-xs font-normal text-red-700">{doc.error}</span>}</TableCell>
+                    <TableCell className="text-xs">{doc.scope === "global" ? "All subscribers" : clientOptions.find((client) => client.id === doc.clientId)?.label ?? "Private client"}</TableCell>
                     <TableCell><Badge variant="secondary" className={doc.status === "ready" ? STATUS_BADGE.active : doc.status === "failed" ? "bg-red-50 text-red-700" : STATUS_BADGE.invited}>{doc.status}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString("en-GB")}</TableCell>
                     <TableCell className="text-right"><form action={deleteKnowledgeDocument}><input type="hidden" name="documentId" value={doc.id} /><ConfirmSubmitButton>Remove</ConfirmSubmitButton></form></TableCell>
@@ -165,6 +172,7 @@ export default async function AdminAnalyticsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Private library</TableHead>
                   <TableHead>Usage today</TableHead>
                   <TableHead>Daily limit</TableHead>
                   <TableHead>Last login</TableHead>
@@ -190,6 +198,9 @@ export default async function AdminAnalyticsPage() {
                       <span className={u.usedToday >= u.dailyLimit ? "font-bold text-red-700" : ""}>{u.usedToday}</span>
                       <span className="text-muted-foreground"> / {u.dailyLimit}</span>
                       <span className="block text-[10px] text-muted-foreground">{u.messages} total messages</span>
+                    </TableCell>
+                    <TableCell>
+                      <form action={setAnalyticsUserClient} className="flex items-center gap-1"><input type="hidden" name="userId" value={u.id} /><select name="clientId" defaultValue={u.clientId ?? ""} className="h-8 max-w-36 rounded-md border bg-white px-2 text-xs"><option value="">Global only</option>{clientOptions.map((client) => <option key={client.id} value={client.id}>{client.label}</option>)}</select><Button type="submit" size="sm" variant="outline" className="h-8 px-2 text-xs">Link</Button></form>
                     </TableCell>
                     <TableCell>
                       <form action={setAnalyticsUserDailyLimit} className="flex items-center gap-1">
