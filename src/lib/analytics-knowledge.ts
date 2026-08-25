@@ -1,7 +1,6 @@
 import "server-only";
 
 import { and, eq, or } from "drizzle-orm";
-import { PDFParse } from "pdf-parse";
 import { requireDb } from "@/db";
 import { knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
 
@@ -21,6 +20,7 @@ const TEXT_TYPES = new Set([
 export async function extractDocumentText(file: File): Promise<string> {
   const bytes = new Uint8Array(await file.arrayBuffer());
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: bytes });
     try {
       return (await parser.getText()).text;
