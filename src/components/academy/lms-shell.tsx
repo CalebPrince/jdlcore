@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, Gauge, GraduationCap, Menu, Settings, Trophy } from "lucide-react";
 import { useState } from "react";
+import { academyLogout } from "@/app/actions/academy";
 
 const nav = [
   { href: "/academy/lms", label: "Overview", icon: Gauge, exact: true },
@@ -29,15 +30,16 @@ function Navigation({ close }: { close?: () => void }) {
       <p className="text-xs font-bold uppercase tracking-widest text-gold-300">Field note</p>
       <p className="mt-2 text-xs leading-5 text-white/55">Complete the equipment check before beginning any practical exercise.</p>
     </div>
-    <Link href="#" className="mt-4 flex items-center gap-3 px-3 py-2 text-sm text-white/50"><Settings className="h-4 w-4" /> Account settings</Link>
+    <form action={academyLogout} className="mt-4"><button className="flex w-full items-center gap-3 px-3 py-2 text-sm text-white/50"><Settings className="h-4 w-4" /> Sign out</button></form>
   </>;
 }
 
-export function LmsShell({ children }: { children: React.ReactNode }) {
+export function LmsShell({ children, learner }: { children: React.ReactNode; learner: { name: string; role: string } }) {
   const [open, setOpen] = useState(false);
+  const initials = learner.name.split(/\s+/).map((part) => part[0]).join("").slice(0, 2).toUpperCase();
   return <div className="min-h-dvh bg-[#f3f4f1] lg:grid lg:grid-cols-[248px_1fr]">
     <aside className="sticky top-0 hidden h-dvh flex-col bg-navy-950 p-5 lg:flex"><Navigation /></aside>
     {open ? <div className="fixed inset-0 z-50 lg:hidden"><button aria-label="Close menu" className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} /><aside className="relative flex h-full w-[280px] flex-col bg-navy-950 p-5"><Navigation close={() => setOpen(false)} /></aside></div> : null}
-    <div><header className="flex h-16 items-center justify-between border-b border-black/5 bg-white px-5 lg:px-8"><button onClick={() => setOpen(true)} className="lg:hidden" aria-label="Open menu"><Menu /></button><p className="hidden text-sm text-ink-soft sm:block">Learn it. Check it. Use it in the field.</p><div className="ml-auto flex items-center gap-3"><span className="hidden text-right sm:block"><b className="block text-xs text-navy-950">Kwame Mensah</b><small className="text-[11px] text-ink-faint">Inspector trainee</small></span><span className="grid h-9 w-9 place-items-center rounded-full bg-navy-100 text-xs font-bold text-navy-800">KM</span></div></header>{children}</div>
+    <div><header className="flex h-16 items-center justify-between border-b border-black/5 bg-white px-5 lg:px-8"><button onClick={() => setOpen(true)} className="lg:hidden" aria-label="Open menu"><Menu /></button><p className="hidden text-sm text-ink-soft sm:block">Learn it. Check it. Use it in the field.</p><div className="ml-auto flex items-center gap-3"><span className="hidden text-right sm:block"><b className="block text-xs text-navy-950">{learner.name}</b><small className="text-[11px] text-ink-faint">{learner.role}</small></span><span className="grid h-9 w-9 place-items-center rounded-full bg-navy-100 text-xs font-bold text-navy-800">{initials}</span></div></header>{children}</div>
   </div>;
 }

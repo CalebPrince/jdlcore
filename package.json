@@ -8,6 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "db:push": "drizzle-kit push"
+    ,"db:migrate:academy": "node scripts/migrate-academy.cjs",
+    "db:seed:academy": "node scripts/seed-academy.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

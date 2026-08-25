@@ -247,6 +247,161 @@ export const knowledgeDocuments = pgTable(
   ],
 );
 
+/* ---------------- Academy LMS ---------------- */
+
+export const academyLearners = pgTable(
+  "academy_learners",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    company: text("company"),
+    role: text("role").notNull().default("Learner"),
+    passwordHash: text("password_hash").notNull(),
+    status: text("status").notNull().default("active"), // active | disabled
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("academy_learners_email_idx").on(table.email),
+    index("academy_learners_status_idx").on(table.status),
+  ],
+);
+
+export const academyCourses = pgTable(
+  "academy_courses",
+  {
+    id: serial("id").primaryKey(),
+    slug: text("slug").notNull().unique(),
+    code: text("code").notNull().unique(),
+    title: text("title").notNull(),
+    summary: text("summary").notNull(),
+    level: text("level").notNull().default("Foundation"),
+    status: text("status").notNull().default("draft"), // draft | published | archived
+    accent: text("accent").notNull().default("#eeb02b"),
+    passPercent: integer("pass_percent").notNull().default(80),
+    estimatedMinutes: integer("estimated_minutes").notNull().default(0),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("academy_courses_status_idx").on(table.status)],
+);
+
+export const academyModules = pgTable(
+  "academy_modules",
+  {
+    id: serial("id").primaryKey(),
+    courseId: integer("course_id").notNull().references(() => academyCourses.id, { onDelete: "cascade" }),
+    title: text("title").notNull(),
+    description: text("description"),
+    position: integer("position").notNull().default(0),
+  },
+  (table) => [index("academy_modules_course_idx").on(table.courseId)],
+);
+
+export const academyLessons = pgTable(
+  "academy_lessons",
+  {
+    id: serial("id").primaryKey(),
+    moduleId: integer("module_id").notNull().references(() => academyModules.id, { onDelete: "cascade" }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    kind: text("kind").notNull().default("reading"), // reading | video | quiz | assessment
+    content: text("content"),
+    videoUrl: text("video_url"),
+    resourceUrl: text("resource_url"),
+    durationMinutes: integer("duration_minutes").notNull().default(0),
+    position: integer("position").notNull().default(0),
+    published: boolean("published").notNull().default(false),
+  },
+  (table) => [index("academy_lessons_module_idx").on(table.moduleId)],
+);
+
+export const academyEnrollments = pgTable(
+  "academy_enrollments",
+  {
+    id: serial("id").primaryKey(),
+    learnerId: integer("learner_id").notNull().references(() => academyLearners.id, { onDelete: "cascade" }),
+    courseId: integer("course_id").notNull().references(() => academyCourses.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("active"), // active | completed | withdrawn
+    enrolledAt: timestamp("enrolled_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("academy_enrollments_learner_idx").on(table.learnerId),
+    index("academy_enrollments_course_idx").on(table.courseId),
+  ],
+);
+
+export const academyLessonProgress = pgTable(
+  "academy_lesson_progress",
+  {
+    id: serial("id").primaryKey(),
+    learnerId: integer("learner_id").notNull().references(() => academyLearners.id, { onDelete: "cascade" }),
+    lessonId: integer("lesson_id").notNull().references(() => academyLessons.id, { onDelete: "cascade" }),
+    completed: boolean("completed").notNull().default(false),
+    lastPositionSeconds: integer("last_position_seconds").notNull().default(0),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("academy_progress_learner_idx").on(table.learnerId),
+    index("academy_progress_lesson_idx").on(table.lessonId),
+  ],
+);
+
+export const academyQuizAttempts = pgTable(
+  "academy_quiz_attempts",
+  {
+    id: serial("id").primaryKey(),
+    learnerId: integer("learner_id").notNull().references(() => academyLearners.id, { onDelete: "cascade" }),
+    lessonId: integer("lesson_id").notNull().references(() => academyLessons.id, { onDelete: "cascade" }),
+    answers: jsonb("answers"),
+    scorePercent: integer("score_percent").notNull(),
+    passed: boolean("passed").notNull().default(false),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("academy_attempts_learner_idx").on(table.learnerId)],
+);
+
+export const academyQuizQuestions = pgTable(
+  "academy_quiz_questions",
+  {
+    id: serial("id").primaryKey(),
+    lessonId: integer("lesson_id").notNull().references(() => academyLessons.id, { onDelete: "cascade" }),
+    prompt: text("prompt").notNull(),
+    explanation: text("explanation"),
+    position: integer("position").notNull().default(0),
+  },
+  (table) => [index("academy_questions_lesson_idx").on(table.lessonId)],
+);
+
+export const academyQuizOptions = pgTable(
+  "academy_quiz_options",
+  {
+    id: serial("id").primaryKey(),
+    questionId: integer("question_id").notNull().references(() => academyQuizQuestions.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    correct: boolean("correct").notNull().default(false),
+    position: integer("position").notNull().default(0),
+  },
+  (table) => [index("academy_options_question_idx").on(table.questionId)],
+);
+
+export const academyCertificates = pgTable(
+  "academy_certificates",
+  {
+    id: serial("id").primaryKey(),
+    learnerId: integer("learner_id").notNull().references(() => academyLearners.id, { onDelete: "cascade" }),
+    courseId: integer("course_id").notNull().references(() => academyCourses.id, { onDelete: "cascade" }),
+    certificateNumber: text("certificate_number").notNull().unique(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [index("academy_certificates_learner_idx").on(table.learnerId)],
+);
+
 export type Submission = typeof submissions.$inferSelect;
 export type NewSubmission = typeof submissions.$inferInsert;
 export type Client = typeof clients.$inferSelect;
@@ -259,3 +414,13 @@ export type AnalyticsUser = typeof analyticsUsers.$inferSelect;
 export type AnalyticsChat = typeof analyticsChats.$inferSelect;
 export type AnalyticsMessage = typeof analyticsMessages.$inferSelect;
 export type KnowledgeDocument = typeof knowledgeDocuments.$inferSelect;
+export type AcademyLearner = typeof academyLearners.$inferSelect;
+export type AcademyCourse = typeof academyCourses.$inferSelect;
+export type AcademyModule = typeof academyModules.$inferSelect;
+export type AcademyLesson = typeof academyLessons.$inferSelect;
+export type AcademyEnrollment = typeof academyEnrollments.$inferSelect;
+export type AcademyLessonProgress = typeof academyLessonProgress.$inferSelect;
+export type AcademyQuizAttempt = typeof academyQuizAttempts.$inferSelect;
+export type AcademyQuizQuestion = typeof academyQuizQuestions.$inferSelect;
+export type AcademyQuizOption = typeof academyQuizOptions.$inferSelect;
+export type AcademyCertificate = typeof academyCertificates.$inferSelect;
