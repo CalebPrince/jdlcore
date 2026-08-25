@@ -27,7 +27,7 @@ export default async function HomePage() {
             <Reveal className="max-w-[720px]">
               <p className="eyebrow">The JDL Core Group</p>
               <h1 className="text-[clamp(2.2rem,4.4vw,3.4rem)] font-bold">
-                Three Businesses, <span className="text-gold-600">One Standard</span> of Integrity
+                Our Standard: <span className="text-gold-600">Accuracy, Integrity</span> &amp; Industry Expertise
               </h1>
               <p className="mt-4 max-w-[560px] text-[1.1rem] text-ink-soft">
                 JDL Core brings independent inspection, industry data
