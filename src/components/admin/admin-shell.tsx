@@ -74,7 +74,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 
 function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   return (
-    <div className="flex h-full flex-col bg-navy-950 text-paper">
+    <div className="flex h-full min-w-0 flex-col bg-navy-950 text-paper">
       <div className="flex items-center gap-3 px-5 py-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo-inspection.png" alt="" className="h-9 w-auto" />
@@ -122,11 +122,11 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh border-r border-white/10 lg:block">
+      <aside className="sticky top-0 hidden h-dvh overflow-y-auto border-r border-white/10 bg-navy-950 lg:block">
         <SidebarInner />
       </aside>
 
-      <div className="flex min-h-dvh flex-col">
+      <div className="flex min-h-dvh flex-col overflow-x-hidden">
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b bg-navy-950 px-4 py-3 text-paper lg:hidden">
           <div className="flex items-center gap-2.5">
