@@ -1,0 +1,15 @@
+import Link from "next/link";
+import { Award, CalendarDays, CheckCircle2, Download, ShieldCheck, XCircle } from "lucide-react";
+import { notFound } from "next/navigation";
+import { getAcademyCertificate } from "@/lib/academy";
+
+export const dynamic="force-dynamic";
+
+export default async function CertificateVerificationPage({params}:{params:Promise<{number:string}>}){
+  const number=decodeURIComponent((await params).number);
+  const certificate=await getAcademyCertificate(number);
+  if(!certificate)notFound();
+  const valid=!certificate.revokedAt;
+  return <main className="min-h-dvh bg-[#f3f4f1] p-5 lg:p-10"><div className="mx-auto max-w-3xl"><Link href="/academy" className="font-display font-bold text-navy-950">JDL Core <span className="text-gold-600">Academy</span></Link><section className="mt-10 overflow-hidden rounded-[28px] border border-black/5 bg-white shadow-[0_25px_80px_rgba(8,24,38,.12)]"><div className="bg-navy-950 p-7 text-white sm:p-10"><div className="flex items-start justify-between gap-5"><div><p className="text-xs font-bold uppercase tracking-[.22em] text-gold-300">Credential verification</p><h1 className="mt-4 text-4xl text-white">Certificate of completion</h1></div><Award className="h-12 w-12 text-gold-300"/></div></div><div className="p-7 sm:p-10"><div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold ${valid?"bg-green-50 text-green-700":"bg-red-50 text-red-700"}`}>{valid?<CheckCircle2 className="h-4 w-4"/>:<XCircle className="h-4 w-4"/>}{valid?"Valid JDL Core credential":"Credential revoked"}</div><p className="mt-8 text-sm text-ink-faint">This certifies that</p><h2 className="mt-2 text-3xl">{certificate.learnerName}</h2><p className="mt-6 max-w-xl leading-7 text-ink-soft">successfully completed <b className="text-navy-950">{certificate.courseTitle}</b>, a {certificate.level.toLowerCase()} programme assessed against JDL Core Academy&apos;s field competency standard.</p><dl className="mt-9 grid gap-5 border-y py-6 sm:grid-cols-3"><Item label="Certificate number" value={certificate.certificateNumber}/><Item label="Course code" value={certificate.courseCode}/><Item label="Issued" value={certificate.issuedAt.toLocaleDateString("en-GB",{day:"numeric",month:"long",year:"numeric"})}/></dl><div className="mt-7 flex flex-wrap items-center justify-between gap-4"><p className="flex items-center gap-2 text-xs text-ink-faint"><ShieldCheck className="h-4 w-4 text-gold-600"/>Verified directly against the Academy register.</p><a href={`/api/academy/certificates/${encodeURIComponent(number)}/pdf`} className="inline-flex items-center gap-2 rounded-full bg-navy-950 px-5 py-3 text-sm font-bold text-white"><Download className="h-4 w-4"/>Download PDF</a></div></div></section></div></main>;
+}
+function Item({label,value}:{label:string;value:string}){return <div><dt className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider text-ink-faint"><CalendarDays className="h-3 w-3"/>{label}</dt><dd className="mt-1 break-words text-sm font-semibold text-navy-950">{value}</dd></div>}

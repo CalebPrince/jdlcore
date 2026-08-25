@@ -1,5 +1,5 @@
 import "server-only";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { requireDb } from "@/db";
 import {
   academyCertificates,
@@ -10,6 +10,8 @@ import {
   academyModules,
   academyQuizOptions,
   academyQuizQuestions,
+  academyQuizAttempts,
+  academyLearners,
 } from "@/db/schema";
 
 export async function getLearnerDashboard(learnerId: number) {
@@ -30,7 +32,7 @@ export async function getLearnerDashboard(learnerId: number) {
     .innerJoin(academyCourses, eq(academyEnrollments.courseId, academyCourses.id))
     .where(eq(academyEnrollments.learnerId, learnerId));
 
-  if (!enrollments.length) return { courses: [], certificates: [] };
+  if (!enrollments.length) return { courses: [], certificates: [], attempts: [] };
   const courseIds = enrollments.map((item) => item.courseId);
   const lessons = await database.select({ id: academyLessons.id, courseId: academyModules.courseId })
     .from(academyLessons).innerJoin(academyModules, eq(academyLessons.moduleId, academyModules.id))
@@ -51,7 +53,36 @@ export async function getLearnerDashboard(learnerId: number) {
     courseTitle: academyCourses.title,
   }).from(academyCertificates).innerJoin(academyCourses, eq(academyCertificates.courseId, academyCourses.id))
     .where(eq(academyCertificates.learnerId, learnerId));
-  return { courses, certificates };
+  const attempts = await database.select({
+    id: academyQuizAttempts.id,
+    scorePercent: academyQuizAttempts.scorePercent,
+    passed: academyQuizAttempts.passed,
+    submittedAt: academyQuizAttempts.submittedAt,
+    lessonTitle: academyLessons.title,
+    courseTitle: academyCourses.title,
+  }).from(academyQuizAttempts)
+    .innerJoin(academyLessons, eq(academyQuizAttempts.lessonId, academyLessons.id))
+    .innerJoin(academyModules, eq(academyLessons.moduleId, academyModules.id))
+    .innerJoin(academyCourses, eq(academyModules.courseId, academyCourses.id))
+    .where(eq(academyQuizAttempts.learnerId, learnerId))
+    .orderBy(desc(academyQuizAttempts.submittedAt)).limit(10);
+  return { courses, certificates, attempts };
+}
+
+export async function getAcademyCertificate(certificateNumber:string){
+  const rows=await requireDb().select({
+    certificateNumber:academyCertificates.certificateNumber,
+    issuedAt:academyCertificates.issuedAt,
+    revokedAt:academyCertificates.revokedAt,
+    learnerName:academyLearners.name,
+    courseTitle:academyCourses.title,
+    courseCode:academyCourses.code,
+    level:academyCourses.level,
+  }).from(academyCertificates)
+    .innerJoin(academyLearners,eq(academyCertificates.learnerId,academyLearners.id))
+    .innerJoin(academyCourses,eq(academyCertificates.courseId,academyCourses.id))
+    .where(eq(academyCertificates.certificateNumber,certificateNumber)).limit(1);
+  return rows[0]??null;
 }
 
 export async function getCourseForLearner(learnerId: number, slug: string) {
