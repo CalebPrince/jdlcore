@@ -32,8 +32,8 @@ export default function AnalyticsLoginPage() {
             <AnalyticsLoginForm />
             <p className="m-0 mt-5 text-center text-xs text-muted-foreground">
               No account yet?{" "}
-              <Link href="/analytics#waitlist" className="text-gold-700 hover:underline">
-                Join the waitlist
+              <Link href="/analytics#access" className="text-gold-700 hover:underline">
+                Request access
               </Link>
             </p>
           </CardContent>

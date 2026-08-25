@@ -18,6 +18,7 @@ export function AcademyAuthForm({ mode }: { mode: "login" | "register" }) {
     <Field label="Password" name="password" type="password" autoComplete={mode === "login" ? "current-password" : "new-password"} required minLength={mode === "register" ? 8 : undefined} placeholder={mode === "register" ? "At least 8 characters" : "Your password"} />
     {state.message ? <p className={`rounded-xl p-3 text-sm ${state.ok ? "bg-[#e5f3eb] text-[#23734a]" : "bg-red-50 text-red-700"}`}>{state.message}</p> : null}
     <button disabled={pending} className="btn-gold w-full py-3.5 disabled:opacity-50">{pending ? "Please wait…" : mode === "login" ? "Sign in to Academy" : "Create learner account"}</button>
+    {mode === "login" ? <p className="text-center text-xs"><Link href="/account/forgot-password?type=academy" className="font-semibold text-gold-700">Forgot password?</Link></p> : null}
     <p className="text-center text-sm text-ink-faint">{mode === "login" ? "New to JDL Academy?" : "Already have an account?"} <Link className="font-semibold text-navy-800" href={mode === "login" ? "/academy/register" : "/academy/login"}>{mode === "login" ? "Create account" : "Sign in"}</Link></p>
   </form>;
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { analyticsLogin, completeSetup } from "@/app/actions/analytics";
 import type { FormState } from "@/app/actions/submissions";
@@ -30,6 +31,7 @@ export function AnalyticsLoginForm() {
       <Button type="submit" disabled={pending} className="btn-gold">
         {pending ? "Signing in…" : "Sign In"}
       </Button>
+      <p className="text-center text-xs"><Link href="/account/forgot-password?type=analytics" className="font-semibold text-gold-700">Forgot password?</Link></p>
     </form>
   );
 }

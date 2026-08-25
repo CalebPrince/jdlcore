@@ -49,6 +49,7 @@ export function PortalLoginForm() {
           <Button type="submit" disabled={pending} className="btn-gold w-full">
             {pending ? "Signing in…" : "Sign In"}
           </Button>
+          <p className="m-0 text-center text-xs"><Link href="/account/forgot-password?type=portal" className="font-semibold text-gold-700">Forgot password?</Link></p>
 
           <p className="m-0 text-center text-xs text-muted-foreground">
             No account yet? Contact your JDL Core representative to get portal

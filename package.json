@@ -10,7 +10,8 @@
     "db:push": "drizzle-kit push",
     "db:migrate:academy": "node scripts/migrate-academy.cjs",
     "db:seed:academy": "node scripts/seed-academy.cjs",
-    "db:migrate:analytics": "node scripts/migrate-analytics.cjs"
+    "db:migrate:analytics": "node scripts/migrate-analytics.cjs",
+    "db:migrate:recovery": "node scripts/migrate-auth-recovery.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
