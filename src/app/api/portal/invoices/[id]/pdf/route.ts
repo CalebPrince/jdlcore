@@ -4,7 +4,8 @@ import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
 import { requireDb } from "@/db";
 import { clients, invoices, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
-import { isAuthenticated } from "@/lib/auth";
+import { getStaff } from "@/lib/staff-auth";
+import { getInspector } from "@/lib/inspector-auth";
 
 const NAVY = rgb(0.031, 0.094, 0.149);
 const GOLD = rgb(0.788, 0.557, 0.071);
@@ -22,8 +23,9 @@ export async function GET(
   }
 
   const portal = await getPortalClient();
-  const admin = portal ? false : await isAuthenticated();
-  if (!portal && !admin) {
+  const staff = portal ? null : await getStaff();
+  const inspector = portal || staff ? null : await getInspector();
+  if (!portal && !staff && !inspector) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
@@ -40,7 +42,9 @@ export async function GET(
     .where(
       portal
         ? and(eq(invoices.id, invoiceId), eq(jobs.clientId, portal.id))
-        : eq(invoices.id, invoiceId),
+        : inspector
+          ? and(eq(invoices.id, invoiceId), eq(jobs.assignedInspectorId, inspector.id))
+          : eq(invoices.id, invoiceId),
     )
     .limit(1);
 

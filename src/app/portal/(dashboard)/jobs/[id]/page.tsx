@@ -7,9 +7,11 @@ import { documents, invoices, jobUpdates, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import {
   DOCUMENT_KIND_META,
+  INVOICE_STATUS_META,
   JOB_STATUS_META,
   formatMoney,
   type DocumentKind,
+  type InvoiceStatus,
   type JobStatus,
 } from "@/lib/jobs";
 
@@ -73,7 +75,7 @@ export default async function PortalJobDetailPage({
   }
 
   const meta =
-    JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.submitted;
+    JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
 
   return (
     <div className="flex flex-col gap-6">
@@ -166,18 +168,12 @@ export default async function PortalJobDetailPage({
                 </span>
                 <span
                   className={`rounded-full px-3 py-0.5 text-xs font-bold ${
-                    inv.status === "paid"
-                      ? "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]"
-                      : inv.status === "sent"
-                        ? "bg-[rgba(201,142,18,0.14)] text-gold-700"
-                        : "bg-navy-100 text-navy-800"
+                    (INVOICE_STATUS_META[inv.status as InvoiceStatus] ?? INVOICE_STATUS_META.pending)
+                      .badgeClass
                   }`}
                 >
-                  {inv.status === "paid"
-                    ? "Paid"
-                    : inv.status === "sent"
-                      ? "Payment due"
-                      : "Draft"}
+                  {(INVOICE_STATUS_META[inv.status as InvoiceStatus] ?? INVOICE_STATUS_META.pending)
+                    .label}
                 </span>
                 <a
                   href={`/api/portal/invoices/${inv.id}/pdf`}
@@ -199,7 +195,7 @@ export default async function PortalJobDetailPage({
         <h2 className="m-0 font-display text-lg font-bold text-navy-950">Progress Timeline</h2>
         <ol className="relative m-0 list-none border-l-2 pl-6" style={{ borderColor: "rgba(201,142,18,0.35)" }}>
           {[...timeline].reverse().map((u, i) => {
-            const um = JOB_STATUS_META[u.status as JobStatus] ?? JOB_STATUS_META.submitted;
+            const um = JOB_STATUS_META[u.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
             return (
               <li key={u.id} className={`relative pb-6 last:pb-0 ${i === 0 ? "" : ""}`}>
                 <span

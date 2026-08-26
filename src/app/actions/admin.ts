@@ -1,41 +1,14 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { z } from "zod";
-import {
-  checkPassword,
-  createSession,
-  destroySession,
-  isAuthenticated,
-} from "@/lib/auth";
+import { requireStaffRole } from "@/lib/staff-auth";
 import {
   DEFAULT_SETTINGS,
   saveContactSettings,
 } from "@/lib/settings";
 
 export type AdminState = { ok: boolean; message: string };
-
-const loginSchema = z.object({
-  password: z.string().min(1, "Enter the admin password."),
-});
-
-export async function login(
-  _prev: AdminState,
-  formData: FormData
-): Promise<AdminState> {
-  const parsed = loginSchema.safeParse({ password: formData.get("password") });
-  if (!parsed.success || !checkPassword(parsed.data.password)) {
-    return { ok: false, message: "Incorrect password." };
-  }
-  await createSession();
-  redirect("/admin");
-}
-
-export async function logout(): Promise<void> {
-  await destroySession();
-  redirect("/admin/login");
-}
 
 const settingsSchema = z.object({
   phoneDisplay: z.string().trim().min(1),
@@ -56,7 +29,7 @@ export async function updateContactSettings(
   _prev: AdminState,
   formData: FormData
 ): Promise<AdminState> {
-  if (!(await isAuthenticated())) {
+  if (!(await requireStaffRole(["administrator", "superadmin"]))) {
     return { ok: false, message: "Not signed in." };
   }
   const parsed = settingsSchema.safeParse({

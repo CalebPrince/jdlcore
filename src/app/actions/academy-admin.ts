@@ -5,11 +5,11 @@ import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { academyCertificates, academyCourses, academyEnrollments, academyLearners, academyLessons, academyModules, academyQuizOptions, academyQuizQuestions } from "@/db/schema";
-import { isAuthenticated } from "@/lib/auth";
+import { requireStaffRole } from "@/lib/staff-auth";
 import type { FormState } from "./submissions";
 
 async function requireAdmin() {
-  if (!(await isAuthenticated())) throw new Error("Unauthorized");
+  if (!(await requireStaffRole(["administrator", "superadmin"]))) throw new Error("Unauthorized");
 }
 
 const courseSchema = z.object({

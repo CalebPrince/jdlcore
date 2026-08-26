@@ -25,27 +25,39 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { logout } from "@/app/actions/admin";
+import { staffLogout } from "@/app/actions/staff";
 import { useState } from "react";
+import type { StaffRole } from "@/lib/staff-auth";
 
-const NAV: { href: string; label: string; icon: React.ElementType; exact?: boolean }[] = [
+const NAV: {
+  href: string;
+  label: string;
+  icon: React.ElementType;
+  exact?: boolean;
+  roles?: StaffRole[]; // omit = visible to every role
+}[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-  { href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { href: "/admin/jobs", label: "Jobs", icon: ClipboardList },
-  { href: "/admin/clients", label: "Clients", icon: Users },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/academy", label: "Academy", icon: GraduationCap },
-  { href: "/admin/academy/credentials", label: "Credentials", icon: Award },
-  { href: "/admin/settings", label: "Site Settings", icon: Settings2 },
-  { href: "/admin/email", label: "Email", icon: Mail },
-  { href: "/admin/ai", label: "AI Settings", icon: Bot },
+  { href: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/admin/inbox", label: "Inbox", icon: Inbox, roles: ["administrator", "superadmin"] },
+  { href: "/admin/clients", label: "Clients", icon: Users, roles: ["administrator", "superadmin"] },
+  { href: "/admin/staff", label: "Staff", icon: ShieldCheck, roles: ["administrator", "superadmin"] },
+  { href: "/admin/inspectors", label: "Inspectors", icon: Users, roles: ["administrator", "superadmin"] },
+  { href: "/admin/services", label: "Services", icon: ClipboardList, roles: ["administrator", "superadmin"] },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, roles: ["administrator", "superadmin"] },
+  { href: "/admin/academy", label: "Academy", icon: GraduationCap, roles: ["administrator", "superadmin"] },
+  { href: "/admin/academy/credentials", label: "Credentials", icon: Award, roles: ["administrator", "superadmin"] },
+  { href: "/admin/settings", label: "Site Settings", icon: Settings2, roles: ["administrator", "superadmin"] },
+  { href: "/admin/email", label: "Email", icon: Mail, roles: ["administrator", "superadmin"] },
+  { href: "/admin/ai", label: "AI Settings", icon: Bot, roles: ["administrator", "superadmin"] },
 ];
 
-function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
+function NavLinks({ role, onNavigate }: { role: StaffRole; onNavigate?: () => void }) {
   const pathname = usePathname();
+  const visible = NAV.filter((item) => !item.roles || item.roles.includes(role));
   return (
     <nav className="flex flex-col gap-1">
-      {NAV.map((item) => {
+      {visible.map((item) => {
         const active = item.exact
           ? pathname === item.href
           : pathname.startsWith(item.href);
@@ -72,7 +84,21 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
+const ROLE_LABEL: Record<StaffRole, string> = {
+  superadmin: "Super Admin",
+  administrator: "Administrator",
+  operations: "Operations",
+};
+
+function SidebarInner({
+  name,
+  role,
+  onNavigate,
+}: {
+  name: string;
+  role: StaffRole;
+  onNavigate?: () => void;
+}) {
   return (
     <div className="flex h-full min-w-0 flex-col bg-navy-950 text-paper">
       <div className="flex items-center gap-3 px-5 py-6">
@@ -88,8 +114,15 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
         </div>
       </div>
 
+      <div className="px-5 pb-4">
+        <p className="truncate text-sm font-semibold text-paper">{name}</p>
+        <p className="text-[0.72rem] tracking-wide uppercase text-[rgba(248,247,243,0.45)]">
+          {ROLE_LABEL[role]}
+        </p>
+      </div>
+
       <div className="px-4">
-        <NavLinks onNavigate={onNavigate} />
+        <NavLinks role={role} onNavigate={onNavigate} />
       </div>
 
       <div className="mt-auto flex flex-col gap-1 px-4 pb-6">
@@ -102,7 +135,7 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
           <ExternalLink className="h-4 w-4 shrink-0" />
           View Site
         </Link>
-        <form action={logout}>
+        <form action={staffLogout}>
           <button
             type="submit"
             className="flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-left text-sm font-medium text-[rgba(248,247,243,0.65)] transition-colors hover:bg-white/5 hover:text-paper"
@@ -116,14 +149,22 @@ function SidebarInner({ onNavigate }: { onNavigate?: () => void }) {
   );
 }
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  name,
+  role,
+  children,
+}: {
+  name: string;
+  role: StaffRole;
+  children: React.ReactNode;
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh overflow-y-auto border-r border-white/10 bg-navy-950 lg:block">
-        <SidebarInner />
+        <SidebarInner name={name} role={role} />
       </aside>
 
       <div className="flex min-h-dvh flex-col overflow-x-hidden">
@@ -151,7 +192,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <SheetHeader className="sr-only">
                 <SheetTitle>Admin navigation</SheetTitle>
               </SheetHeader>
-              <SidebarInner onNavigate={() => setMobileOpen(false)} />
+              <SidebarInner name={name} role={role} onNavigate={() => setMobileOpen(false)} />
             </SheetContent>
           </Sheet>
         </header>

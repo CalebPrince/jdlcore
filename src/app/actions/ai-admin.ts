@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { isAuthenticated } from "@/lib/auth";
+import { requireStaffRole } from "@/lib/staff-auth";
 import { saveAiSettingsValues } from "@/lib/ai/settings";
 import type { FormState } from "./submissions";
 
@@ -26,7 +26,7 @@ export async function saveAiSettings(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole(["administrator", "superadmin"]))) return { ok: false, message: "Unauthorized" };
 
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {

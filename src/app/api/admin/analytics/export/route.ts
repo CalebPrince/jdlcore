@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
-import { isAuthenticated } from "@/lib/auth";
+import { requireStaffRole } from "@/lib/staff-auth";
 import { getAnalyticsReport } from "@/lib/analytics-reporting";
 
 export async function GET() {
-  if (!(await isAuthenticated())) return new NextResponse("Unauthorized", { status: 401 });
+  if (!(await requireStaffRole(["administrator", "superadmin"])))
+    return new NextResponse("Unauthorized", { status: 401 });
   const report = await getAnalyticsReport(30);
   const rows: (string | number)[][] = [["category", "date", "name", "status", "count", "limit_or_conversations", "details"]];
   for (const day of report.daily) rows.push(["daily_usage", day.date, "All subscribers", "", day.count, "", "Accepted questions"]);

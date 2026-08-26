@@ -4,13 +4,18 @@ import { desc, eq } from "drizzle-orm";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
+  certificates,
   clients,
   documents,
+  inspectors,
   invoices,
+  jobCompletionData,
   jobUpdates,
   jobs,
+  stockReadings,
+  tanks,
 } from "@/db/schema";
-import { markInvoicePaid } from "@/app/actions/portal-admin";
+import { getStaff } from "@/lib/staff-auth";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -23,14 +28,24 @@ import {
   AddDocumentForm,
   CreateInvoiceForm,
   InvoiceReminderButton,
-  StatusUpdateForm,
 } from "@/components/admin/portal-job-forms";
 import {
+  AssignInspectorForm,
+  ApproveRejectPanel,
+  CloseJobButton,
+  OverrideStatusForm,
+  PaymentActionPanel,
+} from "@/components/admin/workflow-forms";
+import {
   DOCUMENT_KIND_META,
+  INVOICE_STATUS_META,
   JOB_STATUS_META,
+  SERVICE_TYPE_LABEL,
   formatMoney,
   type DocumentKind,
+  type InvoiceStatus,
   type JobStatus,
+  type ServiceType,
 } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +54,12 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
   month: "short",
   year: "numeric",
+});
+const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
 });
 
 export default async function AdminJobDetailPage({
@@ -50,45 +71,45 @@ export default async function AdminJobDetailPage({
   const jobId = Number(id);
   if (!Number.isInteger(jobId)) notFound();
 
-  let job;
-  let client;
-  let timeline;
-  let docs;
-  let bills;
-  try {
-    const database = requireDb();
-    const rows = await database
-      .select({ job: jobs, client: clients })
-      .from(jobs)
-      .innerJoin(clients, eq(jobs.clientId, clients.id))
-      .where(eq(jobs.id, jobId))
-      .limit(1);
-    if (!rows[0]) notFound();
-    job = rows[0].job;
-    client = rows[0].client;
+  const staff = await getStaff();
+  if (!staff) notFound();
 
-    [timeline, docs, bills] = await Promise.all([
+  const database = requireDb();
+  const rows = await database
+    .select({ job: jobs, client: clients })
+    .from(jobs)
+    .innerJoin(clients, eq(jobs.clientId, clients.id))
+    .where(eq(jobs.id, jobId))
+    .limit(1);
+  if (!rows[0]) notFound();
+  const job = rows[0].job;
+  const client = rows[0].client;
+
+  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq] =
+    await Promise.all([
+      database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt)),
+      database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt)),
+      database.select().from(invoices).where(eq(invoices.jobId, jobId)).orderBy(desc(invoices.issuedAt)),
       database
-        .select()
-        .from(jobUpdates)
-        .where(eq(jobUpdates.jobId, jobId))
-        .orderBy(desc(jobUpdates.createdAt)),
-      database
-        .select()
-        .from(documents)
-        .where(eq(documents.jobId, jobId))
-        .orderBy(desc(documents.createdAt)),
-      database
-        .select()
-        .from(invoices)
-        .where(eq(invoices.jobId, jobId))
-        .orderBy(desc(invoices.issuedAt)),
+        .select({ id: inspectors.id, name: inspectors.name })
+        .from(inspectors)
+        .where(eq(inspectors.active, true)),
+      job.assignedInspectorId
+        ? database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
+        : Promise.resolve([]),
+      database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1),
+      database.select().from(tanks).where(eq(tanks.clientId, job.clientId)),
+      database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate)),
+      database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
     ]);
-  } catch (e) {
-    throw e;
-  }
 
-  const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.submitted;
+  const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
+  const canAssign = job.status === "awaiting_assignment" || job.status === "assigned";
+  const canApproveReject = job.status === "awaiting_approval";
+  const canClose = job.status === "paid";
+  const isAdmin = staff.role === "administrator" || staff.role === "superadmin";
+  const cd = completion[0];
+  const tankById = new Map(tankList.map((t) => [t.id, t]));
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -107,6 +128,9 @@ export default async function AdminJobDetailPage({
           <Badge variant="secondary" className={meta.badgeClass}>
             {meta.label}
           </Badge>
+          {job.serviceType && (
+            <Badge variant="outline">{SERVICE_TYPE_LABEL[job.serviceType as ServiceType] ?? job.serviceType}</Badge>
+          )}
         </div>
         <h1 className="mb-1 mt-2 font-display text-xl font-bold text-navy-950">
           {job.service}
@@ -116,18 +140,70 @@ export default async function AdminJobDetailPage({
           {client.name}
           {client.company ? ` · ${client.company}` : ""} · Opened{" "}
           {dateFmt.format(new Date(job.createdAt))}
+          {assignedInspector[0] ? ` · Inspector: ${assignedInspector[0].name}` : ""}
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-display">Post Status Update</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <StatusUpdateForm jobId={job.id} current={job.status} />
-          </CardContent>
-        </Card>
+        {canAssign && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">
+                {job.status === "assigned" ? "Reassign Inspector" : "Assign Inspector"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <AssignInspectorForm
+                jobId={job.id}
+                inspectors={activeInspectors}
+                isReassign={job.status === "assigned"}
+              />
+            </CardContent>
+          </Card>
+        )}
+
+        {canApproveReject && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Review Submitted Work</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ApproveRejectPanel jobId={job.id} />
+            </CardContent>
+          </Card>
+        )}
+
+        {canClose && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Close Job</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <CloseJobButton jobId={job.id} />
+            </CardContent>
+          </Card>
+        )}
+
+        {cd && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Completion Data</CardTitle>
+            </CardHeader>
+            <CardContent className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+              <Detail label="Started" value={cd.dateTimeStarted ? dateTimeFmt.format(new Date(cd.dateTimeStarted)) : null} />
+              <Detail label="Completed" value={cd.dateTimeCompleted ? dateTimeFmt.format(new Date(cd.dateTimeCompleted)) : null} />
+              <Detail label="GOV" value={cd.gov} />
+              <Detail label="GSV" value={cd.gsv} />
+              <Detail label="Metric Tonnes (Air)" value={cd.metricTonnesAir} />
+              <Detail label="Metric Tonnes (Vacuum)" value={cd.metricTonnesVacuum} />
+              {cd.inspectorComments && (
+                <div className="col-span-2">
+                  <Detail label="Inspector comments" value={cd.inspectorComments} />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader>
@@ -160,6 +236,16 @@ export default async function AdminJobDetailPage({
                 </div>
               </div>
             ))}
+            {coq[0] && (
+              <a
+                href={`/api/certificates/${coq[0].id}/pdf`}
+                className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                style={{ borderColor: "var(--border)" }}
+                download
+              >
+                Download COQ ({coq[0].coqNumber})
+              </a>
+            )}
           </CardContent>
         </Card>
 
@@ -170,48 +256,76 @@ export default async function AdminJobDetailPage({
           <CardContent className="flex flex-col gap-3">
             {bills.length > 0 && (
               <ul className="flex flex-col gap-2">
-                {bills.map((inv) => (
-                  <li key={inv.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
-                    <span className="text-sm font-semibold text-navy-950">{inv.number}</span>
-                    <span className="font-display text-sm font-bold tabular-nums">
-                      {formatMoney(inv.amountCents, inv.currency)}
-                    </span>
-                    <Badge
-                      variant="secondary"
-                      className={
-                        inv.status === "paid"
-                          ? "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]"
-                          : undefined
-                      }
-                    >
-                      {inv.status === "paid" ? "Paid" : inv.status === "sent" ? "Sent" : "Draft"}
-                    </Badge>
-                    {inv.status !== "paid" && (
-                      <div className="ml-auto flex flex-wrap items-center gap-1">
-                        <InvoiceReminderButton invoiceId={inv.id} jobId={job.id} />
-                        <form action={markInvoicePaid}>
-                          <input type="hidden" name="invoiceId" value={inv.id} />
-                          <input type="hidden" name="jobId" value={job.id} />
-                          <Button type="submit" variant="ghost" size="sm">
-                            Mark paid
-                          </Button>
-                        </form>
+                {bills.map((inv) => {
+                  const invMeta = INVOICE_STATUS_META[inv.status as InvoiceStatus] ?? INVOICE_STATUS_META.pending;
+                  return (
+                    <li key={inv.id} className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                        <span className="text-sm font-semibold text-navy-950">{inv.number}</span>
+                        <span className="font-display text-sm font-bold tabular-nums">
+                          {formatMoney(inv.amountCents, inv.currency)}
+                        </span>
+                        <Badge variant="secondary" className={invMeta.badgeClass}>
+                          {invMeta.label}
+                        </Badge>
+                        <a
+                          href={`/api/portal/invoices/${inv.id}/pdf`}
+                          className="ml-auto text-xs font-semibold text-navy-700 underline-offset-2 hover:underline"
+                          download
+                        >
+                          PDF
+                        </a>
                       </div>
-                    )}
-                    <a
-                      href={`/api/portal/invoices/${inv.id}/pdf`}
-                      className={`text-xs font-semibold text-navy-700 underline-offset-2 hover:underline ${inv.status !== "paid" ? "" : "ml-auto"}`}
-                      download
-                    >
-                      PDF
-                    </a>
-                  </li>
-                ))}
+                      {inv.status === "payment_submitted" && (
+                        <PaymentActionPanel jobId={job.id} invoiceId={inv.id} />
+                      )}
+                      {inv.status !== "paid" && inv.status !== "payment_submitted" && (
+                        <InvoiceReminderButton invoiceId={inv.id} jobId={job.id} />
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             )}
             <CreateInvoiceForm jobId={job.id} />
           </CardContent>
         </Card>
+
+        {tankList.length > 0 && job.serviceType === "stock_monitoring" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Stock Readings ({readings.length})</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {readings.length === 0 && (
+                <p className="m-0 text-sm text-muted-foreground">No stock readings logged yet.</p>
+              )}
+              {readings.map((r) => (
+                <div key={r.id} className="rounded-lg border p-3 text-sm" style={{ borderColor: "var(--border)" }}>
+                  <p className="m-0 font-semibold text-navy-950">
+                    {tankById.get(r.tankId)?.name ?? `Tank #${r.tankId}`} — {dateFmt.format(new Date(r.readingDate))}
+                  </p>
+                  <p className="m-0 text-xs text-muted-foreground">
+                    Opening {r.openingStock ?? "—"} · Receipts {r.receipts ?? "—"} · Transfers {r.transfers ?? "—"} ·
+                    {" "}Discharges/Loads {r.dischargesLoads ?? "—"} · Closing {r.closingStock ?? "—"} · GSV {r.gsv ?? "—"}
+                  </p>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {isAdmin && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Manual Override</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OverrideStatusForm jobId={job.id} current={job.status} />
+            </CardContent>
+          </Card>
+        )}
+
       </div>
 
       <Card>
@@ -223,10 +337,10 @@ export default async function AdminJobDetailPage({
             {timeline.map((u) => (
               <li key={u.id} className="flex flex-wrap items-baseline gap-x-3 py-2.5 first:pt-0 last:pb-0">
                 <span className="text-sm font-semibold text-navy-950">
-                  {(JOB_STATUS_META[u.status as JobStatus] ?? JOB_STATUS_META.submitted).label}
+                  {(JOB_STATUS_META[u.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment).label}
                 </span>
                 <span className="text-xs text-ink-faint">
-                  {dateFmt.format(new Date(u.createdAt))}
+                  {dateFmt.format(new Date(u.createdAt))} · {u.actorName}
                 </span>
                 {u.note && <span className="w-full text-sm text-ink-soft">{u.note}</span>}
               </li>
@@ -234,6 +348,17 @@ export default async function AdminJobDetailPage({
           </ul>
         </CardContent>
       </Card>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value?: string | null }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold tracking-[0.06em] uppercase text-ink-faint">
+        {label}
+      </dt>
+      <dd className="m-0 mt-0.5 text-sm text-navy-950">{value || "—"}</dd>
     </div>
   );
 }

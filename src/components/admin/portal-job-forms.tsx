@@ -5,7 +5,6 @@ import {
   addDocument,
   createInvoice,
   sendInvoiceReminder,
-  updateJobStatus,
 } from "@/app/actions/portal-admin";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -35,48 +34,6 @@ function Feedback({ state }: { state: FormState }) {
         {state.message}
       </AlertDescription>
     </Alert>
-  );
-}
-
-export function StatusUpdateForm({
-  jobId,
-  current,
-}: {
-  jobId: number;
-  current: string;
-}) {
-  const [state, action, pending] = useActionState(updateJobStatus, initial);
-  return (
-    <form action={action} className="flex flex-col gap-3">
-      <input type="hidden" name="jobId" value={jobId} />
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label>New status</Label>
-          <Select name="status" required defaultValue={current}>
-            <SelectTrigger className="w-full">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="submitted">Submitted</SelectItem>
-              <SelectItem value="assigned">Assigned</SelectItem>
-              <SelectItem value="in_progress">In Progress</SelectItem>
-              <SelectItem value="verification">Verification</SelectItem>
-              <SelectItem value="report_ready">Report Ready</SelectItem>
-              <SelectItem value="closed">Closed</SelectItem>
-              <SelectItem value="cancelled">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`note-${jobId}`}>Note for client (optional)</Label>
-          <Input id={`note-${jobId}`} name="note" placeholder="Inspector on site at Tema depot…" />
-        </div>
-      </div>
-      <Button type="submit" disabled={pending} className="btn-gold self-start">
-        {pending ? "Updating…" : "Post Update"}
-      </Button>
-      <Feedback state={state} />
-    </form>
   );
 }
 

@@ -4,7 +4,10 @@ import { randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { isAuthenticated } from "@/lib/auth";
+import { requireStaffRole } from "@/lib/staff-auth";
+
+const ADMIN_ROLES = ["administrator", "superadmin"] as const;
+const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 import { hashPassword } from "@/lib/portal-auth";
 import { requireDb } from "@/db";
 import {
@@ -87,7 +90,7 @@ export async function createPortalClient(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...ADMIN_ROLES]))) return initialFail("Unauthorized");
   const parsed = clientSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return initialFail("Check the fields: password must be at least 8 characters.");
@@ -114,7 +117,7 @@ export async function resetClientPassword(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...ADMIN_ROLES]))) return initialFail("Unauthorized");
   const id = Number(formData.get("id"));
   const password = String(formData.get("password") ?? "");
   if (!Number.isInteger(id)) return initialFail("Invalid client.");
@@ -132,7 +135,7 @@ export async function resetClientPassword(
 }
 
 export async function toggleClientActive(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
+  if (!(await requireStaffRole([...ADMIN_ROLES]))) return;
   const id = Number(formData.get("id"));
   const active = String(formData.get("active")) === "true";
   if (!Number.isInteger(id)) return;
@@ -154,7 +157,7 @@ export async function createJob(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...OPS_ROLES]))) return initialFail("Unauthorized");
   const parsed = jobSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Please fill in client and service.");
   const f = parsed.data;
@@ -189,49 +192,6 @@ export async function createJob(
   return { ok: true, message: "Job created." };
 }
 
-export async function updateJobStatus(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
-  const jobId = Number(formData.get("jobId"));
-  const status = String(formData.get("status") ?? "");
-  const note = String(formData.get("note") ?? "").trim();
-  if (!Number.isInteger(jobId)) return initialFail("Invalid job.");
-  if (!JOB_STATUSES.includes(status as never)) return initialFail("Invalid status.");
-  try {
-    const database = requireDb();
-    await database.insert(jobUpdates).values({ jobId, status, note: note || null });
-    await database
-      .update(jobs)
-      .set({ status, updatedAt: new Date() })
-      .where(eq(jobs.id, jobId));
-  } catch {
-    return initialFail("Could not update status.");
-  }
-  revalidatePath(`/admin/jobs/${jobId}`);
-  revalidatePath("/admin/jobs");
-
-  const recipient = await clientEmailForJob(jobId);
-  if (recipient) {
-    const meta = JOB_STATUS_META[status as keyof typeof JOB_STATUS_META];
-    const lines: string[] = [];
-    if (note) lines.push(note);
-    await sendNotification({
-      to: recipient.email,
-      subject: `[${recipient.ref}] ${meta?.label ?? "Update"} - JDL Core`,
-      html: notifyHtml(
-        `Your job ${recipient.ref} moved to "${meta?.label ?? status}"`,
-        lines.length > 0
-          ? lines
-          : [meta?.description ?? "There is a new update on your job."],
-        recipient.ref,
-      ),
-    });
-  }
-  return { ok: true, message: "Status updated." };
-}
-
 /* ---------------- Documents ---------------- */
 
 const docSchema = z.object({
@@ -247,7 +207,7 @@ export async function addDocument(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...OPS_ROLES]))) return initialFail("Unauthorized");
   const parsed = docSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Provide a title and either a file or a valid link.");
   const f = parsed.data;
@@ -311,7 +271,7 @@ export async function createInvoice(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...OPS_ROLES]))) return initialFail("Unauthorized");
   const parsed = invoiceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Enter a valid amount.");
   const f = parsed.data;
@@ -359,18 +319,6 @@ export async function createInvoice(
   return { ok: true, message: "Invoice issued." };
 }
 
-export async function markInvoicePaid(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
-  const id = Number(formData.get("invoiceId"));
-  const jobId = Number(formData.get("jobId"));
-  if (!Number.isInteger(id)) return;
-  await requireDb()
-    .update(invoices)
-    .set({ status: "paid", paidAt: new Date() })
-    .where(eq(invoices.id, id));
-  revalidatePath(`/admin/jobs/${jobId}`);
-}
-
 const reminderSchema = z.object({
   invoiceId: z.coerce.number().int().positive(),
   jobId: z.coerce.number().int().positive(),
@@ -380,7 +328,7 @@ export async function sendInvoiceReminder(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await isAuthenticated())) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...OPS_ROLES]))) return initialFail("Unauthorized");
   const parsed = reminderSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Invalid invoice.");
 
@@ -436,7 +384,7 @@ export async function convertQuoteToJob(
   _prev: ConvertState,
   formData: FormData,
 ): Promise<ConvertState> {
-  if (!(await isAuthenticated())) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole([...OPS_ROLES]))) return { ok: false, message: "Unauthorized" };
   const parsed = convertSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return {

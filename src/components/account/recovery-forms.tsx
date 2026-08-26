@@ -6,9 +6,13 @@ import { requestPasswordReset, resetPassword, type RecoveryState } from "@/app/a
 
 const initial: RecoveryState = { ok: false, message: "" };
 
-export function ForgotPasswordForm({ defaultType }: { defaultType: "academy" | "analytics" | "portal" }) {
+export function ForgotPasswordForm({
+  defaultType,
+}: {
+  defaultType: "academy" | "analytics" | "portal" | "inspector" | "staff";
+}) {
   const [state, action, pending] = useActionState(requestPasswordReset, initial);
-  return <form action={action} className="mt-6 space-y-4"><label className="block"><span className="mb-1.5 block text-xs font-semibold">Account</span><select name="accountType" defaultValue={defaultType} className="h-11 w-full rounded-xl border bg-white px-3 text-sm"><option value="academy">Academy learner</option><option value="analytics">Analytics subscriber</option><option value="portal">Inspection client portal</option></select></label><Field label="Email address" name="email" type="email" autoComplete="email" required />{state.message ? <p className={`rounded-xl p-3 text-sm ${state.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{state.message}</p> : null}<button disabled={pending} className="btn-gold w-full py-3">{pending ? "Sending…" : "Send reset link"}</button><p className="text-center text-xs text-ink-faint">Admin password changes are managed through the deployment environment.</p></form>;
+  return <form action={action} className="mt-6 space-y-4"><label className="block"><span className="mb-1.5 block text-xs font-semibold">Account</span><select name="accountType" defaultValue={defaultType} className="h-11 w-full rounded-xl border bg-white px-3 text-sm"><option value="academy">Academy learner</option><option value="analytics">Analytics subscriber</option><option value="portal">Inspection client portal</option><option value="inspector">Inspector</option><option value="staff">JDL Core staff (Operations / Admin)</option></select></label><Field label="Email address" name="email" type="email" autoComplete="email" required />{state.message ? <p className={`rounded-xl p-3 text-sm ${state.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700"}`}>{state.message}</p> : null}<button disabled={pending} className="btn-gold w-full py-3">{pending ? "Sending…" : "Send reset link"}</button></form>;
 }
 
 export function ResetPasswordForm({ token }: { token: string }) {

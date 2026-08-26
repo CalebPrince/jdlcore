@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { isAuthenticated } from "@/lib/auth";
+import { requireStaffRole } from "@/lib/staff-auth";
+
+const STAFF_ROLES = ["administrator", "superadmin"] as const;
 import { requireDb } from "@/db";
 import { analyticsUsers, knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
 import { chunkDocument, extractDocumentText } from "@/lib/analytics-knowledge";
@@ -63,7 +65,7 @@ export async function grantAnalyticsAccess(
   _prev: GrantState,
   formData: FormData,
 ): Promise<GrantState> {
-  if (!(await isAuthenticated())) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return { ok: false, message: "Unauthorized" };
   const parsed = grantSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Name and a valid email are required." };
   const f = parsed.data;
@@ -121,7 +123,7 @@ export async function grantAnalyticsAccess(
 const userIdSchema = z.object({ userId: z.coerce.number().int().positive() });
 
 export async function setAnalyticsUserStatus(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return;
   const parsed = userIdSchema.safeParse(Object.fromEntries(formData));
   const status = String(formData.get("status") ?? "");
   if (!parsed.success || !["active", "disabled"].includes(status)) return;
@@ -134,7 +136,7 @@ export async function setAnalyticsUserStatus(formData: FormData): Promise<void> 
 }
 
 export async function deleteAnalyticsUser(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return;
   const parsed = userIdSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   const database = requireDb();
@@ -143,7 +145,7 @@ export async function deleteAnalyticsUser(formData: FormData): Promise<void> {
 }
 
 export async function setAnalyticsUserDailyLimit(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return;
   const parsed = z.object({
     userId: z.coerce.number().int().positive(),
     dailyLimit: z.coerce.number().int().min(1).max(1000),
@@ -154,7 +156,7 @@ export async function setAnalyticsUserDailyLimit(formData: FormData): Promise<vo
 }
 
 export async function setAnalyticsUserClient(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return;
   const parsed = z.object({ userId: z.coerce.number().int().positive(), clientId: z.string() }).safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
   const clientId = parsed.data.clientId ? Number(parsed.data.clientId) : null;
@@ -169,7 +171,7 @@ export async function uploadKnowledgeDocument(
   _prev: KnowledgeUploadState,
   formData: FormData,
 ): Promise<KnowledgeUploadState> {
-  if (!(await isAuthenticated())) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return { ok: false, message: "Unauthorized" };
   const file = formData.get("file");
   const requestedTitle = String(formData.get("title") ?? "").trim();
   const scope = String(formData.get("scope") ?? "global");
@@ -214,7 +216,7 @@ export async function uploadKnowledgeDocument(
 }
 
 export async function deleteKnowledgeDocument(formData: FormData): Promise<void> {
-  if (!(await isAuthenticated())) return;
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return;
   const id = Number(formData.get("documentId"));
   if (!Number.isInteger(id) || id <= 0) return;
   await requireDb().delete(knowledgeDocuments).where(eq(knowledgeDocuments.id, id));

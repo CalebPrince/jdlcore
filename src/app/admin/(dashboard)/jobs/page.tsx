@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { clients, jobs } from "@/db/schema";
+import { clients, inspectors, jobs } from "@/db/schema";
 import {
   Card,
   CardContent,
@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/card";
 import { CreateJobForm } from "@/components/admin/create-job-form";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
+import { getStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,29 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
-export default async function AdminJobsPage() {
+const BUCKETS: { key: string; label: string; statuses: JobStatus[] }[] = [
+  { key: "all", label: "All", statuses: [] },
+  { key: "unassigned", label: "New / Unassigned", statuses: ["awaiting_assignment"] },
+  { key: "assigned", label: "Assigned", statuses: ["assigned"] },
+  { key: "in_progress", label: "In Progress", statuses: ["inspector_accepted", "in_progress"] },
+  { key: "awaiting_approval", label: "Awaiting Approval", statuses: ["awaiting_approval"] },
+  { key: "rejected", label: "Rejected", statuses: ["rejected_amendment"] },
+  {
+    key: "approved",
+    label: "Approved / Billed",
+    statuses: ["approved", "report_issued", "invoice_issued", "paid"],
+  },
+  { key: "closed", label: "Closed", statuses: ["closed"] },
+];
+
+export default async function AdminJobsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ bucket?: string }>;
+}) {
+  const { bucket = "all" } = await searchParams;
+  const staff = await getStaff();
+
   let jobRows: Awaited<ReturnType<typeof loadJobs>> = [];
   let clientList: Awaited<ReturnType<typeof loadClients>> = [];
   let dbError = false;
@@ -28,6 +51,12 @@ export default async function AdminJobsPage() {
   } catch {
     dbError = true;
   }
+
+  const active = BUCKETS.find((b) => b.key === bucket) ?? BUCKETS[0];
+  const filtered =
+    active.statuses.length === 0
+      ? jobRows
+      : jobRows.filter((j) => active.statuses.includes(j.status as JobStatus));
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -38,7 +67,26 @@ export default async function AdminJobsPage() {
         </p>
       </div>
 
-      <CreateJobForm clients={clientList.map((c) => ({ id: c.id, name: c.name, company: c.company }))} />
+      {staff?.role !== "operations" && (
+        <CreateJobForm clients={clientList.map((c) => ({ id: c.id, name: c.name, company: c.company }))} />
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        {BUCKETS.map((b) => (
+          <Link
+            key={b.key}
+            href={b.key === "all" ? "/admin/jobs" : `/admin/jobs?bucket=${b.key}`}
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
+              b.key === active.key
+                ? "bg-navy-950 text-paper"
+                : "border text-ink-soft hover:bg-paper-deep"
+            }`}
+            style={b.key === active.key ? undefined : { borderColor: "var(--border)" }}
+          >
+            {b.label}
+          </Link>
+        ))}
+      </div>
 
       {dbError ? (
         <Card>
@@ -49,16 +97,16 @@ export default async function AdminJobsPage() {
       ) : (
         <Card>
           <CardHeader>
-            <CardTitle className="font-display">All Jobs ({jobRows.length})</CardTitle>
+            <CardTitle className="font-display">{active.label} ({filtered.length})</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-2.5">
-            {jobRows.length === 0 && (
+            {filtered.length === 0 && (
               <p className="m-0 rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground" style={{ borderColor: "var(--border)" }}>
-                No jobs yet — create the first one above.
+                No jobs in this bucket.
               </p>
             )}
-            {jobRows.map((j) => {
-              const meta = JOB_STATUS_META[j.status as JobStatus] ?? JOB_STATUS_META.submitted;
+            {filtered.map((j) => {
+              const meta = JOB_STATUS_META[j.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
               return (
                 <Link
                   key={j.id}
@@ -71,6 +119,9 @@ export default async function AdminJobsPage() {
                     <span className={`rounded-full px-3 py-0.5 text-xs font-bold ${meta.badgeClass}`}>
                       {meta.label}
                     </span>
+                    {j.inspectorName && (
+                      <span className="text-xs text-ink-faint">Inspector: {j.inspectorName}</span>
+                    )}
                     <span className="ml-auto text-xs text-ink-faint">
                       Updated {dateFmt.format(new Date(j.updatedAt))}
                     </span>
@@ -103,9 +154,11 @@ async function loadJobs() {
       updatedAt: jobs.updatedAt,
       clientName: clients.name,
       clientCompany: clients.company,
+      inspectorName: inspectors.name,
     })
     .from(jobs)
     .innerJoin(clients, eq(jobs.clientId, clients.id))
+    .leftJoin(inspectors, eq(jobs.assignedInspectorId, inspectors.id))
     .orderBy(desc(jobs.updatedAt));
 }
 

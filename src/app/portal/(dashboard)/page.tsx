@@ -39,10 +39,10 @@ export default async function PortalDashboardPage() {
     /* render empty state */
   }
 
-  const active = jobList.filter(
-    (j) => j.status !== "closed" && j.status !== "cancelled",
+  const active = jobList.filter((j) => j.status !== "closed").length;
+  const readyDocs = jobList.filter(
+    (j) => j.status === "report_issued" || j.status === "invoice_issued" || j.status === "paid",
   ).length;
-  const readyDocs = jobList.filter((j) => j.status === "report_ready").length;
 
   return (
     <div className="flex flex-col gap-7">
@@ -93,7 +93,7 @@ export default async function PortalDashboardPage() {
           <ul className="flex flex-col gap-3">
             {jobList.map((job) => {
               const meta = JOB_STATUS_META[job.status as JobStatus] ??
-                JOB_STATUS_META.submitted;
+                JOB_STATUS_META.awaiting_assignment;
               return (
                 <li key={job.id}>
                   <Link
