@@ -6,8 +6,13 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { clients, inspectors, jobCompletionData, jobUpdates, jobs, stockReadings } from "@/db/schema";
-import { createInspectorSession, destroyInspectorSession, getInspector } from "@/lib/inspector-auth";
-import { verifyPassword } from "@/lib/portal-auth";
+import {
+  createInspectorSession,
+  destroyInspectorSession,
+  getInspector,
+  verifyInspectorSetupToken,
+} from "@/lib/inspector-auth";
+import { hashPassword, verifyPassword } from "@/lib/portal-auth";
 import { canTransition, type Actor } from "@/lib/job-workflow";
 import type { JobStatus } from "@/lib/jobs";
 import { notify } from "@/lib/notifications";
@@ -48,6 +53,43 @@ export async function inspectorLogin(_prev: FormState, formData: FormData): Prom
 export async function inspectorLogout(): Promise<void> {
   await destroyInspectorSession();
   redirect("/inspector/login");
+}
+
+const setupSchema = z.object({
+  token: z.string().trim().max(96),
+  password: z.string().min(8).max(200),
+});
+
+export async function completeInspectorSetup(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const parsed = setupSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail("Password must be at least 8 characters.");
+
+  const row = await verifyInspectorSetupToken(parsed.data.token);
+  if (!row) {
+    return initialFail("This invite link is invalid or has expired. Ask Operations for a fresh one.");
+  }
+
+  try {
+    const database = requireDb();
+    await database
+      .update(inspectors)
+      .set({
+        passwordHash: hashPassword(parsed.data.password),
+        status: "active",
+        setupToken: null,
+        setupTokenExpires: null,
+        lastLoginAt: new Date(),
+      })
+      .where(eq(inspectors.id, row.id));
+    await createInspectorSession(row.id);
+  } catch (err) {
+    console.error("completeInspectorSetup:", err);
+    return initialFail("Could not finish setup. Try again shortly.");
+  }
+  redirect("/inspector");
 }
 
 async function loadOwnJob(jobId: number, inspectorId: number) {

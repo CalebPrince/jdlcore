@@ -1,12 +1,13 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { and, eq, gt } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { inspectors } from "@/db/schema";
 
 const COOKIE_NAME = "jdl_inspector";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 7; // one week
+const SETUP_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 function secret(): string {
   return `inspector:${process.env.SESSION_SECRET ?? "jdlcore-dev-secret-change-me"}`;
@@ -70,4 +71,32 @@ export async function getInspector() {
 
 export function inspectorCookieName(): string {
   return COOKIE_NAME;
+}
+
+export async function issueInspectorSetupToken(inspectorId: number): Promise<string> {
+  const token = randomBytes(24).toString("hex");
+  await requireDb()
+    .update(inspectors)
+    .set({
+      setupToken: token,
+      setupTokenExpires: new Date(Date.now() + SETUP_TOKEN_TTL_MS),
+      status: "invited",
+      passwordHash: null,
+    })
+    .where(eq(inspectors.id, inspectorId));
+  return token;
+}
+
+export async function verifyInspectorSetupToken(token: string) {
+  if (!/^[a-f0-9]{48}$/.test(token)) return null;
+  try {
+    const rows = await requireDb()
+      .select()
+      .from(inspectors)
+      .where(and(eq(inspectors.setupToken, token), gt(inspectors.setupTokenExpires, new Date())))
+      .limit(1);
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
 }

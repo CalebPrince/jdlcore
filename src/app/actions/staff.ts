@@ -5,7 +5,13 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { staff } from "@/db/schema";
-import { createStaffSession, destroyStaffSession, verifyPassword } from "@/lib/staff-auth";
+import {
+  createStaffSession,
+  destroyStaffSession,
+  hashPassword,
+  verifyPassword,
+  verifyStaffSetupToken,
+} from "@/lib/staff-auth";
 
 export type StaffLoginState = { ok: boolean; message: string };
 
@@ -58,4 +64,41 @@ export async function staffLogin(
 export async function staffLogout(): Promise<void> {
   await destroyStaffSession();
   redirect("/admin/login");
+}
+
+const setupSchema = z.object({
+  token: z.string().trim().max(96),
+  password: z.string().min(8).max(200),
+});
+
+export async function completeStaffSetup(
+  _prev: StaffLoginState,
+  formData: FormData,
+): Promise<StaffLoginState> {
+  const parsed = setupSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Password must be at least 8 characters." };
+
+  const row = await verifyStaffSetupToken(parsed.data.token);
+  if (!row) {
+    return { ok: false, message: "This invite link is invalid or has expired. Ask an administrator for a fresh one." };
+  }
+
+  try {
+    const database = requireDb();
+    await database
+      .update(staff)
+      .set({
+        passwordHash: hashPassword(parsed.data.password),
+        status: "active",
+        setupToken: null,
+        setupTokenExpires: null,
+        lastLoginAt: new Date(),
+      })
+      .where(eq(staff.id, row.id));
+    await createStaffSession(row.id);
+  } catch (err) {
+    console.error("completeStaffSetup:", err);
+    return { ok: false, message: "Could not finish setup. Try again shortly." };
+  }
+  redirect("/admin");
 }

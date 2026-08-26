@@ -1,10 +1,12 @@
 import "server-only";
 import { cookies } from "next/headers";
-import { createHmac, timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { and, eq, gt } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { staff } from "@/db/schema";
 import { hashPassword, verifyPassword } from "@/lib/portal-auth";
+
+const SETUP_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
 
 export { hashPassword, verifyPassword };
 
@@ -82,4 +84,32 @@ export async function requireStaffRole(roles: StaffRole[]) {
 
 export function staffCookieName(): string {
   return COOKIE_NAME;
+}
+
+export async function issueStaffSetupToken(staffId: number): Promise<string> {
+  const token = randomBytes(24).toString("hex");
+  await requireDb()
+    .update(staff)
+    .set({
+      setupToken: token,
+      setupTokenExpires: new Date(Date.now() + SETUP_TOKEN_TTL_MS),
+      status: "invited",
+      passwordHash: null,
+    })
+    .where(eq(staff.id, staffId));
+  return token;
+}
+
+export async function verifyStaffSetupToken(token: string) {
+  if (!/^[a-f0-9]{48}$/.test(token)) return null;
+  try {
+    const rows = await requireDb()
+      .select()
+      .from(staff)
+      .where(and(eq(staff.setupToken, token), gt(staff.setupTokenExpires, new Date())))
+      .limit(1);
+    return rows[0] ?? null;
+  } catch {
+    return null;
+  }
 }
