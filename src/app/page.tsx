@@ -116,7 +116,10 @@ export default async function HomePage() {
             and we&apos;ll point you the right way.
           </p>
           <p className="mt-4 text-[0.72rem] tracking-[0.02em] text-ink-faint">
-            © {new Date().getFullYear()} JDL Core. All rights reserved.
+            © {new Date().getFullYear()} JDL Core. All rights reserved. ·{" "}
+            <a href="/admin/login" className="hover:text-gold-600">
+              Staff Login
+            </a>
           </p>
         </div>
       </div>

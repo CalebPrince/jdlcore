@@ -329,6 +329,8 @@ export default async function InspectionPage() {
         thisDivision={[
           { href: "/inspection#process", label: "Our Process" },
           { href: "/inspection#quote", label: "Request an Inspection" },
+          { href: "/portal/login", label: "Client Portal Login" },
+          { href: "/inspector/login", label: "Inspector Login" },
         ]}
       />
 

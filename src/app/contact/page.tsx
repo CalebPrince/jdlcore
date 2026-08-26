@@ -165,6 +165,7 @@ export default async function ContactPage() {
         thisDivision={[
           { href: "#form", label: "Send a Message" },
           { href: wa, label: "Message on WhatsApp" },
+          { href: "/admin/login", label: "Staff Login" },
         ]}
       />
 
