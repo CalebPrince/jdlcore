@@ -1,10 +1,5 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { SiteHeader } from "@/components/site-header";
-import { SiteFooter } from "@/components/site-footer";
-import { ChatWidget } from "@/components/chat-widget";
-import { Reveal } from "@/components/reveal";
-import { OverviewMockup } from "@/components/mockups";
 import { getContactSettings } from "@/lib/settings";
 
 export const metadata: Metadata = {
@@ -13,216 +8,114 @@ export const metadata: Metadata = {
     "JDL Core is a group of three oil & gas focused businesses: independent inspection services, an industry-data analytics platform, and an education academy.",
 };
 
+const companies = [
+  {
+    href: "/inspection",
+    name: "Inspection Services",
+    tag: "Flagship",
+    logo: "/logo-inspection.png",
+    logoAlt: "JDL Core Inspection Services logo",
+    blurb: "Independent tank gauging, stock monitoring & quantity verification.",
+  },
+  {
+    href: "/analytics",
+    name: "Analytics",
+    tag: "Live Beta",
+    logo: "/logo-analytics.png",
+    logoAlt: "JDL Core Analytics logo",
+    blurb: "Industry-data intelligence, on demand — not a static report.",
+  },
+  {
+    href: "/academy",
+    name: "Academy",
+    tag: "Now Enrolling",
+    logo: null,
+    logoAlt: undefined,
+    blurb: "Oil & gas training, built by the people who do the inspections.",
+  },
+];
+
 export default async function HomePage() {
   const settings = await getContactSettings();
+
   return (
-    <>
-      <SiteHeader
-        cta={{ href: "/inspection#quote", label: "Get Started" }}
-        showAdminLogin
-      />
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-20 text-center">
+      <div className="hero-glow" />
 
-      <main>
-        {/* ============ HERO ============ */}
-        <section className="relative overflow-hidden pt-24 pb-18">
-          <div className="hero-glow" />
-          <div className="wrap relative grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
-            <Reveal className="max-w-[720px]">
-              <p className="eyebrow">The JDL Core Group</p>
-              <h1 className="text-[clamp(2.2rem,4.4vw,3.4rem)] font-bold">
-                Our Standard: <span className="text-gold-600">Accuracy, Integrity</span> &amp; Industry Expertise
-              </h1>
-              <p className="mt-4 max-w-[560px] text-[1.1rem] text-ink-soft">
-                JDL Core brings independent inspection, industry data
-                intelligence, and hands-on training together under one standard:
-                accurate numbers, honest reporting, and people who know the oil
-                &amp; gas value chain from the ground up.
-              </p>
-              <div className="mt-7 mb-2 flex flex-wrap gap-3.5">
-                <Link href="/inspection" className="btn-gold btn-gold-lg">
-                  Explore Inspection Services
-                </Link>
-                <Link href="#divisions" className="btn-ghost btn-lg px-8 py-4 text-base">
-                  See All Divisions
-                </Link>
+      <div className="wrap relative flex flex-col items-center">
+        <p className="eyebrow">The JDL Core Group</p>
+        <h1 className="mb-2 text-[clamp(2rem,4vw,2.8rem)] font-bold">JDL Core</h1>
+        <p className="mb-3 text-[1.05rem] font-semibold text-gold-600 italic">Integrity at the Core</p>
+        <p className="mb-10 max-w-[520px] text-ink-soft">
+          Independent inspection, industry data analytics, and oil &amp; gas
+          education — three divisions, one standard of integrity.
+        </p>
+
+        <div
+          className="mb-10 inline-flex items-center gap-2 rounded-full border bg-paper-deep px-4 py-2 text-[0.8rem] text-ink-soft"
+          style={{ borderColor: "var(--border)" }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="shrink-0 text-gold-600"
+          >
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            <polyline points="15 3 21 3 21 9" />
+            <line x1="10" y1="14" x2="21" y2="3" />
+          </svg>
+          Click a company below to open its site in a new tab
+        </div>
+
+        <div className="grid w-full max-w-[980px] grid-cols-1 gap-6 sm:grid-cols-3">
+          {companies.map((company) => (
+            <Link
+              key={company.href}
+              href={company.href}
+              target="_blank"
+              rel="noreferrer"
+              title={company.name}
+              className="group flex flex-col items-center rounded-[var(--radius)] border bg-white p-7 text-center shadow-[var(--shadow-sm-soft)] transition-all duration-250 [transition-timing-function:var(--ease-jdl)] hover:-translate-y-1 hover:shadow-[var(--shadow-md-soft)]"
+              style={{ borderColor: "var(--border)" }}
+            >
+              <span className="mb-4 inline-block rounded-full bg-navy-100 px-[0.8em] py-[0.3em] text-[0.68rem] font-bold tracking-[0.06em] text-navy-800 uppercase">
+                {company.tag}
+              </span>
+              <div className="mb-4 flex h-16 w-full items-center justify-center">
+                {company.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={company.logo} alt={company.logoAlt} className="max-h-full max-w-full object-contain" />
+                ) : (
+                  <span className="font-display text-lg font-bold text-navy-950">JDL Core Academy</span>
+                )}
               </div>
-            </Reveal>
+              <h3 className="text-lg font-bold">{company.name}</h3>
+              <p className="mt-1 flex-grow text-[0.85rem] text-ink-soft">{company.blurb}</p>
+              <span className="link-arrow mt-4 text-[0.85rem]">Visit site →</span>
+            </Link>
+          ))}
+        </div>
 
-            <Reveal className="max-lg:max-w-[520px] max-lg:mx-auto w-full">
-              <OverviewMockup />
-            </Reveal>
-          </div>
-        </section>
-
-        {/* ============ DIVISIONS ============ */}
-        <section id="divisions" className="scroll-mt-20 py-21">
-          <div className="wrap">
-            <Reveal className="mb-11">
-              <p className="eyebrow">Our Divisions</p>
-              <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
-                Three Companies Working the Same Value Chain
-              </h2>
-              <p className="max-w-[640px] text-ink-soft">
-                Each division stands on its own, built around one part of the
-                same problem: giving oil &amp; gas operators numbers and
-                knowledge they can trust.
-              </p>
-            </Reveal>
-
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-              <Reveal className="h-full">
-                <DivisionCard
-                  logo="/logo-inspection.png"
-                  logoAlt="JDL Core Inspection Services logo"
-                  tag="Flagship"
-                  title="Inspection Services"
-                  body="Independent stock monitoring, collateral verification, tank & depot inspections, and quantity assurance across the oil & gas and commodity value chains."
-                  link={{ href: "/inspection", label: "Explore Inspection Services →" }}
-                />
-              </Reveal>
-              <Reveal className="h-full">
-                <DivisionCard
-                  logo="/logo-analytics.png"
-                  logoAlt="JDL Core Analytics logo"
-                  tag="Live Beta"
-                  title="Analytics"
-                  body="A subscription platform where clients chat with an industry-data assistant fed on JDL Core's own inspection and market data — insight on demand, not a static report."
-                  link={{ href: "/analytics", label: "Explore Analytics →" }}
-                />
-              </Reveal>
-              <Reveal className="h-full">
-                <DivisionCard
-                  tag="Now Enrolling"
-                  title="Academy"
-                  body="An oil & gas education center: structured tutorials and practice tests built by the same people who perform the inspections, aimed at industry newcomers and working professionals."
-                  link={{ href: "/academy", label: "Explore Academy →" }}
-                />
-              </Reveal>
-            </div>
-          </div>
-        </section>
-
-        {/* ============ WHY JDL CORE ============ */}
-        <section className="bg-paper-deep py-21">
-          <div className="wrap grid items-start gap-12 lg:grid-cols-[1.1fr_0.9fr]">
-            <Reveal>
-              <p className="eyebrow">Why JDL Core</p>
-              <h2 className="text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
-                Built by People Who Work the Value Chain, Not Around It
-              </h2>
-              <p className="mt-4">
-                JDL Core started as an inspection company because operators kept
-                running into the same problem: numbers that didn&apos;t add up,
-                and nobody independent to check them. The Analytics and Academy
-                divisions grew out of the same insight, that good data and real
-                training are just as scarce as an honest inspection.
-              </p>
-              <ul className="checklist mt-4 list-none p-0">
-                <li>Independent, third-party verification — no conflict of interest with either side of a transaction</li>
-                <li>Field-tested processes, documented at every step</li>
-                <li>One standard of integrity applied across all three divisions</li>
-              </ul>
-              <Link href="/inspection#services" className="link-arrow mt-2 inline-block">
-                See how inspections work →
-              </Link>
-            </Reveal>
-
-            <Reveal className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <div className="rounded-[var(--radius)] border bg-white p-5.5 shadow-[var(--shadow-sm-soft)]" style={{ borderColor: "var(--border)" }}>
-                <h4 className="font-display font-bold">Inspection Services</h4>
-                <p className="m-0 text-[0.92rem] text-ink-soft">
-                  Live and taking requests. Ten inspection and verification
-                  services across the oil &amp; gas value chain.
-                </p>
-              </div>
-              <div className="rounded-[var(--radius)] border bg-white p-5.5 shadow-[var(--shadow-sm-soft)]" style={{ borderColor: "var(--border)" }}>
-                <h4 className="font-display font-bold">Analytics &amp; Academy</h4>
-                <p className="m-0 text-[0.92rem] text-ink-soft">
-                  Analytics is open to approved beta subscribers, and Academy
-                  learners can register, take courses, and earn certificates now.
-                </p>
-              </div>
-            </Reveal>
-          </div>
-        </section>
-
-        {/* ============ FINAL CTA ============ */}
-        <section className="section-dark py-21">
-          <div className="wrap mx-auto max-w-[680px] text-center">
-            <Reveal>
-              <p className="eyebrow !text-gold-300">Ready When You Are</p>
-              <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">Start With an Inspection Request</h2>
-              <p className="max-w-[640px] mx-auto text-[rgba(248,247,243,0.78)]">
-                Inspection Services is the division open for business today.
-                Reach out and we&apos;ll walk you through how the request and
-                reporting process works.
-              </p>
-              <div className="mt-7 flex flex-wrap justify-center gap-3.5">
-                <Link href="/inspection#quote" className="btn-gold btn-gold-lg">
-                  Request an Inspection
-                </Link>
-                <Link href="/inspection#services" className="inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] border-[rgba(246,207,110,0.5)] px-8 py-4 text-base font-semibold whitespace-nowrap text-paper transition-colors hover:bg-[rgba(246,207,110,0.12)] hover:border-gold-300">
-                  View Services
-                </Link>
-              </div>
-            </Reveal>
-          </div>
-        </section>
-      </main>
-
-      <SiteFooter
-        settings={settings}
-        brandLine="Independent inspection, industry data analytics, and oil & gas education — one standard of integrity, three divisions."
-        divisionLinks={[
-          { href: "/inspection", label: "Inspection Services" },
-          { href: "/analytics", label: "Analytics" },
-          { href: "/academy", label: "Academy" },
-        ]}
-      />
-
-      <ChatWidget phoneHref={settings.phoneHref} />
-    </>
-  );
-}
-
-function DivisionCard({
-  logo,
-  logoAlt,
-  tag,
-  tagSoon,
-  title,
-  body,
-  link,
-}: {
-  logo?: string;
-  logoAlt?: string;
-  tag: string;
-  tagSoon?: boolean;
-  title: string;
-  body: string;
-  link: { href: string; label: string };
-}) {
-  return (
-    <div
-      className="group flex h-full flex-col items-start rounded-[var(--radius)] border bg-white p-8 shadow-[var(--shadow-sm-soft)] transition-all duration-250 [transition-timing-function:var(--ease-jdl)] hover:-translate-y-1 hover:shadow-[var(--shadow-md-soft)]"
-      style={{ borderColor: "var(--border)" }}
-    >
-      {logo && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt={logoAlt} className="mb-4.5 h-14 w-auto self-start" />
-      )}
-      <span
-        className={`mb-3 inline-block rounded-full px-[0.8em] py-[0.3em] text-[0.72rem] font-bold tracking-[0.06em] uppercase ${
-          tagSoon ? "badge-soon" : "bg-navy-100 text-navy-800"
-        }`}
-      >
-        {tag}
-      </span>
-      <h3 className="text-xl font-bold">{title}</h3>
-      <p className="flex-grow text-ink-soft">{body}</p>
-      <Link href={link.href} className="link-arrow mt-2">
-        {link.label}
-      </Link>
-    </div>
+        <div className="mt-16 w-full max-w-[520px] border-t pt-8" style={{ borderColor: "var(--border)" }}>
+          <p className="text-[0.85rem] text-ink-soft">
+            Not sure where to start?{" "}
+            <a href={`mailto:${settings.emailInfo}`} className="link-arrow">
+              Email us
+            </a>{" "}
+            and we&apos;ll point you the right way.
+          </p>
+          <p className="mt-4 text-[0.72rem] tracking-[0.02em] text-ink-faint">
+            © {new Date().getFullYear()} JDL Core. All rights reserved.
+          </p>
+        </div>
+      </div>
+    </main>
   );
 }
