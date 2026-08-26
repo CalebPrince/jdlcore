@@ -11,6 +11,7 @@ import {
 import { CreateJobForm } from "@/components/admin/create-job-form";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { getStaff } from "@/lib/staff-auth";
+import { flagOverdueInvoices } from "@/lib/overdue-invoices";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export default async function AdminJobsPage({
 }) {
   const { bucket = "all" } = await searchParams;
   const staff = await getStaff();
+  void flagOverdueInvoices();
 
   let jobRows: Awaited<ReturnType<typeof loadJobs>> = [];
   let clientList: Awaited<ReturnType<typeof loadClients>> = [];

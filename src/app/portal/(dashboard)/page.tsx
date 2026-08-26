@@ -11,6 +11,7 @@ import { jobs, invoices } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { Card, CardContent } from "@/components/ui/card";
+import { flagOverdueInvoices } from "@/lib/overdue-invoices";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,7 @@ const timeFmt = new Intl.DateTimeFormat("en-GB", {
 export default async function PortalDashboardPage() {
   const client = await getPortalClient();
   if (!client) return null;
+  void flagOverdueInvoices();
 
   let jobList: Awaited<ReturnType<typeof loadJobs>> = [];
   let unpaidCount = 0;
@@ -46,14 +48,19 @@ export default async function PortalDashboardPage() {
 
   return (
     <div className="flex flex-col gap-7">
-      <div>
-        <h1 className="font-display text-[1.6rem] font-bold text-navy-950">
-          Welcome back, {client.name.split(" ")[0]}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Track every inspection job, download reports and Certificates of
-          Quantity, and keep an eye on invoices.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="font-display text-[1.6rem] font-bold text-navy-950">
+            Welcome back, {client.name.split(" ")[0]}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Track every inspection job, download reports and Certificates of
+            Quantity, and keep an eye on invoices.
+          </p>
+        </div>
+        <Link href="/portal/request" className="btn-gold shrink-0">
+          Request a Service
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

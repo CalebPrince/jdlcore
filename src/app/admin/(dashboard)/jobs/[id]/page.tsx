@@ -9,6 +9,7 @@ import {
   documents,
   inspectors,
   invoices,
+  jobComments,
   jobCompletionData,
   jobUpdates,
   jobs,
@@ -85,7 +86,7 @@ export default async function AdminJobDetailPage({
   const job = rows[0].job;
   const client = rows[0].client;
 
-  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq] =
+  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments] =
     await Promise.all([
       database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt)),
       database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt)),
@@ -101,6 +102,7 @@ export default async function AdminJobDetailPage({
       database.select().from(tanks).where(eq(tanks.clientId, job.clientId)),
       database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate)),
       database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
+      database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(desc(jobComments.createdAt)),
     ]);
 
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
@@ -277,7 +279,22 @@ export default async function AdminJobDetailPage({
                         </a>
                       </div>
                       {inv.status === "payment_submitted" && (
-                        <PaymentActionPanel jobId={job.id} invoiceId={inv.id} />
+                        <div className="flex flex-col gap-2">
+                          <a
+                            href={`/api/invoices/${inv.id}/receipt`}
+                            className="text-xs font-semibold text-navy-700 underline-offset-2 hover:underline"
+                            download
+                          >
+                            View submitted receipt
+                          </a>
+                          {inv.paymentReference && (
+                            <p className="m-0 text-xs text-muted-foreground">Reference: {inv.paymentReference}</p>
+                          )}
+                          {inv.clientComment && (
+                            <p className="m-0 text-xs text-muted-foreground">Client note: {inv.clientComment}</p>
+                          )}
+                          <PaymentActionPanel jobId={job.id} invoiceId={inv.id} />
+                        </div>
                       )}
                       {inv.status !== "paid" && inv.status !== "payment_submitted" && (
                         <InvoiceReminderButton invoiceId={inv.id} jobId={job.id} />
@@ -327,6 +344,25 @@ export default async function AdminJobDetailPage({
         )}
 
       </div>
+
+      {comments.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">Comments</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2.5">
+            {comments.map((c) => (
+              <div key={c.id} className="rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="text-sm font-semibold text-navy-950">{c.authorName}</span>
+                  <span className="text-xs text-ink-faint">{dateFmt.format(new Date(c.createdAt))}</span>
+                </div>
+                <p className="m-0 mt-1 text-sm text-ink-soft">{c.body}</p>
+              </div>
+            ))}
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
