@@ -9,6 +9,7 @@ import {
   index,
   uniqueIndex,
   date,
+  numeric,
 } from "drizzle-orm/pg-core";
 
 export const settings = pgTable("settings", {
@@ -60,6 +61,80 @@ export const clients = pgTable(
   (table) => [index("clients_email_idx").on(table.email)],
 );
 
+/**
+ * Internal staff accounts for /admin (superadmin | administrator | operations).
+ * Invite/setup-token pattern, mirrors analyticsUsers: passwordHash is null until
+ * the invited person completes setup via their emailed link.
+ */
+export const staff = pgTable(
+  "staff",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    role: text("role").notNull().default("operations"), // superadmin | administrator | operations
+    passwordHash: text("password_hash"),
+    setupToken: text("setup_token").unique(),
+    setupTokenExpires: timestamp("setup_token_expires", { withTimezone: true }),
+    status: text("status").notNull().default("invited"), // invited | active | disabled
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("staff_email_idx").on(table.email),
+    index("staff_status_idx").on(table.status),
+    index("staff_role_idx").on(table.role),
+  ],
+);
+
+/**
+ * Field inspectors — their own portal, own login, distinct from admin staff.
+ */
+export const inspectors = pgTable(
+  "inspectors",
+  {
+    id: serial("id").primaryKey(),
+    name: text("name").notNull(),
+    email: text("email").notNull().unique(),
+    phone: text("phone"),
+    passwordHash: text("password_hash"),
+    setupToken: text("setup_token").unique(),
+    setupTokenExpires: timestamp("setup_token_expires", { withTimezone: true }),
+    status: text("status").notNull().default("invited"), // invited | active | disabled
+    active: boolean("active").notNull().default(true), // operational on/off, independent of invite status
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("inspectors_email_idx").on(table.email),
+    index("inspectors_status_idx").on(table.status),
+    index("inspectors_active_idx").on(table.active),
+  ],
+);
+
+/**
+ * Administrator-managed service catalogue (section 2.2 / 16 of the client's
+ * requirements doc): pricing shown to clients, keyed by jobs.serviceType.
+ */
+export const services = pgTable(
+  "services",
+  {
+    id: serial("id").primaryKey(),
+    key: text("key").notNull().unique(),
+    label: text("label").notNull(),
+    description: text("description"),
+    pricingLabel: text("pricing_label"), // free text, e.g. "From GHS 1,200 per inspection"
+    defaultPriceCents: integer("default_price_cents"),
+    active: boolean("active").notNull().default(true),
+    position: integer("position").notNull().default(0),
+  },
+  (table) => [index("services_active_idx").on(table.active)],
+);
+
 export const jobs = pgTable(
   "jobs",
   {
@@ -69,10 +144,28 @@ export const jobs = pgTable(
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     service: text("service").notNull(),
+    serviceType: text("service_type"), // key into `services`, e.g. "stock_monitoring"
     location: text("location"),
     cargoType: text("cargo_type"),
+    product: text("product"),
+    tankOrDepot: text("tank_or_depot"),
+    requestedDate: timestamp("requested_date", { withTimezone: true }),
+    clientRef: text("client_ref"),
     notes: text("notes"),
-    status: text("status").notNull().default("submitted"),
+    status: text("status").notNull().default("awaiting_assignment"),
+    assignedInspectorId: integer("assigned_inspector_id").references(() => inspectors.id, {
+      onDelete: "set null",
+    }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }),
+    acceptedAt: timestamp("accepted_at", { withTimezone: true }),
+    approvedAt: timestamp("approved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    approvedByStaffId: integer("approved_by_staff_id").references(() => staff.id, {
+      onDelete: "set null",
+    }),
+    closedByStaffId: integer("closed_by_staff_id").references(() => staff.id, {
+      onDelete: "set null",
+    }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -83,9 +176,16 @@ export const jobs = pgTable(
   (table) => [
     index("jobs_client_idx").on(table.clientId),
     index("jobs_status_idx").on(table.status),
+    index("jobs_inspector_idx").on(table.assignedInspectorId),
+    index("jobs_service_type_idx").on(table.serviceType),
   ],
 );
 
+/**
+ * Append-only status/audit timeline. actorType/actorId/actorName record WHO made
+ * each change (added for the multi-role workflow — previously only admin could
+ * change status via one shared login, so there was no "who" to record).
+ */
 export const jobUpdates = pgTable(
   "job_updates",
   {
@@ -95,11 +195,146 @@ export const jobUpdates = pgTable(
       .references(() => jobs.id, { onDelete: "cascade" }),
     status: text("status").notNull(),
     note: text("note"),
+    actorType: text("actor_type").notNull().default("system"), // client | inspector | staff | system
+    actorId: integer("actor_id"),
+    actorName: text("actor_name").notNull().default("JDL Core"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
   },
   (table) => [index("job_updates_job_idx").on(table.jobId)],
+);
+
+/** One row per job — section 7's completion data entry. */
+export const jobCompletionData = pgTable(
+  "job_completion_data",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .unique()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    dateTimeStarted: timestamp("date_time_started", { withTimezone: true }),
+    dateTimeCompleted: timestamp("date_time_completed", { withTimezone: true }),
+    service: text("service"),
+    gov: numeric("gov", { precision: 14, scale: 3 }),
+    gsv: numeric("gsv", { precision: 14, scale: 3 }),
+    metricTonnesAir: numeric("metric_tonnes_air", { precision: 14, scale: 3 }),
+    metricTonnesVacuum: numeric("metric_tonnes_vacuum", { precision: 14, scale: 3 }),
+    inspectorComments: text("inspector_comments"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("job_completion_job_idx").on(table.jobId)],
+);
+
+/** Static tank reference data for a client's site/depot (section 14). */
+export const tanks = pgTable(
+  "tanks",
+  {
+    id: serial("id").primaryKey(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => clients.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    product: text("product"),
+    depot: text("depot"),
+    capacity: numeric("capacity", { precision: 14, scale: 3 }),
+    capacityUnit: text("capacity_unit").notNull().default("MT"),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("tanks_client_idx").on(table.clientId)],
+);
+
+/** Recurring per-tank readings an inspector logs through a Stock Monitoring job. */
+export const stockReadings = pgTable(
+  "stock_readings",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    tankId: integer("tank_id")
+      .notNull()
+      .references(() => tanks.id, { onDelete: "cascade" }),
+    readingDate: timestamp("reading_date", { withTimezone: true }).notNull(),
+    openingStock: numeric("opening_stock", { precision: 14, scale: 3 }),
+    receipts: numeric("receipts", { precision: 14, scale: 3 }),
+    transfers: numeric("transfers", { precision: 14, scale: 3 }),
+    dischargesLoads: numeric("discharges_loads", { precision: 14, scale: 3 }),
+    closingStock: numeric("closing_stock", { precision: 14, scale: 3 }),
+    gsv: numeric("gsv", { precision: 14, scale: 3 }),
+    notes: text("notes"),
+    recordedByInspectorId: integer("recorded_by_inspector_id").references(() => inspectors.id, {
+      onDelete: "set null",
+    }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("stock_readings_job_idx").on(table.jobId),
+    index("stock_readings_tank_idx").on(table.tankId),
+    index("stock_readings_date_idx").on(table.readingDate),
+  ],
+);
+
+/** Client-visible comment thread on a job (section 3) — distinct from the system jobUpdates timeline. */
+export const jobComments = pgTable(
+  "job_comments",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    authorType: text("author_type").notNull(), // client | inspector | staff
+    authorId: integer("author_id"),
+    authorName: text("author_name").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("job_comments_job_idx").on(table.jobId)],
+);
+
+/** Certificate of Quantity — one per approved job (section 12). */
+export const certificates = pgTable(
+  "certificates",
+  {
+    id: serial("id").primaryKey(),
+    coqNumber: text("coq_number").notNull().unique(),
+    jobId: integer("job_id")
+      .notNull()
+      .unique()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    issuedByStaffId: integer("issued_by_staff_id").references(() => staff.id, {
+      onDelete: "set null",
+    }),
+    remarks: text("remarks"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("certificates_job_idx").on(table.jobId)],
+);
+
+/** In-app notifications (section 15) — email leg still goes through sendNotification separately. */
+export const notifications = pgTable(
+  "notifications",
+  {
+    id: serial("id").primaryKey(),
+    recipientType: text("recipient_type").notNull(), // client | inspector | staff
+    recipientId: integer("recipient_id").notNull(),
+    jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body"),
+    link: text("link"),
+    read: boolean("read").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("notifications_recipient_idx").on(table.recipientType, table.recipientId, table.read),
+    index("notifications_created_idx").on(table.createdAt),
+  ],
 );
 
 export const documents = pgTable(
@@ -132,11 +367,23 @@ export const invoices = pgTable(
     amountCents: integer("amount_cents").notNull(),
     currency: text("currency").notNull().default("GHS"),
     dueDate: timestamp("due_date", { withTimezone: true }),
-    status: text("status").notNull().default("sent"), // draft | sent | paid
+    // pending | payment_submitted | payment_verified | paid | payment_rejected
+    status: text("status").notNull().default("pending"),
     issuedAt: timestamp("issued_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
     paidAt: timestamp("paid_at", { withTimezone: true }),
+    receiptFileData: text("receipt_file_data"), // base64 data URL, same pattern as documents.fileData
+    receiptMimeType: text("receipt_mime_type"),
+    paymentReference: text("payment_reference"),
+    clientComment: text("client_comment"),
+    paymentSubmittedAt: timestamp("payment_submitted_at", { withTimezone: true }),
+    paymentVerifiedAt: timestamp("payment_verified_at", { withTimezone: true }),
+    verifiedByStaffId: integer("verified_by_staff_id").references(() => staff.id, {
+      onDelete: "set null",
+    }),
+    paymentRejectedReason: text("payment_rejected_reason"),
+    overdueNotifiedAt: timestamp("overdue_notified_at", { withTimezone: true }),
   },
   (table) => [
     index("invoices_job_idx").on(table.jobId),
@@ -461,8 +708,17 @@ export const academyCertificates = pgTable(
 export type Submission = typeof submissions.$inferSelect;
 export type NewSubmission = typeof submissions.$inferInsert;
 export type Client = typeof clients.$inferSelect;
+export type Staff = typeof staff.$inferSelect;
+export type Inspector = typeof inspectors.$inferSelect;
+export type Service = typeof services.$inferSelect;
 export type Job = typeof jobs.$inferSelect;
 export type JobUpdate = typeof jobUpdates.$inferSelect;
+export type JobCompletionData = typeof jobCompletionData.$inferSelect;
+export type Tank = typeof tanks.$inferSelect;
+export type StockReading = typeof stockReadings.$inferSelect;
+export type JobComment = typeof jobComments.$inferSelect;
+export type Certificate = typeof certificates.$inferSelect;
+export type Notification = typeof notifications.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type EmailLog = typeof emailLog.$inferSelect;
