@@ -158,7 +158,7 @@ export async function createJob(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole([...OPS_ROLES]))) return initialFail("Unauthorized");
+  if (!(await requireStaffRole([...ADMIN_ROLES]))) return initialFail("Unauthorized");
   const parsed = jobSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Please fill in client and service.");
   const f = parsed.data;

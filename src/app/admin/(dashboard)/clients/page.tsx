@@ -1,3 +1,4 @@
+import { notFound } from "next/navigation";
 import { desc } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { clients } from "@/db/schema";
@@ -11,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { toggleClientActive } from "@/app/actions/portal-admin";
 import { CreateClientForm, ResetPasswordForm } from "@/components/admin/portal-client-forms";
+import { getStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +23,9 @@ const dateFmt = new Intl.DateTimeFormat("en-GB", {
 });
 
 export default async function AdminClientsPage() {
+  const current = await getStaff();
+  if (!current || (current.role !== "administrator" && current.role !== "superadmin")) notFound();
+
   let list: Awaited<ReturnType<typeof loadClients>> = [];
   let dbError = false;
   try {
