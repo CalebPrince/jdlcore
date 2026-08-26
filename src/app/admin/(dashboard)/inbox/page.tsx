@@ -1,7 +1,9 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { asc, desc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, submissions } from "@/db/schema";
+import { getStaff } from "@/lib/staff-auth";
 import {
   Card,
   CardContent,
@@ -42,6 +44,9 @@ export default async function AdminInboxPage({
 }: {
   searchParams: Promise<{ type?: string }>;
 }) {
+  const current = await getStaff();
+  if (!current) notFound();
+
   const { type } = await searchParams;
   const activeType = type && type !== "all" ? type : null;
 
