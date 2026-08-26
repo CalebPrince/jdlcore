@@ -49,6 +49,12 @@ export default async function PortalLayout({
             >
               Request Service
             </Link>
+            <Link
+              href="/portal/reports"
+              className="text-sm text-[rgba(248,247,243,0.8)] transition-colors hover:text-paper"
+            >
+              Reports
+            </Link>
             <span className="hidden text-sm text-[rgba(248,247,243,0.55)] md:inline">
               {client.name}
               {client.company ? ` · ${client.company}` : ""}

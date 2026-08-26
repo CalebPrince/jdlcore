@@ -16,6 +16,7 @@ import {
   BarChart3,
   GraduationCap,
   Award,
+  Droplets,
 } from "lucide-react";
 import {
   Sheet,
@@ -45,6 +46,7 @@ const NAV: {
   { href: "/admin/staff", label: "Staff", icon: ShieldCheck, roles: ["administrator", "superadmin"] },
   { href: "/admin/inspectors", label: "Inspectors", icon: Users, roles: ["administrator", "superadmin"] },
   { href: "/admin/services", label: "Services", icon: ClipboardList, roles: ["administrator", "superadmin"] },
+  { href: "/admin/tanks", label: "Tanks", icon: Droplets, roles: ["administrator", "superadmin"] },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3, roles: ["administrator", "superadmin"] },
   { href: "/admin/academy", label: "Academy", icon: GraduationCap, roles: ["administrator", "superadmin"] },
   { href: "/admin/academy/credentials", label: "Credentials", icon: Award, roles: ["administrator", "superadmin"] },
