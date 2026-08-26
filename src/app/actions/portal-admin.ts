@@ -19,6 +19,7 @@ import {
   submissions,
 } from "@/db/schema";
 import { JOB_STATUSES, JOB_STATUS_META, makeInvoiceNumber, makeRef } from "@/lib/jobs";
+import { getInvoiceSettings } from "@/lib/settings";
 import { isEmailConfigured, getEmailConfig, sendNotification } from "@/lib/email";
 import type { FormState } from "./submissions";
 
@@ -289,7 +290,8 @@ export async function createInvoice(
         status: "sent",
       })
       .returning({ id: invoices.id });
-    invoiceNumber = makeInvoiceNumber(inserted[0].id);
+    const invoiceSettings = await getInvoiceSettings();
+    invoiceNumber = makeInvoiceNumber(inserted[0].id, invoiceSettings.invoicePrefix);
     await database
       .update(invoices)
       .set({ number: invoiceNumber })

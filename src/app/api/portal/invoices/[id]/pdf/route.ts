@@ -6,6 +6,7 @@ import { clients, invoices, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import { getStaff } from "@/lib/staff-auth";
 import { getInspector } from "@/lib/inspector-auth";
+import { getInvoiceSettings, getReportSettings, type InvoiceSettings, type ReportSettings } from "@/lib/settings";
 
 const NAVY = rgb(0.031, 0.094, 0.149);
 const GOLD = rgb(0.788, 0.557, 0.071);
@@ -52,7 +53,8 @@ export async function GET(
   if (!row) return new NextResponse("Not found", { status: 404 });
 
   const { invoice, job, client } = row;
-  const pdf = await buildInvoicePdf(invoice, job, client);
+  const [invoiceSettings, reportSettings] = await Promise.all([getInvoiceSettings(), getReportSettings()]);
+  const pdf = await buildInvoicePdf(invoice, job, client, invoiceSettings, reportSettings);
 
   return new NextResponse(Buffer.from(pdf), {
     status: 200,
@@ -72,6 +74,8 @@ async function buildInvoicePdf(
   invoice: InvoiceRow,
   job: JobRow,
   client: ClientRow,
+  invoiceSettings: InvoiceSettings,
+  reportSettings: ReportSettings,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595, 842]); // A4
@@ -81,7 +85,7 @@ async function buildInvoicePdf(
 
   page.drawRectangle({ x: 0, y: 762, width: 595, height: 80, color: NAVY });
   page.drawText("JDL CORE", { x: M, y: 800, size: 22, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("INSPECTION & QUANTITY SURVEYING", {
+  page.drawText(reportSettings.headerTagline, {
     x: M,
     y: 784,
     size: 7.5,
@@ -169,14 +173,14 @@ async function buildInvoicePdf(
     });
   }
 
-  page.drawText("Payment details are provided on request. Quote this invoice number as reference.", {
+  page.drawText(truncate(invoiceSettings.paymentInstructions, 110), {
     x: M,
     y: 96,
     size: 8.5,
     font: regular,
     color: MUTED,
   });
-  page.drawText("Thank you for working with JDL Core.", {
+  page.drawText(truncate(invoiceSettings.closingNote, 110), {
     x: M,
     y: 84,
     size: 8.5,
@@ -194,4 +198,8 @@ function formatDate(d: Date | null): string {
     month: "short",
     year: "numeric",
   });
+}
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
 }

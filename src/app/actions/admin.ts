@@ -6,9 +6,13 @@ import { requireStaffRole } from "@/lib/staff-auth";
 import {
   DEFAULT_SETTINGS,
   saveContactSettings,
+  saveInvoiceSettings,
+  saveReportSettings,
 } from "@/lib/settings";
 
 export type AdminState = { ok: boolean; message: string };
+
+const ADMIN_ROLES = ["administrator", "superadmin"] as const;
 
 const settingsSchema = z.object({
   phoneDisplay: z.string().trim().min(1),
@@ -70,4 +74,54 @@ function normalizePhoneHref(input: FormDataEntryValue | null): string {
   if (!raw) return DEFAULT_SETTINGS.phoneHref;
   if (/^tel:/i.test(raw)) return raw;
   return `tel:${raw.replace(/[\s()-]/g, "")}`;
+}
+
+/* ---------------- Invoice settings ---------------- */
+
+const invoiceSettingsSchema = z.object({
+  invoicePrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-]+$/, "Letters, numbers, and dashes only."),
+  defaultCurrency: z.enum(["GHS", "USD"]),
+  termsDays: z.coerce.number().int().min(0).max(365),
+  paymentInstructions: z.string().trim().min(1).max(200),
+  closingNote: z.string().trim().min(1).max(200),
+});
+
+export async function updateInvoiceSettings(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  if (!(await requireStaffRole([...ADMIN_ROLES]))) return { ok: false, message: "Not signed in." };
+  const parsed = invoiceSettingsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  try {
+    await saveInvoiceSettings({ ...parsed.data, termsDays: String(parsed.data.termsDays) });
+  } catch {
+    return { ok: false, message: "Could not save invoice settings. Check your connection." };
+  }
+  revalidatePath("/admin/settings");
+  return { ok: true, message: "Invoice settings saved." };
+}
+
+/* ---------------- Report template settings ---------------- */
+
+const reportSettingsSchema = z.object({
+  coqPrefix: z.string().trim().min(1).max(12).regex(/^[A-Za-z0-9-]+$/, "Letters, numbers, and dashes only."),
+  headerTagline: z.string().trim().min(1).max(60),
+  certifyingStatement: z.string().trim().min(1).max(220),
+});
+
+export async function updateReportSettings(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  if (!(await requireStaffRole([...ADMIN_ROLES]))) return { ok: false, message: "Not signed in." };
+  const parsed = reportSettingsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
+  try {
+    await saveReportSettings(parsed.data);
+  } catch {
+    return { ok: false, message: "Could not save report template settings. Check your connection." };
+  }
+  revalidatePath("/admin/settings");
+  return { ok: true, message: "Report template saved." };
 }

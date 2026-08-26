@@ -48,6 +48,7 @@ import {
   type JobStatus,
   type ServiceType,
 } from "@/lib/jobs";
+import { getInvoiceSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -86,7 +87,7 @@ export default async function AdminJobDetailPage({
   const job = rows[0].job;
   const client = rows[0].client;
 
-  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments] =
+  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments, invoiceSettings] =
     await Promise.all([
       database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt)),
       database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt)),
@@ -103,7 +104,11 @@ export default async function AdminJobDetailPage({
       database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate)),
       database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
       database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt)),
+      getInvoiceSettings(),
     ]);
+
+  const defaultDueDate = new Date();
+  defaultDueDate.setDate(defaultDueDate.getDate() + (Number(invoiceSettings.termsDays) || 14));
 
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
   const canAssign = job.status === "awaiting_assignment" || job.status === "assigned";
@@ -304,7 +309,11 @@ export default async function AdminJobDetailPage({
                 })}
               </ul>
             )}
-            <CreateInvoiceForm jobId={job.id} />
+            <CreateInvoiceForm
+              jobId={job.id}
+              defaultCurrency={invoiceSettings.defaultCurrency}
+              defaultDueDate={defaultDueDate.toISOString().slice(0, 10)}
+            />
           </CardContent>
         </Card>
 

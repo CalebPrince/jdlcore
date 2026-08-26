@@ -149,10 +149,10 @@ export function makeRef(id: number): string {
   return `JDL-${new Date().getFullYear()}-${String(id).padStart(4, "0")}`;
 }
 
-export function makeInvoiceNumber(id: number): string {
-  return `INV-${new Date().getFullYear()}-${String(id).padStart(4, "0")}`;
+export function makeInvoiceNumber(id: number, prefix = "INV"): string {
+  return `${prefix}-${new Date().getFullYear()}-${String(id).padStart(4, "0")}`;
 }
 
-export function makeCoqNumber(id: number): string {
-  return `COQ-${new Date().getFullYear()}-${String(id).padStart(4, "0")}`;
+export function makeCoqNumber(id: number, prefix = "COQ"): string {
+  return `${prefix}-${new Date().getFullYear()}-${String(id).padStart(4, "0")}`;
 }

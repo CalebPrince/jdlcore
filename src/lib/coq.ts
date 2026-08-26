@@ -5,8 +5,7 @@ import { certificates, clients, invoices, jobs, services } from "@/db/schema";
 import { makeCoqNumber, makeInvoiceNumber } from "@/lib/jobs";
 import { notify } from "@/lib/notifications";
 import { sendNotification } from "@/lib/email";
-
-const DEFAULT_INVOICE_TERMS_DAYS = 14;
+import { getInvoiceSettings, getReportSettings } from "@/lib/settings";
 
 /**
  * Runs when Operations approves a completed job (section 10 of the client's
@@ -22,6 +21,11 @@ export async function generateCoqAndInvoice(
   const jobRows = await database.select().from(jobs).where(eq(jobs.id, jobId)).limit(1);
   const job = jobRows[0];
   if (!job) throw new Error("Job not found");
+
+  const [invoiceSettings, reportSettings] = await Promise.all([
+    getInvoiceSettings(),
+    getReportSettings(),
+  ]);
 
   let defaultPriceCents: number | null = null;
   if (job.serviceType) {
@@ -41,11 +45,11 @@ export async function generateCoqAndInvoice(
       issuedByStaffId,
     })
     .returning({ id: certificates.id });
-  const coqNumber = makeCoqNumber(cert.id);
+  const coqNumber = makeCoqNumber(cert.id, reportSettings.coqPrefix);
   await database.update(certificates).set({ coqNumber }).where(eq(certificates.id, cert.id));
 
   const dueDate = new Date();
-  dueDate.setDate(dueDate.getDate() + DEFAULT_INVOICE_TERMS_DAYS);
+  dueDate.setDate(dueDate.getDate() + (Number(invoiceSettings.termsDays) || 14));
 
   const [inv] = await database
     .insert(invoices)
@@ -53,12 +57,12 @@ export async function generateCoqAndInvoice(
       number: `PENDING-${Date.now()}`,
       jobId,
       amountCents: defaultPriceCents ?? 0,
-      currency: "GHS",
+      currency: invoiceSettings.defaultCurrency,
       dueDate,
       status: "pending",
     })
     .returning({ id: invoices.id });
-  const invoiceNumber = makeInvoiceNumber(inv.id);
+  const invoiceNumber = makeInvoiceNumber(inv.id, invoiceSettings.invoicePrefix);
   await database.update(invoices).set({ number: invoiceNumber }).where(eq(invoices.id, inv.id));
 
   await notify({

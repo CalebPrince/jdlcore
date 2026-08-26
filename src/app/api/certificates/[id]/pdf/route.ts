@@ -6,6 +6,7 @@ import { certificates, clients, inspectors, jobCompletionData, jobs, staff } fro
 import { getPortalClient } from "@/lib/portal-auth";
 import { getStaff } from "@/lib/staff-auth";
 import { getInspector } from "@/lib/inspector-auth";
+import { getReportSettings, type ReportSettings } from "@/lib/settings";
 
 const NAVY = rgb(0.031, 0.094, 0.149);
 const GOLD = rgb(0.788, 0.557, 0.071);
@@ -69,7 +70,8 @@ export async function GET(
     approverName = staffRows[0]?.name ?? null;
   }
 
-  const pdf = await buildCoqPdf(row.certificate, row.job, row.client, row.completion, inspectorName, approverName);
+  const reportSettings = await getReportSettings();
+  const pdf = await buildCoqPdf(row.certificate, row.job, row.client, row.completion, inspectorName, approverName, reportSettings);
 
   return new NextResponse(Buffer.from(pdf), {
     status: 200,
@@ -93,6 +95,7 @@ async function buildCoqPdf(
   completion: CompletionRow,
   inspectorName: string | null,
   approverName: string | null,
+  reportSettings: ReportSettings,
 ): Promise<Uint8Array> {
   const pdf = await PDFDocument.create();
   const page = pdf.addPage([595, 842]); // A4
@@ -102,7 +105,7 @@ async function buildCoqPdf(
 
   page.drawRectangle({ x: 0, y: 762, width: 595, height: 80, color: NAVY });
   page.drawText("JDL CORE", { x: M, y: 800, size: 22, font: bold, color: rgb(1, 1, 1) });
-  page.drawText("INSPECTION & QUANTITY SURVEYING", {
+  page.drawText(reportSettings.headerTagline, {
     x: M,
     y: 784,
     size: 7.5,
@@ -195,7 +198,7 @@ async function buildCoqPdf(
   if (certificate.remarks) {
     page.drawText(truncate(certificate.remarks, 110), { x: M, y: 96, size: 8.5, font: regular, color: MUTED });
   }
-  page.drawText("This certificate documents independent quantity verification by JDL Core Inspection Services.", {
+  page.drawText(truncate(reportSettings.certifyingStatement, 110), {
     x: M,
     y: 84,
     size: 8.5,

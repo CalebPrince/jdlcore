@@ -77,7 +77,15 @@ export function AddDocumentForm({ jobId }: { jobId: number }) {
   );
 }
 
-export function CreateInvoiceForm({ jobId }: { jobId: number }) {
+export function CreateInvoiceForm({
+  jobId,
+  defaultCurrency = "GHS",
+  defaultDueDate,
+}: {
+  jobId: number;
+  defaultCurrency?: string;
+  defaultDueDate?: string;
+}) {
   const [state, action, pending] = useActionState(createInvoice, initial);
   return (
     <form action={action} className="flex flex-col gap-3">
@@ -89,7 +97,7 @@ export function CreateInvoiceForm({ jobId }: { jobId: number }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Currency</Label>
-          <Select name="currency" defaultValue="GHS">
+          <Select name="currency" defaultValue={defaultCurrency}>
             <SelectTrigger className="w-full">
               <SelectValue />
             </SelectTrigger>
@@ -101,7 +109,7 @@ export function CreateInvoiceForm({ jobId }: { jobId: number }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`id-${jobId}`}>Due date (optional)</Label>
-          <Input id={`id-${jobId}`} name="dueDate" type="date" />
+          <Input id={`id-${jobId}`} name="dueDate" type="date" defaultValue={defaultDueDate} />
         </div>
       </div>
       <Button type="submit" disabled={pending} variant="outline" className="self-start">
