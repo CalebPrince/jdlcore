@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
@@ -17,7 +17,6 @@ import {
   tanks,
 } from "@/db/schema";
 import { getStaff } from "@/lib/staff-auth";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -37,6 +36,7 @@ import {
   OverrideStatusForm,
   PaymentActionPanel,
 } from "@/components/admin/workflow-forms";
+import { AdminJobComments } from "@/components/admin/admin-job-comments";
 import {
   DOCUMENT_KIND_META,
   INVOICE_STATUS_META,
@@ -102,7 +102,7 @@ export default async function AdminJobDetailPage({
       database.select().from(tanks).where(eq(tanks.clientId, job.clientId)),
       database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate)),
       database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
-      database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(desc(jobComments.createdAt)),
+      database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt)),
     ]);
 
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
@@ -345,24 +345,14 @@ export default async function AdminJobDetailPage({
 
       </div>
 
-      {comments.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-display">Comments</CardTitle>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2.5">
-            {comments.map((c) => (
-              <div key={c.id} className="rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
-                <div className="flex flex-wrap items-baseline gap-x-2">
-                  <span className="text-sm font-semibold text-navy-950">{c.authorName}</span>
-                  <span className="text-xs text-ink-faint">{dateFmt.format(new Date(c.createdAt))}</span>
-                </div>
-                <p className="m-0 mt-1 text-sm text-ink-soft">{c.body}</p>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-      )}
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display">Comments</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <AdminJobComments jobId={job.id} comments={comments} />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

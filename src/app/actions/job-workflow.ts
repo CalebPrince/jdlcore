@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { clients, inspectors, invoices, jobUpdates, jobs } from "@/db/schema";
+import { clients, inspectors, invoices, jobComments, jobUpdates, jobs } from "@/db/schema";
 import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
@@ -384,4 +384,47 @@ export async function overrideJobStatus(_prev: FormState, formData: FormData): P
 
   revalidateJob(jobId);
   return { ok: true, message: `Status manually set to ${JOB_STATUS_META[status as JobStatus].label}.` };
+}
+
+/* ---------------- Comments (staff reply) ---------------- */
+
+const staffCommentSchema = z.object({
+  jobId: z.coerce.number().int().positive(),
+  body: z.string().trim().min(1).max(2000),
+});
+
+export async function addStaffJobComment(_prev: FormState, formData: FormData): Promise<FormState> {
+  const staff = await requireStaffRole([...OPS_ROLES]);
+  if (!staff) return initialFail("Unauthorized");
+  const parsed = staffCommentSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail("Enter a comment.");
+  const { jobId, body } = parsed.data;
+
+  const job = await loadJob(jobId);
+  if (!job) return initialFail("Job not found.");
+
+  await requireDb().insert(jobComments).values({
+    jobId,
+    authorType: "staff",
+    authorId: staff.id,
+    authorName: staff.name,
+    body,
+  });
+
+  const recipient = await clientEmailForJob(jobId);
+  if (recipient) {
+    await notify({
+      recipientType: "client",
+      recipientId: recipient.clientId,
+      jobId,
+      type: "job_comment",
+      title: `New reply on ${job.ref}`,
+      body: body.slice(0, 140),
+      link: `/portal/jobs/${jobId}`,
+    });
+  }
+
+  revalidatePath(`/admin/jobs/${jobId}`);
+  revalidatePath(`/portal/jobs/${jobId}`);
+  return { ok: true, message: "Comment added." };
 }
