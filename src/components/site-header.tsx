@@ -13,7 +13,7 @@ export function SiteHeader({
   homeHref = "/",
   navLinks,
   cta = { href: "/inspection#quote", label: "Get Started" },
-  secondaryCta,
+  secondaryCtas,
   showAdminLogin = false,
 }: {
   logo?: string | null;
@@ -21,7 +21,7 @@ export function SiteHeader({
   homeHref?: string;
   navLinks: HeaderNavLink[];
   cta?: { href: string; label: string };
-  secondaryCta?: { href: string; label: string; external?: boolean };
+  secondaryCtas?: { href: string; label: string; external?: boolean }[];
   showAdminLogin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -87,17 +87,18 @@ export function SiteHeader({
             <Link href={cta.href} onClick={close} className="btn-gold mt-3 lg:mt-0">
               {cta.label}
             </Link>
-            {secondaryCta && (
+            {secondaryCtas?.map((item) => (
               <Link
-                href={secondaryCta.href}
+                key={item.href}
+                href={item.href}
                 onClick={close}
-                target={secondaryCta.external ? "_blank" : undefined}
-                rel={secondaryCta.external ? "noreferrer" : undefined}
-                className="mt-2 inline-flex items-center justify-center rounded-full bg-navy-800 px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-navy-700 lg:mt-0 lg:py-2.5"
+                target={item.external ? "_blank" : undefined}
+                rel={item.external ? "noreferrer" : undefined}
+                className="mt-2 inline-flex items-center justify-center rounded-full border border-navy-800 px-5 py-2.5 text-sm font-semibold text-navy-800 transition-colors hover:bg-navy-800 hover:text-paper lg:mt-0"
               >
-                {secondaryCta.label}
+                {item.label}
               </Link>
-            )}
+            ))}
             {showAdminLogin && (
               <Link
                 href="/admin/login"
