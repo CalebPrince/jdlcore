@@ -89,6 +89,7 @@ export default async function InspectionPage() {
           { href: "/inspection#quote", label: "Contact" },
         ]}
         cta={{ href: "#quote", label: "Request an Inspection" }}
+        secondaryCta={{ href: "/portal/login", label: "Client Portal →" }}
       />
 
       <main>

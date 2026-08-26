@@ -13,6 +13,7 @@ export function SiteHeader({
   homeHref = "/",
   navLinks,
   cta = { href: "/inspection#quote", label: "Get Started" },
+  secondaryCta,
   showAdminLogin = false,
 }: {
   logo?: string | null;
@@ -20,6 +21,7 @@ export function SiteHeader({
   homeHref?: string;
   navLinks: HeaderNavLink[];
   cta?: { href: string; label: string };
+  secondaryCta?: { href: string; label: string; external?: boolean };
   showAdminLogin?: boolean;
 }) {
   const [open, setOpen] = useState(false);
@@ -85,6 +87,17 @@ export function SiteHeader({
             <Link href={cta.href} onClick={close} className="btn-gold mt-3 lg:mt-0">
               {cta.label}
             </Link>
+            {secondaryCta && (
+              <Link
+                href={secondaryCta.href}
+                onClick={close}
+                target={secondaryCta.external ? "_blank" : undefined}
+                rel={secondaryCta.external ? "noreferrer" : undefined}
+                className="mt-2 inline-flex items-center justify-center rounded-full bg-navy-800 px-6 py-3 text-sm font-semibold text-paper transition-colors hover:bg-navy-700 lg:mt-0 lg:py-2.5"
+              >
+                {secondaryCta.label}
+              </Link>
+            )}
             {showAdminLogin && (
               <Link
                 href="/admin/login"
