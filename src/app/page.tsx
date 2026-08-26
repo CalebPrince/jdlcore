@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { Metadata } from "next";
 import { getContactSettings } from "@/lib/settings";
 
@@ -10,7 +9,8 @@ export const metadata: Metadata = {
 
 const companies = [
   {
-    href: "/inspection",
+    // Inspection has its own subdomain already — link out to it directly.
+    href: "https://inspect.jdlcore.com",
     name: "Inspection Services",
     tag: "Flagship",
     logo: "/logo-inspection.png",
@@ -18,6 +18,7 @@ const companies = [
     blurb: "Independent tank gauging, stock monitoring & quantity verification.",
   },
   {
+    // No analytics.jdlcore.com yet — falls back to the internal page.
     href: "/analytics",
     name: "Analytics",
     tag: "Live Beta",
@@ -26,6 +27,7 @@ const companies = [
     blurb: "Industry-data intelligence, on demand — not a static report.",
   },
   {
+    // No academy.jdlcore.com yet — falls back to the internal page.
     href: "/academy",
     name: "Academy",
     tag: "Now Enrolling",
@@ -76,7 +78,7 @@ export default async function HomePage() {
 
         <div className="grid w-full max-w-[980px] grid-cols-1 gap-6 sm:grid-cols-3">
           {companies.map((company) => (
-            <Link
+            <a
               key={company.href}
               href={company.href}
               target="_blank"
@@ -99,7 +101,7 @@ export default async function HomePage() {
               <h3 className="text-lg font-bold">{company.name}</h3>
               <p className="mt-1 flex-grow text-[0.85rem] text-ink-soft">{company.blurb}</p>
               <span className="link-arrow mt-4 text-[0.85rem]">Visit site →</span>
-            </Link>
+            </a>
           ))}
         </div>
 
