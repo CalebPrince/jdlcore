@@ -9,8 +9,10 @@ export const metadata: Metadata = {
 
 const companies = [
   {
-    // Inspection has its own subdomain already — link out to it directly.
-    href: "https://inspect.jdlcore.com",
+    // inspect.jdlcore.com is the OLD site — stay on the new build here
+    // until this app is migrated onto that subdomain, then swap this
+    // back to "https://inspect.jdlcore.com".
+    href: "/inspection",
     name: "Inspection Services",
     tag: "Flagship",
     logo: "/logo-inspection.png",
