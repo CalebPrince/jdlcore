@@ -39,8 +39,8 @@ export default function AnalyticsLoginPage() {
           </CardContent>
         </Card>
         <p className="mt-6 text-center text-xs">
-          <Link href="/" className="text-[#8fa3b0] transition-colors hover:text-paper">
-            ← Back to jdlcore.com
+          <Link href="/analytics" className="text-[#8fa3b0] transition-colors hover:text-paper">
+            ← Back to Analytics
           </Link>
         </p>
       </div>

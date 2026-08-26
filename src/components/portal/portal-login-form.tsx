@@ -57,8 +57,8 @@ export function PortalLoginForm() {
           </p>
         </form>
         <p className="mt-6 text-center text-xs text-ink-faint">
-          <Link href="/" className="hover:text-gold-600">
-            ← Back to jdlcore.com
+          <Link href="/inspection" className="hover:text-gold-600">
+            ← Back to Inspection Services
           </Link>
         </p>
       </div>
