@@ -26,7 +26,7 @@ export async function saveAiSettings(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole(["administrator", "superadmin"]))) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole(["superadmin"]))) return { ok: false, message: "Unauthorized" };
 
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {

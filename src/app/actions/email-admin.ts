@@ -28,7 +28,7 @@ export async function saveEmailSettings(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole(["administrator", "superadmin"]))) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole(["superadmin"]))) return { ok: false, message: "Unauthorized" };
   const f = schema.safeParse(Object.fromEntries(formData));
   if (!f.success) return { ok: false, message: "Invalid values." };
   const v = f.data;
@@ -61,7 +61,7 @@ export async function sendTestEmail(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole(["administrator", "superadmin"]))) return { ok: false, message: "Unauthorized" };
+  if (!(await requireStaffRole(["superadmin"]))) return { ok: false, message: "Unauthorized" };
   const to = String(formData.get("to") ?? "").trim();
   if (!to.includes("@")) return { ok: false, message: "Enter a valid recipient." };
 

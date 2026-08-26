@@ -51,8 +51,8 @@ const NAV: {
   { href: "/admin/academy", label: "Academy", icon: GraduationCap, roles: ["administrator", "superadmin"] },
   { href: "/admin/academy/credentials", label: "Credentials", icon: Award, roles: ["administrator", "superadmin"] },
   { href: "/admin/settings", label: "Site Settings", icon: Settings2, roles: ["administrator", "superadmin"] },
-  { href: "/admin/email", label: "Email", icon: Mail, roles: ["administrator", "superadmin"] },
-  { href: "/admin/ai", label: "AI Settings", icon: Bot, roles: ["administrator", "superadmin"] },
+  { href: "/admin/email", label: "Email", icon: Mail, roles: ["superadmin"] },
+  { href: "/admin/ai", label: "AI Settings", icon: Bot, roles: ["superadmin"] },
 ];
 
 function NavLinks({ role, onNavigate }: { role: StaffRole; onNavigate?: () => void }) {

@@ -1,6 +1,8 @@
+import { notFound } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AiSettingsForm } from "@/components/admin/ai-settings-form";
+import { getStaff } from "@/lib/staff-auth";
 import {
   getAiSettings,
   maskKey,
@@ -11,6 +13,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function AdminAiSettingsPage() {
+  const current = await getStaff();
+  if (!current || current.role !== "superadmin") notFound();
+
   const s = await getAiSettings();
   const anyConfigured = PROVIDER_ORDER.some((p) => s[`${p}Key`]);
 

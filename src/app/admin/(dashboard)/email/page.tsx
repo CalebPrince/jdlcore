@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import {
   EmailSettingsForm,
   TestEmailForm,
@@ -12,12 +13,16 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { getStaff } from "@/lib/staff-auth";
 import { getEmailConfig, isEmailConfigured, maskKeyLike, recentEmailLogs } from "@/lib/email";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Email Notifications | JDL Core Admin" };
 
 export default async function AdminEmailPage() {
+  const current = await getStaff();
+  if (!current || current.role !== "superadmin") notFound();
+
   const config = await getEmailConfig();
   const logs = await recentEmailLogs(12);
   const view: EmailSettingsView = {
