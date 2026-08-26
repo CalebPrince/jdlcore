@@ -31,7 +31,16 @@ export default async function ContactPage() {
   const wa = whatsappLink(settings);
   return (
     <>
-      <SiteHeader cta={{ href: "#form", label: "Send a Message" }} />
+      <SiteHeader
+        navLinks={[
+          { href: "/", label: "JDL Core Home" },
+          { href: "/inspection", label: "Inspection Services" },
+          { href: "/analytics", label: "Analytics" },
+          { href: "/academy", label: "Academy" },
+          { href: "/contact", label: "Contact" },
+        ]}
+        cta={{ href: "#form", label: "Send a Message" }}
+      />
 
       <main>
         {/* ============ HERO ============ */}
@@ -147,6 +156,7 @@ export default async function ContactPage() {
       <SiteFooter
         settings={settings}
         brandLine="Independent inspection, industry data analytics, and oil & gas education — one standard of integrity, three divisions."
+        columnLabel="Divisions"
         divisionLinks={[
           { href: "/inspection", label: "Inspection Services" },
           { href: "/analytics", label: "Analytics" },

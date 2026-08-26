@@ -5,22 +5,20 @@ import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 
-const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/inspection", label: "Inspection Services" },
-  { href: "/analytics", label: "Analytics" },
-  { href: "/academy", label: "Academy" },
-  { href: "/contact", label: "Contact" },
-];
+export type HeaderNavLink = { href: string; label: string };
 
 export function SiteHeader({
   logo = "/logo-inspection.png",
   logoAlt = "JDL Core logo",
+  homeHref = "/",
+  navLinks,
   cta = { href: "/inspection#quote", label: "Get Started" },
   showAdminLogin = false,
 }: {
-  logo?: string;
+  logo?: string | null;
   logoAlt?: string;
+  homeHref?: string;
+  navLinks: HeaderNavLink[];
   cta?: { href: string; label: string };
   showAdminLogin?: boolean;
 }) {
@@ -40,13 +38,17 @@ export function SiteHeader({
       >
         <div className="wrap flex items-center gap-6 h-[68px]">
           <Link
-            href="/"
-            aria-label="JDL Core home"
+            href={homeHref}
+            aria-label={logoAlt}
             className="self-start rounded-b-xl px-3 pb-2 backdrop-blur-md"
             style={{ background: "rgba(248, 247, 243, 0.9)" }}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={logo} alt={logoAlt} className="h-[78px] w-auto" />
+            {logo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={logo} alt={logoAlt} className="h-[78px] w-auto" />
+            ) : (
+              <span className="font-display text-lg font-bold text-navy-950">{logoAlt}</span>
+            )}
           </Link>
 
           <nav
@@ -60,11 +62,10 @@ export function SiteHeader({
               "lg:border-l-0 lg:p-0 lg:shadow-none lg:bg-transparent lg:overflow-visible lg:pointer-events-auto lg:translate-x-0",
             ].join(" ")}
           >
-            {NAV_LINKS.map((link) => {
-              const active =
-                link.href === "/"
-                  ? pathname === "/"
-                  : pathname.startsWith(link.href);
+            {navLinks.map((link) => {
+              // Only exact-path links (no "#section" anchor) can be "active" —
+              // there's no scroll-spy to know which in-page section is current.
+              const active = !link.href.includes("#") && pathname === link.href;
               return (
                 <Link
                   key={link.href}

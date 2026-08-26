@@ -34,6 +34,12 @@ export default async function AnalyticsPage() {
       <SiteHeader
         logo="/logo-analytics.png"
         logoAlt="JDL Core Analytics logo"
+        homeHref="/analytics"
+        navLinks={[
+          { href: "/analytics", label: "Home" },
+          { href: "/analytics#pricing", label: "Pricing" },
+          { href: "/analytics#access", label: "Get Access" },
+        ]}
         cta={{ href: "/analytics/login", label: "Subscriber Sign In" }}
       />
 
@@ -326,10 +332,12 @@ export default async function AnalyticsPage() {
         settings={settings}
         brandLine="Source-grounded industry intelligence with cited answers and exportable reports."
         copyrightName="JDL Core Analytics"
+        logo="/logo-analytics.png"
+        logoAlt="JDL Core Analytics logo"
+        homeHref="/analytics"
         divisionLinks={[
-          { href: "/", label: "JDL Core Home" },
-          { href: "/inspection", label: "Inspection Services" },
-          { href: "/academy", label: "Academy" },
+          { href: "/analytics", label: "Home" },
+          { href: "/analytics#pricing", label: "Pricing" },
         ]}
         thisDivision={[{ href: "/analytics/login", label: "Subscriber Sign In" }, { href: "/analytics#access", label: "Request Access" }]}
       />

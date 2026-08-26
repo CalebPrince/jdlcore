@@ -80,7 +80,16 @@ export default async function InspectionPage() {
   const settings = await getContactSettings();
   return (
     <>
-      <SiteHeader cta={{ href: "#quote", label: "Get Quote" }} />
+      <SiteHeader
+        homeHref="/inspection"
+        navLinks={[
+          { href: "/inspection", label: "Home" },
+          { href: "/inspection#services", label: "Services" },
+          { href: "/inspection#about", label: "About" },
+          { href: "/inspection#quote", label: "Contact" },
+        ]}
+        cta={{ href: "#quote", label: "Request an Inspection" }}
+      />
 
       <main>
         {/* ============ HERO ============ */}
@@ -309,13 +318,14 @@ export default async function InspectionPage() {
         settings={settings}
         brandLine="Independent stock monitoring, collateral verification, and quantity assurance across the oil & gas value chain."
         copyrightName="JDL Core Inspection Services"
+        homeHref="/inspection"
         divisionLinks={[
-          { href: "/", label: "JDL Core Home" },
-          { href: "/analytics", label: "Analytics" },
-          { href: "/academy", label: "Academy" },
+          { href: "/inspection", label: "Home" },
+          { href: "/inspection#services", label: "Services" },
+          { href: "/inspection#about", label: "About Us" },
+          { href: "/inspection#quote", label: "Contact" },
         ]}
         thisDivision={[
-          { href: "/inspection#services", label: "Services" },
           { href: "/inspection#process", label: "Our Process" },
           { href: "/inspection#quote", label: "Request an Inspection" },
         ]}
