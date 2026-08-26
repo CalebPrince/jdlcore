@@ -65,8 +65,8 @@ export default async function AnalyticsPage() {
                 <Link href="/analytics/login" className="btn-gold btn-gold-lg">
                   Open Analytics
                 </Link>
-                <Link href="/inspection" className="btn-ghost px-8 py-4 text-base">
-                  Explore Inspection Services
+                <Link href="#pricing" className="btn-ghost px-8 py-4 text-base">
+                  See Pricing
                 </Link>
               </div>
               <p className="m-0 mt-1 text-xs text-muted-foreground">Access is currently approved in small subscriber cohorts.</p>
