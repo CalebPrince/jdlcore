@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getPortalClient } from "@/lib/portal-auth";
 import { portalLogout } from "@/app/actions/portal";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { recentNotifications, unreadCount } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,11 @@ export default async function PortalLayout({
 }) {
   const client = await getPortalClient();
   if (!client) redirect("/portal/login");
+
+  const [unread, notifs] = await Promise.all([
+    unreadCount("client", client.id),
+    recentNotifications("client", client.id),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-paper-deep">
@@ -46,6 +53,7 @@ export default async function PortalLayout({
               {client.name}
               {client.company ? ` · ${client.company}` : ""}
             </span>
+            <NotificationBell initialUnreadCount={unread} initialNotifications={notifs} dark />
             <form action={portalLogout}>
               <Button
                 variant="outline"

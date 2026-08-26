@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { staffLogout } from "@/app/actions/staff";
 import { useState } from "react";
 import type { StaffRole } from "@/lib/staff-auth";
+import { NotificationBell, type BellNotification } from "@/components/notifications/notification-bell";
 
 const NAV: {
   href: string;
@@ -93,10 +94,14 @@ const ROLE_LABEL: Record<StaffRole, string> = {
 function SidebarInner({
   name,
   role,
+  unreadCount,
+  notifications,
   onNavigate,
 }: {
   name: string;
   role: StaffRole;
+  unreadCount: number;
+  notifications: BellNotification[];
   onNavigate?: () => void;
 }) {
   return (
@@ -114,11 +119,14 @@ function SidebarInner({
         </div>
       </div>
 
-      <div className="px-5 pb-4">
-        <p className="truncate text-sm font-semibold text-paper">{name}</p>
-        <p className="text-[0.72rem] tracking-wide uppercase text-[rgba(248,247,243,0.45)]">
-          {ROLE_LABEL[role]}
-        </p>
+      <div className="flex items-center justify-between gap-2 px-5 pb-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold text-paper">{name}</p>
+          <p className="text-[0.72rem] tracking-wide uppercase text-[rgba(248,247,243,0.45)]">
+            {ROLE_LABEL[role]}
+          </p>
+        </div>
+        <NotificationBell initialUnreadCount={unreadCount} initialNotifications={notifications} dark />
       </div>
 
       <div className="px-4">
@@ -152,10 +160,14 @@ function SidebarInner({
 export function AdminShell({
   name,
   role,
+  unreadCount,
+  notifications,
   children,
 }: {
   name: string;
   role: StaffRole;
+  unreadCount: number;
+  notifications: BellNotification[];
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -164,7 +176,7 @@ export function AdminShell({
     <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
       {/* Desktop sidebar */}
       <aside className="sticky top-0 hidden h-dvh overflow-y-auto border-r border-white/10 bg-navy-950 lg:block">
-        <SidebarInner name={name} role={role} />
+        <SidebarInner name={name} role={role} unreadCount={unreadCount} notifications={notifications} />
       </aside>
 
       <div className="flex min-h-dvh flex-col overflow-x-hidden">
@@ -175,26 +187,35 @@ export function AdminShell({
             <img src="/logo-inspection.png" alt="" className="h-8 w-auto" />
             <span className="font-display text-sm font-bold">Command Center</span>
           </div>
-          <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
-            <SheetTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="border-white/20 bg-transparent text-paper hover:bg-white/10 hover:text-paper"
-                aria-label="Open menu"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5">
-                  <path d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              </Button>
-            </SheetTrigger>
-            <SheetContent side="left" className="w-[270px] p-0 [&>button]:text-paper">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Admin navigation</SheetTitle>
-              </SheetHeader>
-              <SidebarInner name={name} role={role} onNavigate={() => setMobileOpen(false)} />
-            </SheetContent>
-          </Sheet>
+          <div className="flex items-center gap-2">
+            <NotificationBell initialUnreadCount={unreadCount} initialNotifications={notifications} dark />
+            <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="border-white/20 bg-transparent text-paper hover:bg-white/10 hover:text-paper"
+                  aria-label="Open menu"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5">
+                    <path d="M4 6h16M4 12h16M4 18h16" />
+                  </svg>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="left" className="w-[270px] p-0 [&>button]:text-paper">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Admin navigation</SheetTitle>
+                </SheetHeader>
+                <SidebarInner
+                  name={name}
+                  role={role}
+                  unreadCount={unreadCount}
+                  notifications={notifications}
+                  onNavigate={() => setMobileOpen(false)}
+                />
+              </SheetContent>
+            </Sheet>
+          </div>
         </header>
 
         <main className="flex-1">{children}</main>

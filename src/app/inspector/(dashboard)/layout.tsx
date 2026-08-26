@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getInspector } from "@/lib/inspector-auth";
 import { inspectorLogout } from "@/app/actions/inspector";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { recentNotifications, unreadCount } from "@/lib/notifications";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +15,11 @@ export default async function InspectorLayout({
 }) {
   const inspector = await getInspector();
   if (!inspector) redirect("/inspector/login");
+
+  const [unread, notifs] = await Promise.all([
+    unreadCount("inspector", inspector.id),
+    recentNotifications("inspector", inspector.id),
+  ]);
 
   return (
     <div className="flex min-h-screen flex-col bg-paper-deep">
@@ -35,6 +42,7 @@ export default async function InspectorLayout({
             <span className="hidden text-sm text-[rgba(248,247,243,0.55)] md:inline">
               {inspector.name}
             </span>
+            <NotificationBell initialUnreadCount={unread} initialNotifications={notifs} dark />
             <form action={inspectorLogout}>
               <Button
                 variant="outline"
