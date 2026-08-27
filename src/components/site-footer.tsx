@@ -120,6 +120,11 @@ export function SiteFooter({
       </div>
 
       <div className="wrap pt-6 text-center text-[0.82rem]">
+        <nav aria-label="Legal" className="mb-4 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-[0.78rem] text-paper/55">
+          <Link href="/privacy" className="hover:text-gold-300">Privacy Policy</Link>
+          <Link href="/terms" className="hover:text-gold-300">Terms of Use</Link>
+          <Link href="/cookies" className="hover:text-gold-300">Cookie Policy</Link>
+        </nav>
         <p>
           &copy; {new Date().getFullYear()} {copyrightName}. All rights
           reserved. Integrity at the Core.
