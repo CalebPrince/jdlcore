@@ -176,7 +176,16 @@ export async function sendNotification(input: {
           html: input.html,
         }),
       });
-      if (!res.ok) throw new Error(`Resend ${res.status}`);
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const body = (await res.json()) as { message?: string };
+          detail = body.message ? ` — ${body.message}` : "";
+        } catch {
+          /* body wasn't JSON; fall back to the bare status */
+        }
+        throw new Error(`Resend ${res.status}${detail}`);
+      }
       await logEmail({ toEmail: input.to, subject: input.subject, provider: "resend", status: "sent" });
       return { sent: true };
     } catch (err) {
