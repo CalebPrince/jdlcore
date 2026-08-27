@@ -21,6 +21,7 @@ import {
 import { JOB_STATUSES, JOB_STATUS_META, makeInvoiceNumber, makeRef } from "@/lib/jobs";
 import { getInvoiceSettings } from "@/lib/settings";
 import { isEmailConfigured, getEmailConfig, sendNotification } from "@/lib/email";
+import { reviewUploadedFile } from "@/lib/ai/document-review";
 import type { FormState } from "./submissions";
 
 export type ConvertState = FormState & {
@@ -227,19 +228,38 @@ export async function addDocument(
     return initialFail("Attach a file or paste a link.");
   }
 
+  let insertedId: number | null = null;
   try {
-    await requireDb().insert(documents).values({
-      jobId: f.jobId,
-      kind: f.kind,
-      title: f.title,
-      url: f.url || null,
-      fileData,
-      mimeType,
-    });
+    const inserted = await requireDb()
+      .insert(documents)
+      .values({
+        jobId: f.jobId,
+        kind: f.kind,
+        title: f.title,
+        url: f.url || null,
+        fileData,
+        mimeType,
+      })
+      .returning({ id: documents.id });
+    insertedId = inserted[0]?.id ?? null;
   } catch {
     return initialFail("Could not save document.");
   }
   revalidatePath(`/admin/jobs/${f.jobId}`);
+
+  if (insertedId && fileData) {
+    const jobRow = await requireDb().select({ ref: jobs.ref }).from(jobs).where(eq(jobs.id, f.jobId)).limit(1);
+    if (jobRow[0]) {
+      await reviewUploadedFile({
+        jobId: f.jobId,
+        jobRef: jobRow[0].ref,
+        targetType: "document",
+        targetId: insertedId,
+        fileDataUrl: fileData,
+        context: `Document type: ${f.kind}. Title: "${f.title}".`,
+      });
+    }
+  }
 
   const recipient = await clientEmailForJob(f.jobId);
   if (recipient) {

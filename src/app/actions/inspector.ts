@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { clients, inspectors, jobCompletionData, jobUpdates, jobs, stockReadings } from "@/db/schema";
@@ -16,6 +16,7 @@ import { hashPassword, verifyPassword } from "@/lib/portal-auth";
 import { canTransition, type Actor } from "@/lib/job-workflow";
 import type { JobStatus } from "@/lib/jobs";
 import { notify } from "@/lib/notifications";
+import { reviewCompletionData } from "@/lib/ai/document-review";
 import type { FormState } from "./submissions";
 
 const initialFail = (message: string): FormState => ({ ok: false, message });
@@ -97,6 +98,49 @@ async function loadOwnJob(jobId: number, inspectorId: number) {
   const job = rows[0];
   if (!job || job.assignedInspectorId !== inspectorId) return null;
   return job;
+}
+
+async function triggerCompletionReview(job: typeof jobs.$inferSelect): Promise<void> {
+  const database = requireDb();
+  const completionRows = await database
+    .select()
+    .from(jobCompletionData)
+    .where(eq(jobCompletionData.jobId, job.id))
+    .limit(1);
+  const completion = completionRows[0];
+  if (!completion) return;
+
+  const priorRows = await database
+    .select({
+      gov: jobCompletionData.gov,
+      gsv: jobCompletionData.gsv,
+      submittedAt: jobCompletionData.submittedAt,
+    })
+    .from(jobCompletionData)
+    .innerJoin(jobs, eq(jobCompletionData.jobId, jobs.id))
+    .where(
+      and(
+        eq(jobs.clientId, job.clientId),
+        job.product ? eq(jobs.product, job.product) : undefined,
+      ),
+    )
+    .orderBy(desc(jobCompletionData.submittedAt))
+    .limit(5);
+
+  await reviewCompletionData({
+    jobId: job.id,
+    jobRef: job.ref,
+    service: job.service,
+    product: job.product,
+    gov: completion.gov,
+    gsv: completion.gsv,
+    metricTonnesAir: completion.metricTonnesAir,
+    metricTonnesVacuum: completion.metricTonnesVacuum,
+    inspectorComments: completion.inspectorComments,
+    priorReadings: priorRows
+      .filter((r) => r.submittedAt)
+      .map((r) => ({ gov: r.gov, gsv: r.gsv, date: r.submittedAt!.toISOString().slice(0, 10) })),
+  });
 }
 
 function revalidateJob(jobId: number) {
@@ -398,6 +442,8 @@ export async function submitForApproval(_prev: FormState, formData: FormData): P
     actorName: inspector.name,
   });
 
+  await triggerCompletionReview(job);
+
   const recipient = await database
     .select({ email: clients.email, ref: jobs.ref, clientId: jobs.clientId })
     .from(jobs)
@@ -442,6 +488,8 @@ export async function amendAndResubmit(_prev: FormState, formData: FormData): Pr
     actorId: inspector.id,
     actorName: inspector.name,
   });
+
+  await triggerCompletionReview(job);
 
   revalidateJob(job.id);
   return { ok: true, message: "Resubmitted to Operations." };

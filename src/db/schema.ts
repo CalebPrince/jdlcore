@@ -296,6 +296,31 @@ export const jobComments = pgTable(
   (table) => [index("job_comments_job_idx").on(table.jobId)],
 );
 
+/**
+ * AI second-opinion checks run against submitted completion data, uploaded
+ * documents, and payment receipts — surfaced to Operations alongside (never
+ * instead of) their own manual approval/verification decision.
+ */
+export const aiReviews = pgTable(
+  "ai_reviews",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    targetType: text("target_type").notNull(), // completion_data | document | receipt
+    targetId: integer("target_id"), // documents.id or invoices.id; null for completion_data
+    severity: text("severity").notNull(), // none | low | medium | high
+    summary: text("summary").notNull(),
+    provider: text("provider"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("ai_reviews_job_idx").on(table.jobId),
+    index("ai_reviews_target_idx").on(table.targetType, table.targetId),
+  ],
+);
+
 /** Certificate of Quantity — one per approved job (section 12). */
 export const certificates = pgTable(
   "certificates",
@@ -718,6 +743,7 @@ export type Tank = typeof tanks.$inferSelect;
 export type StockReading = typeof stockReadings.$inferSelect;
 export type JobComment = typeof jobComments.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
+export type AiReview = typeof aiReviews.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;

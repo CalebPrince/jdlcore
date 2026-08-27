@@ -14,6 +14,7 @@ import {
 } from "@/lib/portal-auth";
 import { makeRef } from "@/lib/jobs";
 import { notify } from "@/lib/notifications";
+import { reviewUploadedFile } from "@/lib/ai/document-review";
 import type { FormState } from "./submissions";
 
 export type PortalFormState = { ok: boolean; message: string };
@@ -175,6 +176,18 @@ export async function markPaymentSubmitted(_prev: FormState, formData: FormData)
       paymentRejectedReason: null,
     })
     .where(eq(invoices.id, f.invoiceId));
+
+  if (receiptFileData) {
+    const amount = (row.invoice.amountCents / 100).toFixed(2);
+    await reviewUploadedFile({
+      jobId: f.jobId,
+      jobRef: row.job.ref,
+      targetType: "receipt",
+      targetId: f.invoiceId,
+      fileDataUrl: receiptFileData,
+      context: `Invoice ${row.invoice.number} is for ${row.invoice.currency} ${amount}. Reference given by client: ${f.paymentReference || "(none)"}.`,
+    });
+  }
 
   revalidatePath(`/portal/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);

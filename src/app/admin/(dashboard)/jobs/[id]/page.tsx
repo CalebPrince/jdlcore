@@ -37,6 +37,8 @@ import {
   PaymentActionPanel,
 } from "@/components/admin/workflow-forms";
 import { AdminJobComments } from "@/components/admin/admin-job-comments";
+import { AiReviewBanner } from "@/components/admin/ai-review-banner";
+import { loadJobReviews } from "@/lib/ai/document-review";
 import {
   DOCUMENT_KIND_META,
   INVOICE_STATUS_META,
@@ -87,7 +89,7 @@ export default async function AdminJobDetailPage({
   const job = rows[0].job;
   const client = rows[0].client;
 
-  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments, invoiceSettings] =
+  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments, invoiceSettings, aiReviews] =
     await Promise.all([
       database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt)),
       database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt)),
@@ -105,10 +107,15 @@ export default async function AdminJobDetailPage({
       database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
       database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt)),
       getInvoiceSettings(),
+      loadJobReviews(jobId),
     ]);
 
   const defaultDueDate = new Date();
   defaultDueDate.setDate(defaultDueDate.getDate() + (Number(invoiceSettings.termsDays) || 14));
+
+  const completionReviews = aiReviews.filter((r) => r.targetType === "completion_data");
+  const documentReviews = (docId: number) => aiReviews.filter((r) => r.targetType === "document" && r.targetId === docId);
+  const receiptReviews = (invoiceId: number) => aiReviews.filter((r) => r.targetType === "receipt" && r.targetId === invoiceId);
 
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
   const canAssign = job.status === "awaiting_assignment" || job.status === "assigned";
@@ -174,7 +181,8 @@ export default async function AdminJobDetailPage({
             <CardHeader>
               <CardTitle className="font-display">Review Submitted Work</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-3">
+              <AiReviewBanner reviews={completionReviews} />
               <ApproveRejectPanel jobId={job.id} />
             </CardContent>
           </Card>
@@ -232,15 +240,18 @@ export default async function AdminJobDetailPage({
               <p className="m-0 text-sm text-muted-foreground">No documents yet.</p>
             )}
             {docs.map((d) => (
-              <div key={d.id} className="flex items-center gap-3 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
-                <div className="min-w-0 flex-1">
-                  <p className="m-0 truncate text-sm font-medium text-navy-950">{d.title}</p>
-                  <p className="m-0 text-xs text-muted-foreground">
-                    {DOCUMENT_KIND_META[(d.kind as DocumentKind) in DOCUMENT_KIND_META ? (d.kind as DocumentKind) : "other"].label}
-                    {" · "}
-                    {d.fileData ? "uploaded file" : "link"}
-                  </p>
+              <div key={d.id} className="flex flex-col gap-2 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="m-0 truncate text-sm font-medium text-navy-950">{d.title}</p>
+                    <p className="m-0 text-xs text-muted-foreground">
+                      {DOCUMENT_KIND_META[(d.kind as DocumentKind) in DOCUMENT_KIND_META ? (d.kind as DocumentKind) : "other"].label}
+                      {" · "}
+                      {d.fileData ? "uploaded file" : "link"}
+                    </p>
+                  </div>
                 </div>
+                <AiReviewBanner reviews={documentReviews(d.id)} />
               </div>
             ))}
             {coq[0] && (
@@ -298,6 +309,7 @@ export default async function AdminJobDetailPage({
                           {inv.clientComment && (
                             <p className="m-0 text-xs text-muted-foreground">Client note: {inv.clientComment}</p>
                           )}
+                          <AiReviewBanner reviews={receiptReviews(inv.id)} />
                           <PaymentActionPanel jobId={job.id} invoiceId={inv.id} />
                         </div>
                       )}

@@ -6,6 +6,7 @@ import {
 } from "./settings";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
+export type Attachment = { mimeType: string; base64: string };
 
 export class AiUnavailableError extends Error {
   failures: string[];
@@ -26,6 +27,7 @@ type CallOpts = {
   maxTokens: number;
   timeoutMs: number;
   model: string;
+  attachment?: Attachment;
 };
 
 type Leg = {
@@ -35,13 +37,14 @@ type Leg = {
   call: (opts: CallOpts) => Promise<string>;
 };
 
-function buildLegs(s: AiSettings): Leg[] {
+function buildLegs(s: AiSettings, hasAttachment: boolean): Leg[] {
   const legs: Leg[] = [];
   if (s.geminiEnabled && s.geminiKey)
     legs.push({ name: "gemini", key: s.geminiKey, model: s.geminiModel, call: callGemini });
   if (s.anthropicEnabled && s.anthropicKey)
     legs.push({ name: "anthropic", key: s.anthropicKey, model: s.anthropicModel, call: callAnthropic });
-  if (s.groqEnabled && s.groqKey)
+  // Groq's configured models here are text-only — skip it for attachment (vision/document) calls.
+  if (!hasAttachment && s.groqEnabled && s.groqKey)
     legs.push({ name: "groq", key: s.groqKey, model: s.groqModel, call: callGroq });
   return legs;
 }
@@ -56,10 +59,15 @@ export async function runCompletion(opts: {
   turns: ChatTurn[];
   maxTokens?: number;
   totalTimeoutMs?: number;
+  attachment?: Attachment;
 }): Promise<{ text: string; provider: ProviderName }> {
   const settings = await getAiSettings();
-  const legs = buildLegs(settings);
-  if (legs.length === 0) throw new AiUnavailableError(["No AI providers configured"]);
+  const legs = buildLegs(settings, !!opts.attachment);
+  if (legs.length === 0) {
+    throw new AiUnavailableError([
+      opts.attachment ? "No vision-capable AI providers configured" : "No AI providers configured",
+    ]);
+  }
 
   const totalTimeoutMs = opts.totalTimeoutMs ?? 30_000;
   const maxTokens = opts.maxTokens ?? 700;
@@ -81,6 +89,7 @@ export async function runCompletion(opts: {
         maxTokens,
         timeoutMs: Math.min(perCall, remaining),
         model: leg.model,
+        attachment: opts.attachment,
       });
       if (text && text.trim()) return { text: text.trim(), provider: leg.name };
       failures.push(`${leg.name}: empty response`);
@@ -128,12 +137,16 @@ function withHardTimeout<T>(promise: Promise<T>, ms: number, label: string): Pro
 
 async function callGemini(opts: CallOpts): Promise<string> {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(opts.model)}:generateContent`;
+  const contents = opts.turns.map((t, i) => {
+    const parts: Record<string, unknown>[] = [{ text: t.content }];
+    if (opts.attachment && t.role === "user" && i === opts.turns.length - 1) {
+      parts.push({ inline_data: { mime_type: opts.attachment.mimeType, data: opts.attachment.base64 } });
+    }
+    return { role: t.role === "assistant" ? "model" : "user", parts };
+  });
   const body = {
     systemInstruction: { parts: [{ text: opts.system }] },
-    contents: opts.turns.map((t) => ({
-      role: t.role === "assistant" ? "model" : "user",
-      parts: [{ text: t.content }],
-    })),
+    contents,
     generationConfig: { maxOutputTokens: opts.maxTokens, temperature: 0.4 },
   };
   const json = (await withHardTimeout(
@@ -162,6 +175,16 @@ async function callGemini(opts: CallOpts): Promise<string> {
 }
 
 async function callAnthropic(opts: CallOpts): Promise<string> {
+  const messages = opts.turns.map((t, i) => {
+    if (opts.attachment && t.role === "user" && i === opts.turns.length - 1) {
+      const isPdf = opts.attachment.mimeType === "application/pdf";
+      const fileBlock = isPdf
+        ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: opts.attachment.base64 } }
+        : { type: "image", source: { type: "base64", media_type: opts.attachment.mimeType, data: opts.attachment.base64 } };
+      return { role: t.role, content: [{ type: "text", text: t.content }, fileBlock] };
+    }
+    return { role: t.role, content: t.content };
+  });
   const json = (await withHardTimeout(
     fetchJson("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -175,7 +198,7 @@ async function callAnthropic(opts: CallOpts): Promise<string> {
         max_tokens: opts.maxTokens,
         temperature: 0.4,
         system: opts.system,
-        messages: opts.turns.map((t) => ({ role: t.role, content: t.content })),
+        messages,
       }),
     }),
     opts.timeoutMs,
