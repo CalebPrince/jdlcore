@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireStaffRole } from "@/lib/staff-auth";
 import { saveAiSettingsValues } from "@/lib/ai/settings";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 const schema = z.object({
@@ -26,7 +27,8 @@ export async function saveAiSettings(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole(["superadmin"]))) return { ok: false, message: "Unauthorized" };
+  const current = await requireStaffRole(["superadmin"]);
+  if (!current) return { ok: false, message: "Unauthorized" };
 
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
@@ -56,5 +58,19 @@ export async function saveAiSettings(
   }
 
   revalidatePath("/admin/ai");
+  const touchedKeys = [
+    f.geminiKey || f.clearGeminiKey === "on" ? "Gemini" : null,
+    f.anthropicKey || f.clearAnthropicKey === "on" ? "Anthropic" : null,
+    f.groqKey || f.clearGroqKey === "on" ? "Groq" : null,
+  ].filter(Boolean);
+  await logAudit({
+    actor: current,
+    action: "settings.ai_updated",
+    targetType: "settings",
+    summary:
+      touchedKeys.length > 0
+        ? `Updated AI settings — key changed for: ${touchedKeys.join(", ")}.`
+        : "Updated AI settings (models/persona, no keys changed).",
+  });
   return { ok: true, message: "AI settings saved." };
 }

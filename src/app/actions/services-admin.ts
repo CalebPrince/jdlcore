@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireDb } from "@/db";
 import { services } from "@/db/schema";
 import { requireStaffRole } from "@/lib/staff-auth";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 const ADMIN_ROLES = ["administrator", "superadmin"] as const;
@@ -18,7 +19,8 @@ const updateSchema = z.object({
 });
 
 export async function updateService(_prev: FormState, formData: FormData): Promise<FormState> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return { ok: false, message: "Unauthorized" };
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Unauthorized" };
   const parsed = updateSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Check the fields and try again." };
   const f = parsed.data;
@@ -42,5 +44,12 @@ export async function updateService(_prev: FormState, formData: FormData): Promi
 
   revalidatePath("/admin/services");
   revalidatePath("/portal/request");
+  await logAudit({
+    actor: current,
+    action: "service.updated",
+    targetType: "service",
+    targetId: f.id,
+    summary: `Updated service #${f.id} (${f.active === "true" ? "active" : "inactive"}${f.pricingLabel ? `, ${f.pricingLabel}` : ""}).`,
+  });
   return { ok: true, message: "Service updated." };
 }

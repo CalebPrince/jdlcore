@@ -22,6 +22,7 @@ import { JOB_STATUSES, JOB_STATUS_META, makeInvoiceNumber, makeRef } from "@/lib
 import { getInvoiceSettings } from "@/lib/settings";
 import { isEmailConfigured, getEmailConfig, sendNotification } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 export type ConvertState = FormState & {
@@ -92,26 +93,39 @@ export async function createPortalClient(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return initialFail("Unauthorized");
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return initialFail("Unauthorized");
   const parsed = clientSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return initialFail("Check the fields: password must be at least 8 characters.");
   }
   const f = parsed.data;
+  let clientId: number;
   try {
     const database = requireDb();
-    await database.insert(clients).values({
-      name: f.name,
-      company: f.company || null,
-      email: f.email.toLowerCase(),
-      phone: f.phone || null,
-      passwordHash: hashPassword(f.password),
-    });
+    const inserted = await database
+      .insert(clients)
+      .values({
+        name: f.name,
+        company: f.company || null,
+        email: f.email.toLowerCase(),
+        phone: f.phone || null,
+        passwordHash: hashPassword(f.password),
+      })
+      .returning({ id: clients.id });
+    clientId = inserted[0].id;
   } catch (err) {
     console.error("createPortalClient:", err);
     return initialFail("Could not create client. Email may already be in use.");
   }
   revalidatePath("/admin/clients");
+  await logAudit({
+    actor: current,
+    action: "client.created",
+    targetType: "client",
+    targetId: clientId,
+    summary: `Created client account for ${f.name} (${f.email}).`,
+  });
   return { ok: true, message: `Client ${f.name} created.` };
 }
 
@@ -119,7 +133,8 @@ export async function resetClientPassword(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return initialFail("Unauthorized");
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return initialFail("Unauthorized");
   const id = Number(formData.get("id"));
   const password = String(formData.get("password") ?? "");
   if (!Number.isInteger(id)) return initialFail("Invalid client.");
@@ -133,16 +148,31 @@ export async function resetClientPassword(
     return initialFail("Could not reset password.");
   }
   revalidatePath("/admin/clients");
+  await logAudit({
+    actor: current,
+    action: "client.password_reset",
+    targetType: "client",
+    targetId: id,
+    summary: `Reset password for client #${id}.`,
+  });
   return { ok: true, message: "Password reset." };
 }
 
 export async function toggleClientActive(formData: FormData): Promise<void> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return;
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return;
   const id = Number(formData.get("id"));
   const active = String(formData.get("active")) === "true";
   if (!Number.isInteger(id)) return;
   await requireDb().update(clients).set({ active }).where(eq(clients.id, id));
   revalidatePath("/admin/clients");
+  await logAudit({
+    actor: current,
+    action: active ? "client.enabled" : "client.disabled",
+    targetType: "client",
+    targetId: id,
+    summary: `Marked client #${id} as ${active ? "active" : "disabled"}.`,
+  });
 }
 
 /* ---------------- Jobs ---------------- */

@@ -321,6 +321,29 @@ export const aiReviews = pgTable(
   ],
 );
 
+/**
+ * System-wide admin activity log — account management and settings changes.
+ * Job status changes already have their own dedicated trail (jobUpdates)
+ * and are intentionally not duplicated here.
+ */
+export const auditLog = pgTable(
+  "audit_log",
+  {
+    id: serial("id").primaryKey(),
+    actorId: integer("actor_id").references(() => staff.id, { onDelete: "set null" }),
+    actorName: text("actor_name").notNull(),
+    action: text("action").notNull(), // e.g. "staff.role_changed", "settings.invoice_updated"
+    targetType: text("target_type").notNull(), // staff | inspector | client | service | tank | settings
+    targetId: integer("target_id"),
+    summary: text("summary").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("audit_log_created_idx").on(table.createdAt),
+    index("audit_log_target_idx").on(table.targetType, table.targetId),
+  ],
+);
+
 /** Certificate of Quantity — one per approved job (section 12). */
 export const certificates = pgTable(
   "certificates",
@@ -744,6 +767,7 @@ export type StockReading = typeof stockReadings.$inferSelect;
 export type JobComment = typeof jobComments.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
 export type AiReview = typeof aiReviews.$inferSelect;
+export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;

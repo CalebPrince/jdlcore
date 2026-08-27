@@ -9,6 +9,7 @@ import {
   saveInvoiceSettings,
   saveReportSettings,
 } from "@/lib/settings";
+import { logAudit } from "@/lib/audit";
 
 export type AdminState = { ok: boolean; message: string };
 
@@ -33,7 +34,8 @@ export async function updateContactSettings(
   _prev: AdminState,
   formData: FormData
 ): Promise<AdminState> {
-  if (!(await requireStaffRole(["administrator", "superadmin"]))) {
+  const current = await requireStaffRole(["administrator", "superadmin"]);
+  if (!current) {
     return { ok: false, message: "Not signed in." };
   }
   const parsed = settingsSchema.safeParse({
@@ -66,6 +68,12 @@ export async function updateContactSettings(
     };
   }
   revalidatePath("/", "layout");
+  await logAudit({
+    actor: current,
+    action: "settings.contact_updated",
+    targetType: "settings",
+    summary: "Updated site contact details.",
+  });
   return { ok: true, message: "Contact details saved and live on the site." };
 }
 
@@ -90,7 +98,8 @@ export async function updateInvoiceSettings(
   _prev: AdminState,
   formData: FormData,
 ): Promise<AdminState> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return { ok: false, message: "Not signed in." };
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Not signed in." };
   const parsed = invoiceSettingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   try {
@@ -99,6 +108,12 @@ export async function updateInvoiceSettings(
     return { ok: false, message: "Could not save invoice settings. Check your connection." };
   }
   revalidatePath("/admin/settings");
+  await logAudit({
+    actor: current,
+    action: "settings.invoice_updated",
+    targetType: "settings",
+    summary: `Updated invoice settings (prefix ${parsed.data.invoicePrefix}, ${parsed.data.defaultCurrency}, ${parsed.data.termsDays}-day terms).`,
+  });
   return { ok: true, message: "Invoice settings saved." };
 }
 
@@ -114,7 +129,8 @@ export async function updateReportSettings(
   _prev: AdminState,
   formData: FormData,
 ): Promise<AdminState> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return { ok: false, message: "Not signed in." };
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Not signed in." };
   const parsed = reportSettingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   try {
@@ -123,5 +139,11 @@ export async function updateReportSettings(
     return { ok: false, message: "Could not save report template settings. Check your connection." };
   }
   revalidatePath("/admin/settings");
+  await logAudit({
+    actor: current,
+    action: "settings.report_template_updated",
+    targetType: "settings",
+    summary: `Updated report template (prefix ${parsed.data.coqPrefix}).`,
+  });
   return { ok: true, message: "Report template saved." };
 }

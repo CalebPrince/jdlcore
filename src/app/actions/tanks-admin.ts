@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireDb } from "@/db";
 import { tanks } from "@/db/schema";
 import { requireStaffRole } from "@/lib/staff-auth";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 const ADMIN_ROLES = ["administrator", "superadmin"] as const;
@@ -20,12 +21,13 @@ const createSchema = z.object({
 });
 
 export async function createTank(_prev: FormState, formData: FormData): Promise<FormState> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return { ok: false, message: "Unauthorized" };
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Unauthorized" };
   const parsed = createSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Check the fields and try again." };
   const f = parsed.data;
 
-  await requireDb()
+  const inserted = await requireDb()
     .insert(tanks)
     .values({
       clientId: f.clientId,
@@ -34,17 +36,33 @@ export async function createTank(_prev: FormState, formData: FormData): Promise<
       depot: f.depot || null,
       capacity: f.capacity && f.capacity.trim() !== "" ? f.capacity : null,
       capacityUnit: f.capacityUnit || "MT",
-    });
+    })
+    .returning({ id: tanks.id });
 
   revalidatePath("/admin/tanks");
+  await logAudit({
+    actor: current,
+    action: "tank.created",
+    targetType: "tank",
+    targetId: inserted[0]?.id ?? null,
+    summary: `Registered tank "${f.name}" for client #${f.clientId}.`,
+  });
   return { ok: true, message: "Tank added." };
 }
 
 export async function toggleTankActive(formData: FormData): Promise<void> {
-  if (!(await requireStaffRole([...ADMIN_ROLES]))) return;
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return;
   const id = Number(formData.get("id"));
   const active = formData.get("active") === "true";
   if (!id) return;
   await requireDb().update(tanks).set({ active }).where(eq(tanks.id, id));
   revalidatePath("/admin/tanks");
+  await logAudit({
+    actor: current,
+    action: active ? "tank.enabled" : "tank.disabled",
+    targetType: "tank",
+    targetId: id,
+    summary: `Marked tank #${id} as ${active ? "active" : "inactive"}.`,
+  });
 }

@@ -9,6 +9,7 @@ import {
   saveEmailConfig,
   sendNotification,
 } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 const schema = z.object({
@@ -28,7 +29,8 @@ export async function saveEmailSettings(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole(["superadmin"]))) return { ok: false, message: "Unauthorized" };
+  const current = await requireStaffRole(["superadmin"]);
+  if (!current) return { ok: false, message: "Unauthorized" };
   const f = schema.safeParse(Object.fromEntries(formData));
   if (!f.success) return { ok: false, message: "Invalid values." };
   const v = f.data;
@@ -54,6 +56,19 @@ export async function saveEmailSettings(
     return { ok: false, message: "Could not save email settings." };
   }
   revalidatePath("/admin/email");
+  const touched = [
+    v.resendKey || v.clearResendKey === "on" ? "Resend key" : null,
+    v.smtpPass || v.clearSmtpPass === "on" ? "SMTP password" : null,
+  ].filter(Boolean);
+  await logAudit({
+    actor: current,
+    action: "settings.email_updated",
+    targetType: "settings",
+    summary:
+      touched.length > 0
+        ? `Updated email settings — changed: ${touched.join(", ")}.`
+        : "Updated email settings (no credentials changed).",
+  });
   return { ok: true, message: "Email settings saved." };
 }
 

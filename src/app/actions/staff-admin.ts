@@ -8,6 +8,7 @@ import { requireDb } from "@/db";
 import { staff } from "@/db/schema";
 import { issueStaffSetupToken, requireStaffRole } from "@/lib/staff-auth";
 import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 const ADMIN_ROLES = ["administrator", "superadmin"] as const;
@@ -79,6 +80,14 @@ export async function inviteStaff(_prev: InviteState, formData: FormData): Promi
   const link = `${await origin()}/admin/setup?token=${token}`;
   revalidatePath("/admin/staff");
 
+  await logAudit({
+    actor: current,
+    action: "staff.invited",
+    targetType: "staff",
+    targetId: staffId,
+    summary: `Invited/updated ${f.name} (${f.email}) as ${f.role}.`,
+  });
+
   let emailed = false;
   try {
     emailed = await deliverInvite(f.email, f.name, link);
@@ -104,11 +113,16 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
   if (!current) return;
   const parsed = toggleSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
-  await requireDb()
-    .update(staff)
-    .set({ status: parsed.data.active === "true" ? "active" : "disabled" })
-    .where(eq(staff.id, parsed.data.id));
+  const nextStatus = parsed.data.active === "true" ? "active" : "disabled";
+  await requireDb().update(staff).set({ status: nextStatus }).where(eq(staff.id, parsed.data.id));
   revalidatePath("/admin/staff");
+  await logAudit({
+    actor: current,
+    action: nextStatus === "active" ? "staff.enabled" : "staff.disabled",
+    targetType: "staff",
+    targetId: parsed.data.id,
+    summary: `Marked staff #${parsed.data.id} as ${nextStatus}.`,
+  });
 }
 
 const roleSchema = z.object({
@@ -126,5 +140,12 @@ export async function changeStaffRole(_prev: FormState, formData: FormData): Pro
     .set({ role: parsed.data.role })
     .where(eq(staff.id, parsed.data.id));
   revalidatePath("/admin/staff");
+  await logAudit({
+    actor: current,
+    action: "staff.role_changed",
+    targetType: "staff",
+    targetId: parsed.data.id,
+    summary: `Changed staff #${parsed.data.id}'s role to ${parsed.data.role}.`,
+  });
   return { ok: true, message: "Role updated." };
 }

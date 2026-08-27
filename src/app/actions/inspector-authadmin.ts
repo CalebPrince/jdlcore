@@ -9,6 +9,7 @@ import { inspectors } from "@/db/schema";
 import { issueInspectorSetupToken } from "@/lib/inspector-auth";
 import { requireStaffRole } from "@/lib/staff-auth";
 import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email";
+import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
 const ADMIN_ROLES = ["administrator", "superadmin"] as const;
@@ -84,6 +85,14 @@ export async function inviteInspector(_prev: InviteState, formData: FormData): P
   const link = `${await origin()}/inspector/setup?token=${token}`;
   revalidatePath("/admin/inspectors");
 
+  await logAudit({
+    actor: current,
+    action: "inspector.invited",
+    targetType: "inspector",
+    targetId: inspectorId,
+    summary: `Invited/updated ${f.name} (${f.email}) as inspector.`,
+  });
+
   let emailed = false;
   try {
     emailed = await deliverInvite(f.email, f.name, link);
@@ -109,9 +118,14 @@ export async function toggleInspectorActive(formData: FormData): Promise<void> {
   if (!current) return;
   const parsed = toggleSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return;
-  await requireDb()
-    .update(inspectors)
-    .set({ active: parsed.data.active === "true" })
-    .where(eq(inspectors.id, parsed.data.id));
+  const nextActive = parsed.data.active === "true";
+  await requireDb().update(inspectors).set({ active: nextActive }).where(eq(inspectors.id, parsed.data.id));
   revalidatePath("/admin/inspectors");
+  await logAudit({
+    actor: current,
+    action: nextActive ? "inspector.enabled" : "inspector.disabled",
+    targetType: "inspector",
+    targetId: parsed.data.id,
+    summary: `Marked inspector #${parsed.data.id} as ${nextActive ? "available" : "unavailable"}.`,
+  });
 }
