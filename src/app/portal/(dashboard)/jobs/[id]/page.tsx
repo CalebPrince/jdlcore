@@ -229,7 +229,7 @@ export default async function PortalJobDetailPage({
       </section>
 
       {/* Comments */}
-      <section className="flex flex-col gap-3">
+      <section className="flex flex-col gap-3 rounded-[var(--radius)] border bg-white p-5 shadow-[var(--shadow-sm-soft)]" style={{ borderColor: "var(--border)" }}>
         <h2 className="m-0 font-display text-lg font-bold text-navy-950">Comments</h2>
         <PortalComments jobId={job.id} comments={comments} />
       </section>

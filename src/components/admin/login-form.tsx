@@ -18,7 +18,7 @@ const initial: StaffLoginState = { ok: false, message: "" };
 export function LoginForm() {
   const [state, action, pending] = useActionState(staffLogin, initial);
   return (
-    <Card className="w-full max-w-sm">
+    <Card className="auth-form-card w-full gap-0 py-0">
       <CardHeader>
         <CardTitle className="font-display">JDL Core Admin</CardTitle>
         <CardDescription>
@@ -51,7 +51,7 @@ export function LoginForm() {
           {state.message && !state.ok && (
             <p className="text-sm font-medium text-destructive">{state.message}</p>
           )}
-          <Button type="submit" disabled={pending}>
+          <Button type="submit" disabled={pending} size="lg" className="mt-1 h-12 rounded-xl font-semibold">
             {pending ? "Checking…" : "Sign in"}
           </Button>
         </form>

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import { redirect } from "next/navigation";
 import { getInspector } from "@/lib/inspector-auth";
 import { inspectorLogout } from "@/app/actions/inspector";
 import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { recentNotifications, unreadCount } from "@/lib/notifications";
+import { MobileWorkspaceMenu } from "@/components/backend/mobile-workspace-menu";
 
 export const dynamic = "force-dynamic";
 
@@ -22,41 +24,48 @@ export default async function InspectorLayout({
   ]);
 
   return (
-    <div className="flex min-h-screen flex-col bg-paper-deep">
-      <header className="bg-navy-950 text-paper">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-6">
+    <div className="backend-shell flex min-h-screen flex-col bg-[#f4f5f2]">
+      <header className="backend-topbar sticky top-0 z-40 border-b border-navy-900/8 bg-paper/85 text-navy-950 backdrop-blur-xl">
+        <div className="mx-auto flex min-h-[72px] max-w-7xl flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-6">
           <Link href="/inspector" className="flex items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-inspection.png" alt="JDL Core logo" className="h-9 brightness-0 invert" />
-            <span className="hidden font-display text-sm font-bold tracking-[0.08em] uppercase text-paper sm:inline">
+            <Image src="/logo-inspection.png" alt="JDL Core logo" width={180} height={72} className="h-10 w-auto object-contain" />
+            <span className="hidden font-display text-xs font-bold tracking-[0.08em] uppercase text-navy-950 sm:inline">
               Inspector Portal
             </span>
           </Link>
-          <nav className="ml-auto flex items-center gap-4">
+          <nav className="ml-auto hidden items-center gap-1.5 md:flex">
             <Link
               href="/inspector"
-              className="text-sm text-[rgba(248,247,243,0.8)] transition-colors hover:text-paper"
+              className="backend-nav-link"
             >
               My Jobs
             </Link>
-            <span className="hidden text-sm text-[rgba(248,247,243,0.55)] md:inline">
+            <span className="hidden text-sm text-ink-faint md:inline">
               {inspector.name}
             </span>
-            <NotificationBell initialUnreadCount={unread} initialNotifications={notifs} dark />
+            <NotificationBell initialUnreadCount={unread} initialNotifications={notifs} />
             <form action={inspectorLogout}>
               <Button
                 variant="outline"
                 size="sm"
-                className="border-[rgba(248,247,243,0.35)] bg-transparent text-paper hover:bg-white/10 hover:text-paper"
+                className="rounded-full border-navy-900/12 bg-white text-navy-950 hover:bg-navy-100"
                 type="submit"
               >
                 Sign Out
               </Button>
             </form>
           </nav>
+          <div className="ml-auto flex items-center gap-2 md:hidden">
+            <NotificationBell initialUnreadCount={unread} initialNotifications={notifs} />
+            <MobileWorkspaceMenu
+              kind="inspector"
+              name={inspector.name}
+              links={[{ href: "/inspector", label: "My Jobs" }]}
+            />
+          </div>
         </div>
       </header>
-      <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8 sm:px-6">
+      <main className="backend-content mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6 lg:py-10">
         {children}
       </main>
       <footer className="py-6 text-center text-xs text-ink-faint">

@@ -43,9 +43,9 @@ export default async function AnalyticsPage() {
         cta={{ href: "/analytics/login", label: "Subscriber Sign In" }}
       />
 
-      <main>
+      <main className="marketing-main">
         {/* ============ HERO ============ */}
-        <section className="relative overflow-hidden pt-24 pb-18">
+        <section className="marketing-hero relative overflow-hidden pt-24 pb-18">
           <div className="hero-glow" />
           <div className="wrap relative grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
             <Reveal className="max-w-[720px]">

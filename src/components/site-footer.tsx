@@ -1,4 +1,6 @@
 import Link from "next/link";
+import Image from "next/image";
+import { ArrowUpRight, Mail, MapPin, Phone } from "lucide-react";
 import type { ContactSettings } from "@/lib/settings";
 import { whatsappLink } from "@/lib/settings";
 import { WhatsAppIcon } from "./whatsapp-icon";
@@ -28,18 +30,18 @@ export function SiteFooter({
 }) {
   const wa = whatsappLink(settings);
   return (
-    <footer className="bg-navy-950 pt-16 pb-6 text-[rgba(248,247,243,0.75)]">
-      <div className="wrap grid grid-cols-1 gap-8 border-b border-[rgba(248,247,243,0.12)] pb-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+    <footer className="relative overflow-hidden bg-navy-950 pt-18 pb-7 text-[rgba(248,247,243,0.75)]">
+      <div className="pointer-events-none absolute -top-40 right-0 size-96 rounded-full bg-gold-500/7 blur-3xl" />
+      <div className="wrap relative grid grid-cols-1 gap-10 border-b border-white/10 pb-12 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div>
           <Link href={homeHref} aria-label={logoAlt} className="inline-block">
             {logo ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={logo} alt={logoAlt} className="h-11" />
+              <Image src={logo} alt={logoAlt} width={220} height={90} className="h-12 w-auto object-contain" />
             ) : (
               <span className="font-display text-lg font-bold text-paper">{logoAlt}</span>
             )}
           </Link>
-          <p className="mt-3.5 text-[0.9rem]">{brandLine}</p>
+          <p className="mt-4 max-w-sm text-[0.9rem] leading-6 text-paper/60">{brandLine}</p>
         </div>
 
         {divisionLinks && divisionLinks.length > 0 && (
@@ -52,8 +54,8 @@ export function SiteFooter({
               className="flex flex-col gap-2.5 text-[0.92rem]"
             >
               {divisionLinks.map((l) => (
-                <Link key={l.href + l.label} href={l.href} className="hover:text-gold-300">
-                  {l.label}
+                <Link key={l.href + l.label} href={l.href} className="group inline-flex items-center gap-1 hover:text-gold-300">
+                  {l.label}<ArrowUpRight aria-hidden="true" className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
                 </Link>
               ))}
             </nav>
@@ -70,8 +72,8 @@ export function SiteFooter({
               className="flex flex-col gap-2.5 text-[0.92rem]"
             >
               {thisDivision.map((l) => (
-                <Link key={l.href + l.label} href={l.href} className="hover:text-gold-300">
-                  {l.label}
+                <Link key={l.href + l.label} href={l.href} className="group inline-flex items-center gap-1 hover:text-gold-300">
+                  {l.label}<ArrowUpRight aria-hidden="true" className="size-3 opacity-0 transition-opacity group-hover:opacity-100" />
                 </Link>
               ))}
             </nav>
@@ -84,7 +86,7 @@ export function SiteFooter({
           </h4>
           <ul className="flex flex-col gap-3 text-[0.92rem]">
             <li>
-              <span className="block text-[0.78rem] text-[rgba(248,247,243,0.5)]">
+              <span className="mb-1 flex items-center gap-1.5 text-[0.72rem] uppercase tracking-wider text-paper/40"><Phone aria-hidden="true" className="size-3" />
                 Phone
               </span>
               <a href={settings.phoneHref} className="hover:text-gold-300">
@@ -92,13 +94,14 @@ export function SiteFooter({
               </a>
             </li>
             <li>
-              <span className="block text-[0.78rem] text-[rgba(248,247,243,0.5)]">
+              <span className="mb-1 flex items-center gap-1.5 text-[0.72rem] uppercase tracking-wider text-paper/40"><Mail aria-hidden="true" className="size-3" />
                 Email
               </span>
               <a href={`mailto:${settings.emailInfo}`} className="hover:text-gold-300">
                 {settings.emailInfo}
               </a>
             </li>
+            <li className="flex items-start gap-1.5 text-paper/60"><MapPin aria-hidden="true" className="mt-1 size-3 shrink-0" />{settings.address}</li>
             <li>
               <a
                 className="inline-flex items-center gap-2 text-[0.92rem] text-[rgba(248,247,243,0.85)] hover:text-gold-300"

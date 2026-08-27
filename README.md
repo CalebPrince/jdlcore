@@ -1,20 +1,69 @@
-# JDL Core — Group Site (Next.js)
+# JDL Core Platform
 
-Marketing site for the JDL Core group: independent oil & gas inspection
-services today, plus two divisions in development (an industry-data chat
-subscription and an education academy).
+JDL Core is a multi-division oil and gas platform covering independent inspection services, source-grounded industry analytics, and practical operations training.
 
-Rebuilt from the original static HTML/CSS site (`_legacy/`) into **Next.js
-(App Router) + Tailwind CSS v4 + shadcn/ui**, with a **Supabase Postgres**
-backend powering the forms and an admin panel.
+The application combines public marketing sites with secure workspaces for staff, clients, inspectors, analytics subscribers, and academy learners.
 
 ## Stack
 
-- Next.js 15 (App Router, Server Actions) · React 19 · TypeScript
-- Tailwind CSS v4 with the original navy/gold design tokens
-- shadcn/ui components (admin UI, form primitives)
-- Drizzle ORM + Postgres (Supabase)
-- Fonts: Space Grotesk (display) + IBM Plex Sans (body), self-hosted via `next/font`
+- Next.js 15 App Router, React 19, and TypeScript
+- Tailwind CSS v4
+- shadcn/ui and Radix UI primitives
+- Lucide icons
+- Drizzle ORM with Supabase Postgres
+- Space Grotesk for display typography and IBM Plex Sans for body text through `next/font`
+- Next.js Server Actions for authenticated workflows and forms
+
+## Apple-inspired UI system
+
+The interface follows Apple-caliber design principles adapted to the JDL Core brand. It does not reproduce Apple product pages or proprietary interface styling.
+
+The system prioritizes:
+
+- Immediate comprehension and strong information hierarchy
+- Content-first layouts with generous, responsive spacing
+- Deep navy, industrial gold, warm neutral surfaces, and restrained translucency
+- Subtle borders and material separation instead of heavy shadows
+- Comfortable touch targets and consistent keyboard focus states
+- Purposeful motion that respects `prefers-reduced-motion`
+- Responsive layouts designed separately for mobile and desktop
+- Lucide icons rather than emoji, text glyphs, or improvised interface symbols
+- Authentic JDL Core logo assets rendered with Next.js Image
+
+Shared design tokens and cross-product surface rules live in `src/app/globals.css`. Tailwind remains the primary styling layer, while shadcn primitives provide accessible foundations for buttons, cards, fields, alerts, tables, sheets, menus, and related controls.
+
+### Public experience
+
+The public UI includes:
+
+- JDL Core group landing page
+- Inspection Services marketing site
+- Analytics marketing and beta access pages
+- Academy marketing site and public course catalogue
+- Contact and lead-generation forms
+- Shared translucent navigation, mobile drawers, and structured footers
+
+### Authentication
+
+Admin, Client Portal, Inspector Portal, Analytics, and Academy authentication screens use a shared two-column system:
+
+- Context and product messaging on the left
+- Login or registration form on the right
+- A focused single-column form experience on mobile
+- shadcn Input, Label, Button, Alert, and Card behavior
+- Consistent validation, loading, password recovery, and focus treatments
+
+### Authenticated workspaces
+
+The backend UI uses a shared workspace language while preserving the navigation model appropriate to each product:
+
+- Admin Command Center with responsive sidebar navigation
+- Client Portal with job tracking, service requests, reports, documents, invoices, and comments
+- Inspector Portal with assignment, fieldwork, and submission workflows
+- Analytics chat workspace with citations, exports, conversation history, and paired mobile drawers
+- Academy LMS with courses, assessments, progress, and certificates
+
+Cards, tables, fields, navigation states, page gutters, and responsive behavior share the same backend tokens. Desktop top menus collapse into shadcn Sheet drawers on mobile.
 
 ## Getting started
 
@@ -24,89 +73,75 @@ backend powering the forms and an admin panel.
    npm install
    ```
 
-2. Create a free [Supabase](https://supabase.com) project and copy its
-   connection string (**Project Settings → Database → Connection string**,
-   use the *Transaction pooler* URI). Then set up `.env`:
+2. Create a Supabase project and add the required environment variables to `.env` or `.env.local`:
 
-   ```bash
-   cp .env.example .env
-   # edit .env and fill in DATABASE_URL, ADMIN_PASSWORD, SESSION_SECRET
+   ```env
+   DATABASE_URL=
+   ADMIN_PASSWORD=
+   SESSION_SECRET=
    ```
 
-3. Create the tables:
+3. Create or update the database tables:
 
    ```bash
    npm run db:push
    ```
 
-4. Run it:
+4. Start the development server:
 
    ```bash
    npm run dev
    ```
 
-Then visit `http://localhost:3000`. The site renders even without
-`DATABASE_URL` configured (contact details fall back to placeholders), but
-forms and the admin panel need the database.
+Open `http://localhost:3000`.
 
-## Structure
+## Project structure
 
-```
+```text
 src/app/
-  page.tsx               Hub page — group intro + links to all three divisions
-  inspection/page.tsx    Inspection Services (flagship) — services, process, quote form
-  analytics/             Live beta assistant, subscriber auth, history, citations, exports
-  academy/               Public catalogue, learner LMS, assessments, certificates
-  contact/page.tsx       Contact — message form + live details from DB
-  actions/               Server Actions: form submissions + admin auth/settings
-  admin/                 Password-protected admin panel
-    login/               Sign-in
-    (dashboard)/         Operations, clients, Analytics, Academy, inbox, and settings
-src/components/          Header/footer, chat widget, mockups, forms, ui/
-src/db/                  Drizzle client + platform schema
-_legacy/                 Original static site, kept for reference
-docs/                    Client requirements document (future portal spec)
+  page.tsx                 Group landing page
+  inspection/              Inspection marketing site
+  analytics/               Marketing, subscriber auth, and chat workspace
+  academy/                 Marketing, catalogue, learner auth, and LMS
+  contact/                 Contact experience
+  portal/                  Client authentication and workspace
+  inspector/               Inspector authentication and workspace
+  admin/                   Staff authentication and Command Center
+  actions/                 Server Actions for platform workflows
+  api/                     Documents, reports, chat, and certificate endpoints
+
+src/components/
+  auth/                    Shared authentication shell
+  backend/                 Shared authenticated mobile navigation
+  ui/                      shadcn interface primitives
+  admin/                   Admin components and forms
+  portal/                  Client Portal components
+  inspector/               Inspector workflow components
+  analytics/               Analytics chat and authentication UI
+  academy/                 Academy authentication and LMS UI
+
+src/db/                    Drizzle client and schema
+src/lib/                   Authentication, business logic, reporting, and settings
+scripts/                   Migrations, seeds, and maintenance scripts
+_legacy/                   Original static site retained for reference
 ```
 
-## Admin panel
+## Quality checks
 
-Visit `/admin` and sign in with the `ADMIN_PASSWORD` from `.env`
-(default `jdl-admin` — change this before deploying!).
+```bash
+npm run lint
+npm run build
+```
 
-- **Inbox** — every quote request, contact message, chat handoff, and
-  waitlist signup, filterable by type.
-- **Site Settings** — edit the phone/email/address/WhatsApp details shown in
-  every footer and on the contact page; saves straight to the database and is
-  live immediately.
-- **Analytics** — grant subscriber access, set usage limits, and manage the
-  source-grounded knowledge base.
-- **Academy** — publish courses, build curriculum, manage learners, and revoke
-  or verify credentials.
+The production build performs compilation, type checking, route generation, and page optimization. The repository-wide lint command may also scan generated Netlify or temporary browser artifacts if those directories exist locally; targeted source linting can be run with `npx eslint src`.
 
-## Chat widget
+## Deployment
 
-The bottom-right chat launcher is still a scripted, menu-driven demo (no AI):
-quick-reply chips, a small rule-based responder, and human handoff. Unlike
-the legacy version, the "leave your details" handoff now actually stores
-submissions in the database.
+- Configure production environment variables on the hosting provider.
+- Run the required migrations against the production database.
+- The project includes Netlify configuration, but the Next.js application can be deployed to any compatible host.
+- Do not commit `.env`, `.env.local`, temporary browser data, generated platform output, or private client documents.
 
-## Deployment notes
+## Current asset note
 
-- Set `DATABASE_URL`, `ADMIN_PASSWORD`, and `SESSION_SECRET` as environment
-  variables on your host.
-- Run `npm run db:push` once against production (or from any machine with
-  the same env vars).
-- Forms submit via Next.js Server Actions — no third-party form service
-  needed.
-
-## Known placeholders / open items
-
-- Contact details start as placeholders until they're set in `/admin`.
-- The dashboard/chat/course panels in each hero are hand-built UI mockups,
-  not real screenshots.
-- The chat widget itself is scripted (see above); swap in a real backend/AI
-  later if wanted.
-- Academy logo — no dedicated logo exists yet; the Inspection mark is reused.
-- The client/operations/inspector portal described in `docs/JDL Core
-  Inspection Services.docx` is a separate future project, not part of this
-  marketing site.
+The Inspection and Analytics divisions use supplied brand logos. JDL Core Academy currently uses a text-based brand treatment because a dedicated Academy logo has not been provided.

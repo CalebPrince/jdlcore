@@ -1,6 +1,27 @@
-import Link from "next/link";
-import { ShieldCheck } from "lucide-react";
+import { AuthShell } from "@/components/auth/auth-shell";
 
-export function AcademyAuthFrame({title,description,children}:{title:string;description:string;children:React.ReactNode}){
-  return <main className="grid min-h-dvh bg-[#f3f4f1] lg:grid-cols-[1fr_1fr]"><section className="hidden bg-navy-950 p-12 text-white lg:flex lg:flex-col"><Link href="/academy" className="font-display text-lg font-bold text-white">JDL Core <span className="text-gold-300">Academy</span></Link><div className="my-auto max-w-lg"><p className="text-xs font-bold uppercase tracking-[.22em] text-gold-300">Field competence, documented</p><p className="mt-5 font-display text-5xl font-bold leading-tight">Learn the standard.<br/>Apply it with confidence.</p><div className="mt-10 flex items-center gap-3 text-sm text-white/50"><ShieldCheck className="h-5 w-5 text-gold-300"/>Secure learner workspace</div></div></section><section className="grid place-items-center p-5"><div className="w-full max-w-md rounded-[24px] border border-black/5 bg-white p-7 shadow-[0_20px_60px_rgba(8,24,38,.1)] sm:p-9"><Link href="/academy" className="text-xs font-semibold text-ink-faint">← Back to Academy</Link><h1 className="mt-7 text-3xl">{title}</h1><p className="mt-2 text-sm text-ink-soft">{description}</p>{children}</div></section></main>;
+export function AcademyAuthFrame({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <AuthShell
+      brand="JDL Core Academy"
+      title={title}
+      description={description}
+      backHref="/academy"
+      backLabel="Back to Academy"
+      eyebrow="Learner workspace"
+      panelTitle="Learn the standard. Apply it with confidence."
+      panelDescription="Practical petroleum operations learning designed around real measurements, scenarios, and field decisions."
+      highlights={["Structured specialist learning paths", "Practical checks and assessments", "Documented learner progress"]}
+    >
+      <div className="auth-form-card">{children}</div>
+    </AuthShell>
+  );
 }

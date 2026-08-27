@@ -42,9 +42,9 @@ export default async function ContactPage() {
         cta={{ href: "#form", label: "Send a Message" }}
       />
 
-      <main>
+      <main className="marketing-main">
         {/* ============ HERO ============ */}
-        <section className="relative overflow-hidden pt-24 pb-18">
+        <section className="marketing-hero relative overflow-hidden pt-24 pb-18">
           <div className="hero-glow" />
           <div className="wrap relative max-w-[720px]">
             <Reveal>

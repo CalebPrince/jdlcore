@@ -22,8 +22,8 @@ export default async function AcademyPage() {
       ]}
       cta={{ href: "/academy/lms", label: "Enter LMS" }}
     />
-    <main>
-      <section className="relative overflow-hidden bg-navy-950 py-24 text-white lg:py-32">
+    <main className="marketing-main">
+      <section className="academy-hero relative overflow-hidden bg-navy-950 py-24 text-white lg:py-32">
         <div className="absolute inset-0 opacity-25" style={{backgroundImage:"linear-gradient(rgba(255,255,255,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.08) 1px,transparent 1px)",backgroundSize:"48px 48px"}} />
         <div className="wrap relative grid items-center gap-14 lg:grid-cols-[1fr_430px]">
           <div><p className="text-xs font-bold uppercase tracking-[.22em] text-gold-300">Built on the field, for the field</p><h1 className="mt-5 max-w-3xl text-[clamp(2.8rem,6vw,5.8rem)] font-bold leading-[.96] text-white">Know the numbers.<br/><span className="text-gold-500">Trust the work.</span></h1><p className="mt-7 max-w-xl text-lg leading-8 text-white/65">Practical training in petroleum inspection, measurement, and cargo operations—designed by inspectors who do the work every day.</p><div className="mt-9 flex flex-wrap gap-3"><Link href="/academy/courses" className="btn-gold btn-gold-lg">Explore courses <ArrowRight className="h-4 w-4" /></Link><Link href="/academy/lms" className="rounded-full border border-white/20 px-7 py-4 font-semibold text-white hover:bg-white/10">View learner dashboard</Link></div></div>

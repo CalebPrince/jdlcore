@@ -28,8 +28,8 @@ export function AnalyticsLoginForm() {
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
       )}
-      <Button type="submit" disabled={pending} className="btn-gold">
-        {pending ? "Signing in…" : "Sign In"}
+      <Button type="submit" disabled={pending} size="lg" className="mt-1 h-12 rounded-xl font-semibold">
+        {pending ? "Signing in…" : "Sign in"}
       </Button>
       <p className="text-center text-xs"><Link href="/account/forgot-password?type=analytics" className="font-semibold text-gold-700">Forgot password?</Link></p>
     </form>

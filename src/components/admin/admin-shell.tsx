@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -18,6 +19,7 @@ import {
   GraduationCap,
   Award,
   Droplets,
+  Menu,
 } from "lucide-react";
 import {
   Sheet,
@@ -111,8 +113,7 @@ function SidebarInner({
   return (
     <div className="flex h-full min-w-0 flex-col bg-navy-950 text-paper">
       <div className="flex items-center gap-3 px-5 py-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo-inspection.png" alt="" className="h-9 w-auto" />
+        <Image src="/logo-inspection.png" alt="JDL Core" width={180} height={72} className="h-9 w-auto object-contain" />
         <div>
           <p className="font-display text-sm font-bold leading-tight">
             JDL Core
@@ -177,9 +178,9 @@ export function AdminShell({
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <div className="min-h-dvh lg:grid lg:grid-cols-[250px_1fr]">
+    <div className="backend-shell min-h-dvh bg-[#f4f5f2] lg:grid lg:grid-cols-[264px_1fr]">
       {/* Desktop sidebar */}
-      <aside className="sticky top-0 hidden h-dvh overflow-y-auto border-r border-white/10 bg-navy-950 lg:block">
+      <aside className="backend-sidebar sticky top-0 hidden h-dvh overflow-y-auto border-r border-white/8 bg-navy-950 lg:block">
         <SidebarInner name={name} role={role} unreadCount={unreadCount} notifications={notifications} />
       </aside>
 
@@ -187,8 +188,7 @@ export function AdminShell({
         {/* Mobile top bar */}
         <header className="flex items-center justify-between border-b bg-navy-950 px-4 py-3 text-paper lg:hidden">
           <div className="flex items-center gap-2.5">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-inspection.png" alt="" className="h-8 w-auto" />
+            <Image src="/logo-inspection.png" alt="JDL Core" width={160} height={64} className="h-8 w-auto object-contain" />
             <span className="font-display text-sm font-bold">Command Center</span>
           </div>
           <div className="flex items-center gap-2">
@@ -201,9 +201,7 @@ export function AdminShell({
                   className="border-white/20 bg-transparent text-paper hover:bg-white/10 hover:text-paper"
                   aria-label="Open menu"
                 >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="h-5 w-5">
-                    <path d="M4 6h16M4 12h16M4 18h16" />
-                  </svg>
+                  <Menu aria-hidden="true" className="h-5 w-5" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="w-[270px] p-0 [&>button]:text-paper">
@@ -222,7 +220,7 @@ export function AdminShell({
           </div>
         </header>
 
-        <main className="flex-1">{children}</main>
+        <main className="backend-content flex-1">{children}</main>
       </div>
     </div>
   );

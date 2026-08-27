@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowUp, BookOpen, Download, Loader2, Pencil, Plus, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { ArrowUp, BookOpen, Download, ExternalLink, History, Loader2, LogOut, Menu, PanelLeft, Plus, Pencil, Trash2 } from "lucide-react";
+import { analyticsLogout } from "@/app/actions/analytics";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 export type ChatSummary = { id: number; title: string };
@@ -39,6 +42,8 @@ export function ChatWorkspace({
   const [usedToday, setUsedToday] = useState(initialUsedToday);
   const [error, setError] = useState<string | null>(null);
   const [currentChatId, setCurrentChatId] = useState<number | null>(activeChatId);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const taRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
@@ -134,9 +139,47 @@ export function ChatWorkspace({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-1 gap-0 overflow-hidden">
+    <div className="analytics-workspace mx-auto flex w-full max-w-7xl flex-1 flex-col gap-0 overflow-hidden bg-white/35 md:flex-row">
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-navy-900/8 bg-white/75 px-3 backdrop-blur-xl md:hidden">
+        <Sheet open={historyOpen} onOpenChange={setHistoryOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-10 rounded-full" aria-label="Open conversation history"><PanelLeft aria-hidden="true" /></Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex w-[min(340px,88vw)] flex-col border-navy-900/8 bg-paper p-0">
+            <SheetHeader className="border-b border-navy-900/8 px-5 py-5 text-left"><SheetTitle className="flex items-center gap-2"><History aria-hidden="true" className="size-4 text-gold-600" /> Conversations</SheetTitle></SheetHeader>
+            <div className="p-4">
+              <Button onClick={() => { startNewChat(); setHistoryOpen(false); }} variant="outline" className="h-11 w-full justify-start rounded-xl"><Plus aria-hidden="true" /> New conversation</Button>
+            </div>
+            <div className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
+              {chatList.length === 0 ? <p className="p-3 text-sm text-muted-foreground">No conversations yet.</p> : null}
+              {chatList.map((chat) => (
+                <div key={chat.id} className={cn("group flex items-center rounded-xl", chat.id === currentChatId ? "bg-navy-950 text-paper" : "text-ink-soft hover:bg-navy-100")}>
+                  <button type="button" onClick={() => { switchChat(chat.id); setHistoryOpen(false); }} className="min-w-0 flex-1 truncate px-3 py-3 text-left text-sm">{chat.title}</button>
+                  <button type="button" onClick={() => renameChat(chat)} className="p-2 opacity-60" aria-label={`Rename ${chat.title}`}><Pencil className="size-3.5" /></button>
+                  <button type="button" onClick={() => deleteChat(chat)} className="mr-1 p-2 opacity-60 hover:text-red-500" aria-label={`Delete ${chat.title}`}><Trash2 className="size-3.5" /></button>
+                </div>
+              ))}
+            </div>
+          </SheetContent>
+        </Sheet>
+        <span className="font-display text-sm font-bold text-navy-950">JDL Core <span className="text-gold-600">Analytics</span></span>
+        <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+          <SheetTrigger asChild>
+            <Button variant="ghost" size="icon" className="size-10 rounded-full" aria-label="Open workspace menu"><Menu aria-hidden="true" /></Button>
+          </SheetTrigger>
+          <SheetContent side="right" className="w-[min(340px,88vw)] border-navy-900/8 bg-paper p-0">
+            <SheetHeader className="border-b border-navy-900/8 px-6 py-5 text-left"><SheetTitle>Workspace menu</SheetTitle><p className="text-sm text-ink-soft">Signed in as {userName}</p></SheetHeader>
+            <nav className="flex flex-col gap-1 p-4">
+              <Link href="/analytics/app" onClick={() => setMenuOpen(false)} className="flex min-h-12 items-center rounded-xl px-4 text-sm font-semibold text-ink-soft hover:bg-navy-100">Analytics workspace</Link>
+              <Link href="/analytics" onClick={() => setMenuOpen(false)} className="flex min-h-12 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-soft hover:bg-navy-100">Analytics website <ExternalLink aria-hidden="true" className="size-3.5" /></Link>
+              <Link href="/" onClick={() => setMenuOpen(false)} className="flex min-h-12 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-soft hover:bg-navy-100">JDL Core website <ExternalLink aria-hidden="true" className="size-3.5" /></Link>
+            </nav>
+            <form action={analyticsLogout} className="absolute inset-x-4 bottom-5"><Button type="submit" variant="outline" className="h-11 w-full justify-start rounded-xl"><LogOut aria-hidden="true" /> Sign out</Button></form>
+          </SheetContent>
+        </Sheet>
+      </div>
       {/* Sidebar */}
-      <aside className="hidden w-60 shrink-0 flex-col gap-3 border-r bg-white/60 p-4 md:flex" style={{ borderColor: "var(--border)" }}>
+      <aside className="hidden w-64 shrink-0 flex-col gap-3 border-r bg-white/72 p-4 backdrop-blur-xl md:flex" style={{ borderColor: "var(--border)" }}>
         <Button onClick={startNewChat} variant="outline" size="sm" className="justify-start gap-2">
           <Plus className="h-4 w-4" /> New chat
         </Button>
@@ -266,7 +309,7 @@ export function ChatWorkspace({
             }}
             className="mx-auto flex items-end gap-2"
           >
-            <div className="relative flex-1 md:hidden">
+            <div className="relative shrink-0 md:hidden">
               <MobileMenu onStartNew={startNewChat} />
             </div>
             <textarea

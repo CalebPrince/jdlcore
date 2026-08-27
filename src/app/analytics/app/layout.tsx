@@ -13,9 +13,9 @@ export default async function AnalyticsAppLayout({
   if (!user) redirect("/analytics/login");
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#f7f5ef]">
-      <header className="sticky top-0 z-40 bg-navy-950">
-        <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
+    <div className="backend-shell flex min-h-screen flex-col bg-[#f4f5f2]">
+      <header className="backend-topbar sticky top-0 z-40 hidden border-b border-white/8 bg-navy-950/96 backdrop-blur-xl md:block">
+        <div className="mx-auto flex h-[72px] w-full max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/analytics/app" className="flex items-center gap-2.5 no-underline">
             <span className="font-display text-lg font-bold tracking-tight text-paper">
               JDL Core <span className="text-gold-500">Analytics</span>
@@ -50,7 +50,7 @@ export default async function AnalyticsAppLayout({
           </div>
         </div>
       </header>
-      {children}
+      <main className="backend-content flex min-h-0 flex-1">{children}</main>
     </div>
   );
 }
