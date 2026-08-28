@@ -71,15 +71,12 @@ export default async function AdminJobDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  console.error("[DEBUG] job page start");
   const { id } = await params;
   const jobId = Number(id);
   if (!Number.isInteger(jobId)) notFound();
 
-  console.error("[DEBUG] before getStaff");
   const staff = await getStaff();
   if (!staff) notFound();
-  console.error("[DEBUG] after getStaff");
 
   const database = requireDb();
   const rows = await database
@@ -88,33 +85,32 @@ export default async function AdminJobDetailPage({
     .innerJoin(clients, eq(jobs.clientId, clients.id))
     .where(eq(jobs.id, jobId))
     .limit(1);
-  console.error("[DEBUG] after job+client query");
   if (!rows[0]) notFound();
   const job = rows[0].job;
   const client = rows[0].client;
 
-  console.error("[DEBUG] before Promise.all");
-  const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments, invoiceSettings, aiReviews] =
-    await Promise.all([
-      database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt)),
-      database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt)),
-      database.select().from(invoices).where(eq(invoices.jobId, jobId)).orderBy(desc(invoices.issuedAt)),
-      database
-        .select({ id: inspectors.id, name: inspectors.name })
-        .from(inspectors)
-        .where(eq(inspectors.active, true)),
-      job.assignedInspectorId
-        ? database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
-        : Promise.resolve([]),
-      database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1),
-      database.select().from(tanks).where(eq(tanks.clientId, job.clientId)),
-      database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate)),
-      database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
-      database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt)),
-      getInvoiceSettings(),
-      loadJobReviews(jobId),
-    ]);
-  console.error("[DEBUG] after Promise.all");
+  // Fetched sequentially rather than via Promise.all — firing this many
+  // queries concurrently was hanging indefinitely in production (queries
+  // completed on the Postgres side but the resolved value never made it
+  // back to the awaiting Promise), while the exact same queries run one at
+  // a time without issue. Costs a bit of latency, not correctness.
+  const timeline = await database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt));
+  const docs = await database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt));
+  const bills = await database.select().from(invoices).where(eq(invoices.jobId, jobId)).orderBy(desc(invoices.issuedAt));
+  const activeInspectors = await database
+    .select({ id: inspectors.id, name: inspectors.name })
+    .from(inspectors)
+    .where(eq(inspectors.active, true));
+  const assignedInspector = job.assignedInspectorId
+    ? await database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
+    : [];
+  const completion = await database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1);
+  const tankList = await database.select().from(tanks).where(eq(tanks.clientId, job.clientId));
+  const readings = await database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate));
+  const coq = await database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1);
+  const comments = await database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt));
+  const invoiceSettings = await getInvoiceSettings();
+  const aiReviews = await loadJobReviews(jobId);
 
   const defaultDueDate = new Date();
   defaultDueDate.setDate(defaultDueDate.getDate() + (Number(invoiceSettings.termsDays) || 14));
