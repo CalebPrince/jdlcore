@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { toggleInspectorActive, updateInspectorEmail } from "@/app/actions/inspector-authadmin";
+import { deleteInspector, toggleInspectorActive, updateInspectorEmail } from "@/app/actions/inspector-authadmin";
 import { InviteInspectorForm } from "@/components/admin/inspector-forms";
 import { EditEmailInline } from "@/components/admin/edit-email-inline";
+import { ConfirmDeleteButton } from "@/components/admin/confirm-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -96,6 +97,13 @@ export default async function AdminInspectorsPage() {
                       {i.active ? "Mark Unavailable" : "Mark Available"}
                     </Button>
                   </form>
+                  {current.role === "superadmin" && (
+                    <ConfirmDeleteButton
+                      action={deleteInspector}
+                      id={i.id}
+                      confirmMessage={`Permanently delete ${i.name} (${i.email})? This cannot be undone. Inspectors with jobs still in progress can't be deleted.`}
+                    />
+                  )}
                 </div>
               );
             })}

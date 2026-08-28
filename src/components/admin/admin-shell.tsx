@@ -20,6 +20,7 @@ import {
   Award,
   Droplets,
   Menu,
+  UserCog,
 } from "lucide-react";
 import {
   Sheet,
@@ -57,6 +58,7 @@ const NAV: {
   { href: "/admin/audit", label: "Audit Log", icon: History, roles: ["administrator", "superadmin"] },
   { href: "/admin/email", label: "Email", icon: Mail, roles: ["superadmin"] },
   { href: "/admin/ai", label: "AI Settings", icon: Bot, roles: ["superadmin"] },
+  { href: "/admin/account", label: "My Account", icon: UserCog },
 ];
 
 function NavLinks({ role, onNavigate }: { role: StaffRole; onNavigate?: () => void }) {

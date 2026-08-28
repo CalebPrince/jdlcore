@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   EmailSettingsForm,
+  TestAllStaffEmailForm,
   TestEmailForm,
   type EmailSettingsView,
 } from "@/components/admin/email-settings-form";
@@ -71,6 +72,7 @@ export default async function AdminEmailPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <TestEmailForm />
+          <TestAllStaffEmailForm />
           <div className="overflow-x-auto rounded-lg border" style={{ borderColor: "var(--border)" }}>
             <table className="w-full min-w-[560px] text-sm">
               <thead>

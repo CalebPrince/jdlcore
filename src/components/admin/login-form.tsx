@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useActionState } from "react";
 import { staffLogin, type StaffLoginState } from "@/app/actions/staff";
 import { Button } from "@/components/ui/button";
@@ -39,7 +40,12 @@ export function LoginForm() {
             />
           </div>
           <div className="flex flex-col gap-2">
-            <Label htmlFor="password">Password</Label>
+            <div className="flex items-center justify-between gap-4">
+              <Label htmlFor="password">Password</Label>
+              <Link href="/account/forgot-password?type=staff" className="text-xs font-semibold text-navy-700 hover:text-gold-700">
+                Forgot password?
+              </Link>
+            </div>
             <Input
               id="password"
               name="password"

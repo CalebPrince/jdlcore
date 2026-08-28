@@ -31,10 +31,10 @@ export function EditEmailInline({
       <button
         type="button"
         onClick={() => setEditing(true)}
-        className="group inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-navy-950"
+        className="group inline-flex items-center gap-1.5 text-xs text-muted-foreground underline decoration-dotted underline-offset-2 hover:text-navy-950"
       >
         {email}
-        <Pencil className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-100" />
+        <Pencil className="h-3 w-3 shrink-0 opacity-60 transition-opacity group-hover:opacity-100" />
       </button>
     );
   }

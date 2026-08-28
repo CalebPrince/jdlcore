@@ -11,9 +11,10 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { toggleStaffActive, updateStaffEmail } from "@/app/actions/staff-admin";
+import { deleteStaff, toggleStaffActive, updateStaffEmail } from "@/app/actions/staff-admin";
 import { InviteStaffForm } from "@/components/admin/staff-forms";
 import { EditEmailInline } from "@/components/admin/edit-email-inline";
+import { ConfirmDeleteButton } from "@/components/admin/confirm-delete-button";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,13 @@ export default async function AdminStaffPage() {
                         {s.status === "active" ? "Disable" : "Enable"}
                       </Button>
                     </form>
+                  )}
+                  {current.role === "superadmin" && s.id !== current.id && (
+                    <ConfirmDeleteButton
+                      action={deleteStaff}
+                      id={s.id}
+                      confirmMessage={`Permanently delete ${s.name} (${s.email})? This cannot be undone.`}
+                    />
                   )}
                 </div>
               );

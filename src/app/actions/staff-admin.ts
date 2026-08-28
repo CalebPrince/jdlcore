@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { staff } from "@/db/schema";
@@ -187,4 +187,38 @@ export async function changeStaffRole(_prev: FormState, formData: FormData): Pro
     summary: `Changed staff #${parsed.data.id}'s role to ${parsed.data.role}.`,
   });
   return { ok: true, message: "Role updated." };
+}
+
+const deleteSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+export async function deleteStaff(formData: FormData): Promise<void> {
+  const current = await requireStaffRole(["superadmin"]);
+  if (!current) return;
+  const parsed = deleteSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+  if (parsed.data.id === current.id) return;
+
+  const database = requireDb();
+  const target = await database.select().from(staff).where(eq(staff.id, parsed.data.id)).limit(1);
+  if (!target[0]) return;
+
+  if (target[0].role === "superadmin") {
+    const otherSuperadmins = await database
+      .select({ id: staff.id })
+      .from(staff)
+      .where(and(eq(staff.role, "superadmin"), eq(staff.status, "active"), ne(staff.id, parsed.data.id)));
+    if (otherSuperadmins.length === 0) return;
+  }
+
+  await database.delete(staff).where(eq(staff.id, parsed.data.id));
+  revalidatePath("/admin/staff");
+  await logAudit({
+    actor: current,
+    action: "staff.deleted",
+    targetType: "staff",
+    targetId: parsed.data.id,
+    summary: `Deleted staff account ${target[0].name} (${target[0].email}).`,
+  });
 }

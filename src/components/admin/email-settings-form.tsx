@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { saveEmailSettings, sendTestEmail } from "@/app/actions/email-admin";
+import { saveEmailSettings, sendTestEmail, sendTestEmailToAllStaff } from "@/app/actions/email-admin";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -123,6 +123,22 @@ export function TestEmailForm() {
       </Button>
       {(state.message || state.ok) && (
         <span className={`w-full text-xs sm:w-auto ${state.ok ? "text-[#1f7a4d]" : "text-red-600"}`}>
+          {state.message}
+        </span>
+      )}
+    </form>
+  );
+}
+
+export function TestAllStaffEmailForm() {
+  const [state, action, pending] = useActionState(sendTestEmailToAllStaff, initial);
+  return (
+    <form action={action} className="flex flex-wrap items-center gap-3">
+      <Button type="submit" variant="outline" disabled={pending} className="shrink-0">
+        {pending ? "Sending…" : "Send Test to All Staff"}
+      </Button>
+      {(state.message || state.ok) && (
+        <span className={`text-xs ${state.ok ? "text-[#1f7a4d]" : "text-red-600"}`}>
           {state.message}
         </span>
       )}

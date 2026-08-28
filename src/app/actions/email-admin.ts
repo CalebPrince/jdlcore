@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { requireDb } from "@/db";
+import { staff } from "@/db/schema";
 import { requireStaffRole } from "@/lib/staff-auth";
 import {
   getEmailConfig,
@@ -94,4 +97,45 @@ export async function sendTestEmail(
   return result.sent
     ? { ok: true, message: `Test email sent to ${to}.` }
     : { ok: false, message: "Send failed — check the delivery log below." };
+}
+
+export async function sendTestEmailToAllStaff(_prev: FormState, _formData: FormData): Promise<FormState> {
+  const current = await requireStaffRole(["superadmin"]);
+  if (!current) return { ok: false, message: "Unauthorized" };
+
+  const config = await getEmailConfig();
+  if (!isEmailConfigured(config)) {
+    return { ok: false, message: "No provider configured yet — add a Resend key or SMTP details first." };
+  }
+
+  const database = requireDb();
+  const activeStaff = await database
+    .select({ id: staff.id, name: staff.name, email: staff.email })
+    .from(staff)
+    .where(eq(staff.status, "active"));
+
+  if (activeStaff.length === 0) {
+    return { ok: false, message: "No active staff accounts to send to." };
+  }
+
+  let sent = 0;
+  const failed: string[] = [];
+  for (const s of activeStaff) {
+    const result = await sendNotification({
+      to: s.email,
+      subject: "JDL Core test notification",
+      html: `<p>Hi ${s.name}, this is a test notification from JDL Core to confirm your account's email address (${s.email}) receives notifications correctly.</p>`,
+    });
+    if (result.sent) sent++;
+    else failed.push(s.email);
+  }
+
+  revalidatePath("/admin/email");
+  return {
+    ok: failed.length === 0,
+    message:
+      failed.length === 0
+        ? `Sent to all ${sent} active staff.`
+        : `Sent to ${sent} of ${activeStaff.length} — failed: ${failed.join(", ")}.`,
+  };
 }

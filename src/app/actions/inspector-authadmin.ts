@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
-import { eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { inspectors } from "@/db/schema";
+import { inspectors, jobs } from "@/db/schema";
 import { issueInspectorSetupToken } from "@/lib/inspector-auth";
 import { requireStaffRole } from "@/lib/staff-auth";
 import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email";
@@ -166,5 +166,37 @@ export async function toggleInspectorActive(formData: FormData): Promise<void> {
     targetType: "inspector",
     targetId: parsed.data.id,
     summary: `Marked inspector #${parsed.data.id} as ${nextActive ? "available" : "unavailable"}.`,
+  });
+}
+
+const deleteSchema = z.object({
+  id: z.coerce.number().int().positive(),
+});
+
+export async function deleteInspector(formData: FormData): Promise<void> {
+  const current = await requireStaffRole(["superadmin"]);
+  if (!current) return;
+  const parsed = deleteSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return;
+
+  const database = requireDb();
+  const target = await database.select().from(inspectors).where(eq(inspectors.id, parsed.data.id)).limit(1);
+  if (!target[0]) return;
+
+  const openJobs = await database
+    .select({ id: jobs.id })
+    .from(jobs)
+    .where(and(eq(jobs.assignedInspectorId, parsed.data.id), ne(jobs.status, "closed")))
+    .limit(1);
+  if (openJobs.length > 0) return;
+
+  await database.delete(inspectors).where(eq(inspectors.id, parsed.data.id));
+  revalidatePath("/admin/inspectors");
+  await logAudit({
+    actor: current,
+    action: "inspector.deleted",
+    targetType: "inspector",
+    targetId: parsed.data.id,
+    summary: `Deleted inspector account ${target[0].name} (${target[0].email}).`,
   });
 }
