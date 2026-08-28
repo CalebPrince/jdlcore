@@ -17,14 +17,7 @@ function usable(url: string | undefined): url is string {
   }
 }
 
-// Supabase's pooler (pgbouncer, transaction mode) already pools connections
-// upstream — each serverless invocation only needs a handful of its own, not
-// the postgres-js default of 10. Left uncapped, a page that fires many
-// parallel queries (e.g. the job detail page) can exhaust the pooler's
-// shared backend connection limit when a few requests land at once.
-const client = usable(rawUrl)
-  ? postgres(rawUrl, { prepare: false, max: 3, idle_timeout: 20 })
-  : null;
+const client = usable(rawUrl) ? postgres(rawUrl, { prepare: false }) : null;
 
 export const db = client ? drizzle(client, { schema }) : null;
 
