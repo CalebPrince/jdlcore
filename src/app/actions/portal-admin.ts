@@ -514,7 +514,7 @@ export async function convertQuoteToJob(
         location: f.location || null,
         cargoType: null,
         notes: f.notes || null,
-        status: "submitted",
+        status: "awaiting_assignment",
       })
       .returning({ id: jobs.id });
     const jobId = insertedJob[0].id;
@@ -522,7 +522,7 @@ export async function convertQuoteToJob(
     await database.update(jobs).set({ ref: jobRef }).where(eq(jobs.id, jobId));
     await database.insert(jobUpdates).values({
       jobId,
-      status: "submitted",
+      status: "awaiting_assignment",
       note: "Converted from website quote request.",
     });
     await database
