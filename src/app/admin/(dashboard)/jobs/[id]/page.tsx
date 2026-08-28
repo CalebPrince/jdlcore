@@ -288,6 +288,9 @@ export default async function AdminJobDetailPage({
                         <Badge variant="secondary" className={invMeta.badgeClass}>
                           {invMeta.label}
                         </Badge>
+                        {inv.status === "paid" && inv.paymentMethod === "paystack" && (
+                          <span className="text-xs font-semibold text-muted-foreground">via Paystack</span>
+                        )}
                         <a
                           href={`/api/portal/invoices/${inv.id}/pdf`}
                           className="ml-auto text-xs font-semibold text-navy-700 underline-offset-2 hover:underline"

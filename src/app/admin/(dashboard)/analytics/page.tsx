@@ -63,6 +63,8 @@ export default async function AdminAnalyticsPage() {
     dailyLimit: number;
     usedToday: number;
     clientId: number | null;
+    plan: string | null;
+    subscriptionStatus: string;
   }[] = [];
   let knowledge: (typeof knowledgeDocuments.$inferSelect)[] = [];
   let clientOptions: { id: number; label: string }[] = [];
@@ -91,6 +93,8 @@ export default async function AdminAnalyticsPage() {
           lastLoginAt: analyticsUsers.lastLoginAt,
           dailyLimit: analyticsUsers.dailyLimit,
           clientId: analyticsUsers.clientId,
+          plan: analyticsUsers.plan,
+          subscriptionStatus: analyticsUsers.subscriptionStatus,
         })
         .from(analyticsUsers)
         .orderBy(desc(analyticsUsers.createdAt))
@@ -174,6 +178,7 @@ export default async function AdminAnalyticsPage() {
                   <TableHead>Name</TableHead>
                   <TableHead>Email</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Plan</TableHead>
                   <TableHead>Private library</TableHead>
                   <TableHead>Usage today</TableHead>
                   <TableHead>Daily limit</TableHead>
@@ -195,6 +200,26 @@ export default async function AdminAnalyticsPage() {
                       <Badge variant="secondary" className={STATUS_BADGE[u.status] ?? ""}>
                         {u.status}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="whitespace-nowrap text-xs">
+                      {u.plan ? (
+                        <>
+                          <span className="font-semibold capitalize">{u.plan}</span>
+                          <span
+                            className={`ml-1.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${
+                              u.subscriptionStatus === "active"
+                                ? STATUS_BADGE.active
+                                : u.subscriptionStatus === "past_due"
+                                  ? "bg-[rgba(201,142,18,0.14)] text-gold-700"
+                                  : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {u.subscriptionStatus}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </TableCell>
                     <TableCell className="tabular-nums">
                       <span className={u.usedToday >= u.dailyLimit ? "font-bold text-red-700" : ""}>{u.usedToday}</span>

@@ -8,6 +8,7 @@ import { AnalyticsChatMockup } from "@/components/mockups";
 import { WaitlistForm } from "@/components/forms/waitlist-form";
 import { submitWaitlist } from "@/app/actions/submissions";
 import { getContactSettings } from "@/lib/settings";
+import { getAnalyticsPlans } from "@/lib/analytics-plans";
 
 export const metadata: Metadata = {
   title: "JDL Core Analytics | Data. Insight. Performance.",
@@ -29,6 +30,9 @@ function StepIcon({ children }: { children: React.ReactNode }) {
 
 export default async function AnalyticsPage() {
   const settings = await getContactSettings();
+  const plans = await getAnalyticsPlans();
+  const planHref = (planId: "depot" | "trader" | "enterprise") =>
+    plans[planId].priceCents !== null ? `/analytics/subscribe?plan=${planId}` : "#access";
   return (
     <>
       <SiteHeader
@@ -234,47 +238,50 @@ export default async function AnalyticsPage() {
               {/* Depot */}
               <Reveal className="h-full">
                 <div className="flex h-full flex-col rounded-[var(--radius)] border bg-white p-7" style={{ borderColor: "var(--border)" }}>
-                  <p className="m-0 font-display text-sm font-bold uppercase tracking-[0.08em] text-navy-700">Depot</p>
+                  <p className="m-0 font-display text-sm font-bold uppercase tracking-[0.08em] text-navy-700">{plans.depot.label}</p>
                   <p className="m-0 mt-3 flex items-baseline gap-1.5">
-                    <span className="font-display text-[0.95rem] font-bold text-muted-foreground">GHS</span>
-                    <span className="font-display text-[2.4rem] leading-none font-bold text-navy-950">1,200</span>
-                    <span className="text-sm text-muted-foreground">/month</span>
+                    <span className="font-display text-[0.95rem] font-bold text-muted-foreground">{plans.depot.currency}</span>
+                    <span className="font-display text-[2.4rem] leading-none font-bold text-navy-950">
+                      {plans.depot.priceCents !== null ? (plans.depot.priceCents / 100).toLocaleString() : "Custom"}
+                    </span>
+                    {plans.depot.priceCents !== null && <span className="text-sm text-muted-foreground">/month</span>}
                   </p>
-                  <p className="m-0 mt-2 text-[0.85rem] text-muted-foreground">For single-site operators who want answers on tap.</p>
+                  <p className="m-0 mt-2 text-[0.85rem] text-muted-foreground">{plans.depot.tagline}</p>
                   <ul className="mt-6 mb-8 flex list-none flex-col gap-2.5 p-0 text-[0.9rem] text-ink-soft [&>li]:before:mr-2.5 [&>li]:before:text-gold-600 [&>li]:before:content-['—']">
-                    <li>150 questions per month</li>
-                    <li>Up to 3 seats</li>
-                    <li>Industry &amp; market assistant</li>
-                    <li>Email support</li>
+                    {plans.depot.features.map((feature) => (
+                      <li key={feature}>{feature}</li>
+                    ))}
                   </ul>
-                  <Link href="#access" className="btn-ghost mt-auto w-full py-3 text-center text-sm">
-                    Request Depot Access
+                  <Link href={planHref("depot")} className="btn-ghost mt-auto w-full py-3 text-center text-sm">
+                    {plans.depot.ctaLabel}
                   </Link>
                 </div>
               </Reveal>
 
-              {/* Business — featured */}
+              {/* Trader — featured slot */}
               <Reveal className="h-full">
                 <div className="relative flex h-full flex-col rounded-[var(--radius)] bg-navy-950 p-7 pt-9 text-paper shadow-[0_18px_44px_-18px_rgba(8,24,38,0.55)] lg:-my-4 lg:py-11">
-                  <span className="absolute top-5 right-5 rounded-full bg-[rgba(246,207,110,0.16)] px-3 py-1 text-[0.66rem] font-bold tracking-[0.07em] uppercase text-gold-400 max-lg:right-7">
-                    Most Popular
-                  </span>
-                  <p className="m-0 font-display text-sm font-bold uppercase tracking-[0.08em] text-gold-400">Trader</p>
+                  {plans.trader.highlight && (
+                    <span className="absolute top-5 right-5 rounded-full bg-[rgba(246,207,110,0.16)] px-3 py-1 text-[0.66rem] font-bold tracking-[0.07em] uppercase text-gold-400 max-lg:right-7">
+                      Most Popular
+                    </span>
+                  )}
+                  <p className="m-0 font-display text-sm font-bold uppercase tracking-[0.08em] text-gold-400">{plans.trader.label}</p>
                   <p className="m-0 mt-3 flex items-baseline gap-1.5">
-                    <span className="font-display text-[0.95rem] font-bold text-[#8fa3b0]">GHS</span>
-                    <span className="font-display text-[2.4rem] leading-none font-bold">2,800</span>
-                    <span className="text-sm text-[#8fa3b0]">/month</span>
+                    <span className="font-display text-[0.95rem] font-bold text-[#8fa3b0]">{plans.trader.currency}</span>
+                    <span className="font-display text-[2.4rem] leading-none font-bold">
+                      {plans.trader.priceCents !== null ? (plans.trader.priceCents / 100).toLocaleString() : "Custom"}
+                    </span>
+                    {plans.trader.priceCents !== null && <span className="text-sm text-[#8fa3b0]">/month</span>}
                   </p>
-                  <p className="m-0 mt-2 text-[0.85rem] text-[#aebcc6]">For trading teams that live on volumes and variances.</p>
+                  <p className="m-0 mt-2 text-[0.85rem] text-[#aebcc6]">{plans.trader.tagline}</p>
                   <ul className="mt-6 mb-8 flex list-none flex-col gap-2.5 p-0 text-[0.9rem] text-paper [&>li]:before:mr-2.5 [&>li]:before:text-gold-400 [&>li]:before:content-['—']">
-                    <li>600 questions per month</li>
-                    <li>Up to 10 seats</li>
-                    <li>Your inspection history, searchable</li>
-                    <li>Variance &amp; trend briefings</li>
-                    <li>Priority support</li>
+                    {plans.trader.features.map((feature) => (
+                      <li key={feature}>{feature}</li>
+                    ))}
                   </ul>
-                  <Link href="#access" className="btn-gold mt-auto w-full py-3 text-center text-sm">
-                    Request Trader Access
+                  <Link href={planHref("trader")} className="btn-gold mt-auto w-full py-3 text-center text-sm">
+                    {plans.trader.ctaLabel}
                   </Link>
                 </div>
               </Reveal>
@@ -282,19 +289,22 @@ export default async function AnalyticsPage() {
               {/* Enterprise */}
               <Reveal className="h-full">
                 <div className="flex h-full flex-col rounded-[var(--radius)] border bg-white p-7" style={{ borderColor: "var(--border)" }}>
-                  <p className="m-0 font-display text-sm font-bold uppercase tracking-[0.08em] text-navy-700">Enterprise</p>
+                  <p className="m-0 font-display text-sm font-bold uppercase tracking-[0.08em] text-navy-700">{plans.enterprise.label}</p>
                   <p className="m-0 mt-3 flex items-baseline gap-1.5">
-                    <span className="font-display text-[2.4rem] leading-none font-bold text-navy-950">Custom</span>
+                    <span className="font-display text-[2.4rem] leading-none font-bold text-navy-950">
+                      {plans.enterprise.priceCents !== null
+                        ? `${plans.enterprise.currency} ${(plans.enterprise.priceCents / 100).toLocaleString()}`
+                        : "Custom"}
+                    </span>
                   </p>
-                  <p className="m-0 mt-2 text-[0.85rem] text-muted-foreground">For OMCs, lenders and depots with their own data.</p>
+                  <p className="m-0 mt-2 text-[0.85rem] text-muted-foreground">{plans.enterprise.tagline}</p>
                   <ul className="mt-6 mb-8 flex list-none flex-col gap-2.5 p-0 text-[0.9rem] text-ink-soft [&>li]:before:mr-2.5 [&>li]:before:text-gold-600 [&>li]:before:content-['—']">
-                    <li>Unlimited questions</li>
-                    <li>Unlimited seats</li>
-                    <li>Your documents connected to the assistant</li>
-                    <li>Dedicated onboarding &amp; SLA</li>
+                    {plans.enterprise.features.map((feature) => (
+                      <li key={feature}>{feature}</li>
+                    ))}
                   </ul>
-                  <Link href="#access" className="btn-ghost mt-auto w-full py-3 text-center text-sm">
-                    Talk to Us
+                  <Link href={planHref("enterprise")} className="btn-ghost mt-auto w-full py-3 text-center text-sm">
+                    {plans.enterprise.ctaLabel}
                   </Link>
                 </div>
               </Reveal>

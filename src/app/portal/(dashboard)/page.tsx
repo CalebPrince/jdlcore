@@ -11,6 +11,7 @@ import { jobs, invoices } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { flagOverdueInvoices } from "@/lib/overdue-invoices";
 
 export const dynamic = "force-dynamic";
@@ -21,9 +22,14 @@ const timeFmt = new Intl.DateTimeFormat("en-GB", {
   year: "numeric",
 });
 
-export default async function PortalDashboardPage() {
+export default async function PortalDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ payment?: string }>;
+}) {
   const client = await getPortalClient();
   if (!client) return null;
+  const { payment } = await searchParams;
   void flagOverdueInvoices();
 
   let jobList: Awaited<ReturnType<typeof loadJobs>> = [];
@@ -48,6 +54,13 @@ export default async function PortalDashboardPage() {
 
   return (
     <div className="flex flex-col gap-7">
+      {payment === "failed" && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            That payment attempt wasn&apos;t completed. No charge was made — open the job to try again.
+          </AlertDescription>
+        </Alert>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="font-display text-[1.6rem] font-bold text-navy-950">

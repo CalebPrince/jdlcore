@@ -8,9 +8,11 @@ import { analyticsUsers } from "@/db/schema";
 import {
   createAnalyticsSession,
   destroyAnalyticsSession,
+  getAnalyticsUser,
   verifySetupToken,
 } from "@/lib/analytics-auth";
 import { verifyPassword, hashPassword } from "@/lib/portal-auth";
+import { sendSubscriptionManageLink } from "@/lib/paystack";
 import type { FormState } from "./submissions";
 
 const loginSchema = z.object({
@@ -109,4 +111,19 @@ export async function completeSetup(
 export async function analyticsLogout(): Promise<void> {
   await destroyAnalyticsSession();
   redirect("/analytics/login");
+}
+
+/** Emails the subscriber a Paystack-hosted link to update their card or cancel — no custom cancel UI needed. */
+export async function requestSubscriptionManageLink(
+  _prev: FormState,
+  _formData: FormData,
+): Promise<FormState> {
+  const user = await getAnalyticsUser();
+  if (!user) return { ok: false, message: "Please sign in again." };
+  if (!user.paystackSubscriptionCode) {
+    return { ok: false, message: "No online subscription to manage yet." };
+  }
+  const result = await sendSubscriptionManageLink(user.paystackSubscriptionCode);
+  if (!result.ok) return { ok: false, message: result.error };
+  return { ok: true, message: `A billing management link was emailed to ${user.email}.` };
 }

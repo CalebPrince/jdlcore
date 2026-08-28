@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { and, asc, eq, lt, sql } from "drizzle-orm";
+import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { analyticsChats, analyticsDailyUsage, analyticsMessages } from "@/db/schema";
@@ -37,6 +37,33 @@ export async function POST(req: Request) {
     database = requireDb();
   } catch {
     return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
+  }
+
+  // Plan-tier monthly quota (Depot/Trader/etc.) — separate from the flat daily
+  // anti-abuse throttle below. Legacy admin-invited accounts have no plan/period
+  // set and are exempt.
+  if (user.monthlyQuestionLimit !== null && user.currentPeriodStart && user.currentPeriodEnd) {
+    const periodStart = user.currentPeriodStart.toISOString().slice(0, 10);
+    const periodEndExclusive = user.currentPeriodEnd.toISOString().slice(0, 10);
+    const monthlyRows = await database
+      .select({ total: sql<number>`coalesce(sum(${analyticsDailyUsage.messageCount}), 0)::int` })
+      .from(analyticsDailyUsage)
+      .where(
+        and(
+          eq(analyticsDailyUsage.userId, user.id),
+          gte(analyticsDailyUsage.usageDate, periodStart),
+          lt(analyticsDailyUsage.usageDate, periodEndExclusive),
+        ),
+      );
+    const usedThisPeriod = monthlyRows[0]?.total ?? 0;
+    if (usedThisPeriod >= user.monthlyQuestionLimit) {
+      return NextResponse.json(
+        {
+          error: `Monthly limit of ${user.monthlyQuestionLimit} questions reached for your plan. It resets ${periodEndExclusive}.`,
+        },
+        { status: 429 },
+      );
+    }
   }
 
   const today = new Date().toISOString().slice(0, 10);

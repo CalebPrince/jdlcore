@@ -41,7 +41,9 @@ const TRANSITIONS: Record<JobStatus, { to: JobStatus; roles: TransitionRole[] }[
   rejected_amendment: [{ to: "in_progress", roles: ["inspector"] }],
   approved: [{ to: "report_issued", roles: ["system"] }],
   report_issued: [{ to: "invoice_issued", roles: ["system"] }],
-  invoice_issued: [{ to: "paid", roles: STAFF_ANY }],
+  // "system" covers an automated Paystack webhook/callback confirming payment
+  // without a staff member manually verifying a receipt.
+  invoice_issued: [{ to: "paid", roles: [...STAFF_ANY, "system"] }],
   paid: [{ to: "closed", roles: STAFF_ANY }],
   closed: [],
 };

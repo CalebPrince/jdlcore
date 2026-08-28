@@ -432,10 +432,15 @@ export const invoices = pgTable(
     }),
     paymentRejectedReason: text("payment_rejected_reason"),
     overdueNotifiedAt: timestamp("overdue_notified_at", { withTimezone: true }),
+    // "bank_transfer" | "paystack" — set once a payment path has actually been used.
+    paymentMethod: text("payment_method"),
+    // Paystack transaction reference; set when the client starts an online payment attempt.
+    paystackReference: text("paystack_reference"),
   },
   (table) => [
     index("invoices_job_idx").on(table.jobId),
     index("invoices_status_idx").on(table.status),
+    uniqueIndex("invoices_paystack_reference_idx").on(table.paystackReference),
   ],
 );
 
@@ -475,11 +480,24 @@ export const analyticsUsers = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
+    // Paystack subscription billing — null/"none" for legacy admin-invited accounts
+    // that were never billed (they keep unlimited access via dailyLimit alone).
+    plan: text("plan"), // depot | trader | enterprise | null
+    subscriptionStatus: text("subscription_status").notNull().default("none"), // none | active | past_due | canceled
+    paystackCustomerCode: text("paystack_customer_code"),
+    paystackSubscriptionCode: text("paystack_subscription_code"),
+    paystackPlanCode: text("paystack_plan_code"),
+    currentPeriodStart: timestamp("current_period_start", { withTimezone: true }),
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    monthlyQuestionLimit: integer("monthly_question_limit"), // null = unlimited
+    seatLimit: integer("seat_limit"), // null = unlimited; informational until seats ship
   },
   (table) => [
     index("analytics_users_email_idx").on(table.email),
     index("analytics_users_status_idx").on(table.status),
     index("analytics_users_client_idx").on(table.clientId),
+    index("analytics_users_customer_code_idx").on(table.paystackCustomerCode),
+    uniqueIndex("analytics_users_subscription_code_idx").on(table.paystackSubscriptionCode),
   ],
 );
 

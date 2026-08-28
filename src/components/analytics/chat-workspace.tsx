@@ -7,6 +7,7 @@ import { ArrowUp, BookOpen, Download, ExternalLink, History, Loader2, LogOut, Me
 import { analyticsLogout } from "@/app/actions/analytics";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { ManageBillingButton } from "@/components/analytics/manage-billing-button";
 import { cn } from "@/lib/utils";
 
 export type ChatSummary = { id: number; title: string };
@@ -27,6 +28,10 @@ export function ChatWorkspace({
   initialMessages,
   initialUsedToday,
   dailyLimit,
+  plan,
+  monthlyUsed,
+  monthlyLimit,
+  periodResetLabel,
 }: {
   userName: string;
   chats: ChatSummary[];
@@ -34,6 +39,10 @@ export function ChatWorkspace({
   initialMessages: ChatMessage[];
   initialUsedToday: number;
   dailyLimit: number;
+  plan?: string | null;
+  monthlyUsed?: number;
+  monthlyLimit?: number | null;
+  periodResetLabel?: string | null;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [chatList, setChatList] = useState<ChatSummary[]>(chats);
@@ -174,7 +183,10 @@ export function ChatWorkspace({
               <Link href="/analytics" onClick={() => setMenuOpen(false)} className="flex min-h-12 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-soft hover:bg-navy-100">Analytics website <ExternalLink aria-hidden="true" className="size-3.5" /></Link>
               <Link href="/" onClick={() => setMenuOpen(false)} className="flex min-h-12 items-center gap-2 rounded-xl px-4 text-sm font-semibold text-ink-soft hover:bg-navy-100">JDL Core website <ExternalLink aria-hidden="true" className="size-3.5" /></Link>
             </nav>
-            <form action={analyticsLogout} className="absolute inset-x-4 bottom-5"><Button type="submit" variant="outline" className="h-11 w-full justify-start rounded-xl"><LogOut aria-hidden="true" /> Sign out</Button></form>
+            <div className="absolute inset-x-4 bottom-5 flex flex-col gap-2">
+              {plan && <ManageBillingButton />}
+              <form action={analyticsLogout}><Button type="submit" variant="outline" className="h-11 w-full justify-start rounded-xl"><LogOut aria-hidden="true" /> Sign out</Button></form>
+            </div>
           </SheetContent>
         </Sheet>
       </div>
@@ -340,6 +352,12 @@ export function ChatWorkspace({
           <p className="mx-auto mt-2 max-w-3xl text-center text-[10px] text-muted-foreground">
             {usedToday} of {dailyLimit} messages used today · Resets at midnight UTC · Verify critical figures with your JDL Core account manager.
           </p>
+          {typeof monthlyLimit === "number" && (
+            <p className="mx-auto mt-1 max-w-3xl text-center text-[10px] text-muted-foreground">
+              {monthlyUsed} of {monthlyLimit} questions used this billing period
+              {periodResetLabel ? ` · Renews ${periodResetLabel}` : ""}
+            </p>
+          )}
         </div>
       </div>
     </div>

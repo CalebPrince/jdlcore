@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -16,7 +17,15 @@ import { makeRef } from "@/lib/jobs";
 import { notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
+import { getPaystackConfig, initializeTransaction, isPaystackConfigured } from "@/lib/paystack";
 import type { FormState } from "./submissions";
+
+async function siteOrigin(): Promise<string> {
+  const values = await headers();
+  const host = values.get("x-forwarded-host") ?? values.get("host") ?? "localhost:3000";
+  const protocol = values.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${protocol}://${host}`;
+}
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 
@@ -227,6 +236,56 @@ export async function markPaymentSubmitted(_prev: FormState, formData: FormData)
   revalidatePath(`/portal/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);
   return { ok: true, message: "Payment receipt submitted — Operations will verify it shortly." };
+}
+
+/* ---------------- Pay online with Paystack ---------------- */
+
+const payOnlineSchema = z.object({
+  invoiceId: z.coerce.number().int().positive(),
+  jobId: z.coerce.number().int().positive(),
+});
+
+export async function payInvoiceOnline(_prev: FormState, formData: FormData): Promise<FormState> {
+  const client = await getPortalClient();
+  if (!client) return { ok: false, message: "Please sign in again." };
+
+  const parsed = payOnlineSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Invalid invoice." };
+  const f = parsed.data;
+
+  const database = requireDb();
+  const rows = await database
+    .select({ invoice: invoices, job: jobs })
+    .from(invoices)
+    .innerJoin(jobs, eq(invoices.jobId, jobs.id))
+    .where(eq(invoices.id, f.invoiceId))
+    .limit(1);
+  const row = rows[0];
+  if (!row || row.job.id !== f.jobId || row.job.clientId !== client.id) {
+    return { ok: false, message: "Invoice not found." };
+  }
+  if (row.invoice.status === "paid") return { ok: false, message: "This invoice is already paid." };
+
+  const config = await getPaystackConfig();
+  if (!isPaystackConfigured(config)) {
+    return { ok: false, message: "Online payments aren't set up yet — please pay by bank transfer below." };
+  }
+
+  const reference = `jdl-inv-${row.invoice.id}-${Date.now()}`;
+  const site = await siteOrigin();
+  const result = await initializeTransaction({
+    email: client.email,
+    amountCents: row.invoice.amountCents,
+    currency: row.invoice.currency,
+    reference,
+    callbackUrl: `${site}/portal/pay/callback`,
+    metadata: { invoiceId: row.invoice.id, jobId: row.job.id, invoiceNumber: row.invoice.number },
+  });
+  if (!result.ok) return { ok: false, message: result.error };
+
+  await database.update(invoices).set({ paystackReference: reference }).where(eq(invoices.id, row.invoice.id));
+
+  redirect(result.authorizationUrl);
 }
 
 /* ---------------- Comments (section 3) ---------------- */

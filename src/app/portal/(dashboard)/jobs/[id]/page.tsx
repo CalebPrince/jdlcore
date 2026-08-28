@@ -15,7 +15,10 @@ import {
   type JobStatus,
 } from "@/lib/jobs";
 import { PortalPaymentForm } from "@/components/portal/portal-payment-form";
+import { PortalPaystackButton } from "@/components/portal/portal-paystack-button";
 import { PortalComments } from "@/components/portal/portal-comments";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { isPaystackConfigured, getPaystackConfig } from "@/lib/paystack";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +36,13 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
 
 export default async function PortalJobDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ payment?: string }>;
 }) {
   const { id } = await params;
+  const { payment } = await searchParams;
   const jobId = Number(id);
   if (!Number.isInteger(jobId)) notFound();
 
@@ -86,6 +92,7 @@ export default async function PortalJobDetailPage({
 
   const meta =
     JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
+  const paystackReady = isPaystackConfigured(await getPaystackConfig());
 
   return (
     <div className="flex flex-col gap-6">
@@ -95,6 +102,29 @@ export default async function PortalJobDetailPage({
       >
         <ArrowLeft className="h-4 w-4" /> Back to My Jobs
       </Link>
+
+      {payment === "success" && (
+        <Alert className="border-[rgba(31,122,77,0.3)] bg-[rgba(31,122,77,0.06)]">
+          <AlertDescription className="text-[#1f7a4d]">
+            Payment received — thank you. It&apos;s been automatically verified.
+          </AlertDescription>
+        </Alert>
+      )}
+      {payment === "review" && (
+        <Alert>
+          <AlertDescription>
+            We received your payment, but the amount needs a quick manual check by our team before
+            it&apos;s marked paid. We&apos;ll follow up shortly.
+          </AlertDescription>
+        </Alert>
+      )}
+      {payment === "failed" && (
+        <Alert variant="destructive">
+          <AlertDescription>
+            That payment attempt wasn&apos;t completed. No charge was made — you can try again below.
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
         <span className="font-display text-sm font-bold tracking-wide text-gold-700">
@@ -220,7 +250,14 @@ export default async function PortalJobDetailPage({
                       Payment rejected: {inv.paymentRejectedReason}
                     </p>
                   )}
-                  {canSubmitPayment && <PortalPaymentForm invoiceId={inv.id} jobId={job.id} />}
+                  {canSubmitPayment && (
+                    <div className="flex w-full flex-col gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+                      {paystackReady && (
+                        <PortalPaystackButton invoiceId={inv.id} jobId={job.id} />
+                      )}
+                      <PortalPaymentForm invoiceId={inv.id} jobId={job.id} bare={paystackReady} />
+                    </div>
+                  )}
                 </li>
               );
             })}

@@ -10,12 +10,30 @@ import type { FormState } from "@/app/actions/submissions";
 
 const initial: FormState = { ok: false, message: "" };
 
-export function PortalPaymentForm({ invoiceId, jobId }: { invoiceId: number; jobId: number }) {
+export function PortalPaymentForm({
+  invoiceId,
+  jobId,
+  bare = false,
+}: {
+  invoiceId: number;
+  jobId: number;
+  /** True when a Paystack button already renders above this — drops the redundant border/margin and relabels as the fallback option. */
+  bare?: boolean;
+}) {
   const [state, action, pending] = useActionState(markPaymentSubmitted, initial);
   return (
-    <form action={action} className="mt-3 flex w-full flex-col gap-3 border-t pt-3" style={{ borderColor: "var(--border)" }}>
+    <form
+      action={action}
+      className={bare ? "flex w-full flex-col gap-3" : "mt-3 flex w-full flex-col gap-3 border-t pt-3"}
+      style={bare ? undefined : { borderColor: "var(--border)" }}
+    >
       <input type="hidden" name="invoiceId" value={invoiceId} />
       <input type="hidden" name="jobId" value={jobId} />
+      {bare && (
+        <p className="m-0 text-xs text-muted-foreground">
+          Already paid by bank transfer? Submit your receipt instead:
+        </p>
+      )}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`receipt-${invoiceId}`}>Payment receipt (PDF or photo, max 4 MB)</Label>

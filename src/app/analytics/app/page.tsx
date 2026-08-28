@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { analyticsChats, analyticsDailyUsage, analyticsMessages } from "@/db/schema";
 import { getAnalyticsUser } from "@/lib/analytics-auth";
@@ -19,6 +19,7 @@ export default async function AnalyticsAppPage({
   let activeChatId: number | null = null;
   let initialMessages: { role: "user" | "assistant"; content: string; sources?: { docId: number; title: string; quote: string }[] }[] = [];
   let usedToday = 0;
+  let monthlyUsed = 0;
 
   try {
     const database = requireDb();
@@ -28,6 +29,20 @@ export default async function AnalyticsAppPage({
     ]);
     chats = chatRows;
     usedToday = usage[0]?.count ?? 0;
+
+    if (user.monthlyQuestionLimit !== null && user.currentPeriodStart && user.currentPeriodEnd) {
+      const monthlyRows = await database
+        .select({ total: sql<number>`coalesce(sum(${analyticsDailyUsage.messageCount}), 0)::int` })
+        .from(analyticsDailyUsage)
+        .where(
+          and(
+            eq(analyticsDailyUsage.userId, user.id),
+            gte(analyticsDailyUsage.usageDate, user.currentPeriodStart.toISOString().slice(0, 10)),
+            lt(analyticsDailyUsage.usageDate, user.currentPeriodEnd.toISOString().slice(0, 10)),
+          ),
+        );
+      monthlyUsed = monthlyRows[0]?.total ?? 0;
+    }
 
     const requestedId = Number(c);
     if (Number.isInteger(requestedId)) {
@@ -74,6 +89,14 @@ export default async function AnalyticsAppPage({
       initialMessages={initialMessages}
       initialUsedToday={usedToday}
       dailyLimit={user.dailyLimit}
+      plan={user.plan}
+      monthlyUsed={monthlyUsed}
+      monthlyLimit={user.monthlyQuestionLimit}
+      periodResetLabel={
+        user.currentPeriodEnd
+          ? user.currentPeriodEnd.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })
+          : null
+      }
     />
   );
 }
