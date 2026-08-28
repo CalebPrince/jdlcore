@@ -87,30 +87,6 @@ export default async function AdminDashboardPage() {
         </p>
       </div>
 
-      {/* Setup checklist */}
-      {placeholders.length > 0 && (
-        <Card className="border-[rgba(201,142,18,0.4)] bg-[rgba(246,207,110,0.12)]">
-          <CardContent className="flex items-start gap-3">
-            <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-gold-600" />
-            <div>
-              <p className="text-sm font-semibold text-navy-950">
-                Finish setup — contact details are still placeholders
-              </p>
-              <p className="mt-0.5 text-sm text-ink-soft">
-                {placeholders.length} detail{placeholders.length === 1 ? "" : "s"}
-                {" "}need updating before this goes live.
-              </p>
-              <Link
-                href="/admin/settings"
-                className="link-arrow mt-2 inline-block text-sm"
-              >
-                Update in Site Settings →
-              </Link>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
         <StatCard
