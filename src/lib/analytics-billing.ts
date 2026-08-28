@@ -7,6 +7,7 @@ import { createPlan, verifyTransaction } from "@/lib/paystack";
 import { createAnalyticsSession } from "@/lib/analytics-auth";
 import { sendNotification, brandedEmailHtml } from "@/lib/email";
 import { notifyStaffBoth } from "@/lib/notifications";
+import { logPaymentTransaction } from "@/lib/payment-transactions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 
@@ -125,6 +126,16 @@ export async function finalizeAnalyticsCheckout(reference: string): Promise<Chec
         `A Paystack charge for ${user.email}'s ${def.label} plan doesn't match the expected amount. Access was not activated — needs manual review.`,
       ]),
     });
+    await logPaymentTransaction({
+      kind: "analytics_subscription",
+      status: "mismatch",
+      reference,
+      amountCents: verified.amountCents,
+      currency: verified.currency,
+      description: `${def.label} subscription — ${user.name} (amount mismatch)`,
+      payerEmail: user.email,
+      analyticsUserId: user.id,
+    });
     return { outcome: "mismatch", userId: user.id };
   }
 
@@ -170,6 +181,16 @@ export async function finalizeAnalyticsCheckout(reference: string): Promise<Chec
     emailHtml: adminEmail(`New Analytics subscriber — ${user.name}`, [
       `${user.name} (${user.email}) subscribed to the ${def.label} plan.`,
     ]),
+  });
+  await logPaymentTransaction({
+    kind: "analytics_subscription",
+    status: "success",
+    reference,
+    amountCents: verified.amountCents,
+    currency: verified.currency,
+    description: `${def.label} subscription — ${user.name}`,
+    payerEmail: user.email,
+    analyticsUserId: user.id,
   });
 
   return { outcome: "activated", userId: user.id };
@@ -264,14 +285,32 @@ export async function handleSubscriptionDisable(data: {
 }
 
 /** invoice.payment_failed webhook — a renewal charge failed. Grace period: flag past_due, don't suspend yet (Paystack's own retries end in subscription.disable). */
-export async function handleInvoicePaymentFailed(data: { customer?: PaystackCustomerRef }): Promise<void> {
+export async function handleInvoicePaymentFailed(data: {
+  customer?: PaystackCustomerRef;
+  amount?: number;
+  currency?: string;
+  id?: number | string;
+}): Promise<void> {
   const customerCode = data.customer?.customer_code;
   if (!customerCode) return;
 
   const database = requireDb();
   const rows = await database.select().from(analyticsUsers).where(eq(analyticsUsers.paystackCustomerCode, customerCode)).limit(1);
   const user = rows[0];
-  if (!user || user.subscriptionStatus !== "active") return;
+  if (!user) return;
+
+  await logPaymentTransaction({
+    kind: "analytics_subscription",
+    status: "failed",
+    reference: data.id ? `invoice-${data.id}` : `invoice-failed-${Date.now()}`,
+    amountCents: data.amount ?? 0,
+    currency: (data.currency ?? "GHS").toUpperCase(),
+    description: `${user.plan ?? "Subscription"} renewal — ${user.name} (payment failed)`,
+    payerEmail: user.email,
+    analyticsUserId: user.id,
+  });
+
+  if (user.subscriptionStatus !== "active") return;
 
   await database.update(analyticsUsers).set({ subscriptionStatus: "past_due" }).where(eq(analyticsUsers.id, user.id));
 
@@ -291,15 +330,33 @@ export async function handleInvoicePaymentFailed(data: { customer?: PaystackCust
   });
 }
 
-/** charge.success webhook for a recurring renewal (Paystack-generated reference, not ours) — recovers a past_due account. */
-export async function handleChargeSuccessRenewal(data: { customer?: PaystackCustomerRef }): Promise<void> {
+/** charge.success webhook for a recurring renewal (Paystack-generated reference, not ours). Always logged; also recovers a past_due account. */
+export async function handleChargeSuccessRenewal(data: {
+  customer?: PaystackCustomerRef;
+  amount?: number;
+  currency?: string;
+  reference?: string;
+}): Promise<void> {
   const customerCode = data.customer?.customer_code;
   if (!customerCode) return;
 
   const database = requireDb();
   const rows = await database.select().from(analyticsUsers).where(eq(analyticsUsers.paystackCustomerCode, customerCode)).limit(1);
   const user = rows[0];
-  if (!user || user.subscriptionStatus === "active") return;
+  if (!user) return;
+
+  await logPaymentTransaction({
+    kind: "analytics_subscription",
+    status: "success",
+    reference: data.reference ?? `renewal-${customerCode}-${Date.now()}`,
+    amountCents: data.amount ?? 0,
+    currency: (data.currency ?? "GHS").toUpperCase(),
+    description: `${user.plan ?? "Subscription"} renewal — ${user.name}`,
+    payerEmail: user.email,
+    analyticsUserId: user.id,
+  });
+
+  if (user.subscriptionStatus === "active") return;
 
   const now = new Date();
   const periodEnd = new Date(now);

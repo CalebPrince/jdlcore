@@ -7,6 +7,7 @@ import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { canTransition, type Actor } from "@/lib/job-workflow";
 import type { JobStatus } from "@/lib/jobs";
+import { logPaymentTransaction } from "@/lib/payment-transactions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 const SYSTEM_ACTOR: Actor = { type: "system", id: 0, name: "Paystack" };
@@ -67,6 +68,16 @@ export async function finalizePaystackPayment(reference: string): Promise<Finali
         ctaUrl: `https://jdlcore.com/admin/jobs/${job.id}`,
         ctaLabel: "Open Job",
       }),
+    });
+    await logPaymentTransaction({
+      kind: "invoice",
+      status: "mismatch",
+      reference,
+      amountCents: verified.amountCents,
+      currency: verified.currency,
+      description: `Invoice ${invoice.number} — ${client.name} (amount mismatch)`,
+      payerEmail: client.email,
+      invoiceId: invoice.id,
     });
     return { outcome: "mismatch", invoiceId: invoice.id, jobId: job.id };
   }
@@ -135,6 +146,16 @@ export async function finalizePaystackPayment(reference: string): Promise<Finali
       ctaUrl: `https://jdlcore.com/admin/jobs/${job.id}`,
       ctaLabel: "Open Job",
     }),
+  });
+  await logPaymentTransaction({
+    kind: "invoice",
+    status: "success",
+    reference,
+    amountCents: verified.amountCents,
+    currency: verified.currency,
+    description: `Invoice ${invoice.number} — ${client.name}`,
+    payerEmail: client.email,
+    invoiceId: invoice.id,
   });
 
   return { outcome: "paid", invoiceId: invoice.id, jobId: job.id };

@@ -460,6 +460,30 @@ export const emailLog = pgTable(
   (table) => [index("email_log_created_idx").on(table.createdAt)],
 );
 
+/** A ledger of every Paystack charge we've processed — invoice payments and Analytics subscription charges alike. Powers the "Recent Payments" view in Admin > Payments. */
+export const paymentTransactions = pgTable(
+  "payment_transactions",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").notNull(), // invoice | analytics_subscription
+    status: text("status").notNull(), // success | failed | mismatch
+    reference: text("reference").notNull(),
+    amountCents: integer("amount_cents").notNull(),
+    currency: text("currency").notNull(),
+    description: text("description").notNull(),
+    payerEmail: text("payer_email"),
+    invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+    analyticsUserId: integer("analytics_user_id").references(() => analyticsUsers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("payment_transactions_created_idx").on(table.createdAt),
+    index("payment_transactions_kind_idx").on(table.kind),
+  ],
+);
+
 /* ---------------- Analytics product ---------------- */
 
 export const analyticsUsers = pgTable(
@@ -789,6 +813,7 @@ export type AuditLogEntry = typeof auditLog.$inferSelect;
 export type Notification = typeof notifications.$inferSelect;
 export type Document = typeof documents.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
+export type PaymentTransaction = typeof paymentTransactions.$inferSelect;
 export type EmailLog = typeof emailLog.$inferSelect;
 export type AnalyticsUser = typeof analyticsUsers.$inferSelect;
 export type AnalyticsChat = typeof analyticsChats.$inferSelect;

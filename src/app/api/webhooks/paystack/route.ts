@@ -12,7 +12,10 @@ import {
 type PaystackEvent = {
   event?: string;
   data?: {
+    id?: number | string;
     reference?: string;
+    amount?: number;
+    currency?: string;
     plan?: { plan_code?: string } | null;
     subscription_code?: string;
     customer?: { customer_code?: string };
@@ -56,7 +59,12 @@ export async function POST(req: Request) {
         } else if (reference.startsWith("jdl-sub-")) {
           await finalizeAnalyticsCheckout(reference);
         } else if (data?.plan) {
-          await handleChargeSuccessRenewal({ customer: data.customer });
+          await handleChargeSuccessRenewal({
+            customer: data.customer,
+            amount: data.amount,
+            currency: data.currency,
+            reference: data.reference,
+          });
         }
         break;
       }
@@ -72,7 +80,12 @@ export async function POST(req: Request) {
         await handleSubscriptionDisable({ subscription_code: data?.subscription_code, customer: data?.customer });
         break;
       case "invoice.payment_failed":
-        await handleInvoicePaymentFailed({ customer: data?.customer });
+        await handleInvoicePaymentFailed({
+          customer: data?.customer,
+          amount: data?.amount,
+          currency: data?.currency,
+          id: data?.id,
+        });
         break;
       default:
         break;

@@ -13,11 +13,40 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { getStaff } from "@/lib/staff-auth";
 import { getPaystackConfig, isPaystackConfigured, maskKeyLike } from "@/lib/paystack";
+import { paymentTransactionTotals, recentPaymentTransactions } from "@/lib/payment-transactions";
+import { formatMoney } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Payments | JDL Core Admin" };
+
+const STATUS_BADGE: Record<string, string> = {
+  success: "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]",
+  failed: "bg-red-500/10 text-red-700",
+  mismatch: "bg-[rgba(201,142,18,0.14)] text-gold-700",
+};
+
+const KIND_LABEL: Record<string, string> = {
+  invoice: "Invoice",
+  analytics_subscription: "Analytics",
+};
+
+const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
+  day: "2-digit",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+});
 
 export default async function AdminPaymentsPage() {
   const current = await getStaff();
@@ -37,6 +66,11 @@ export default async function AdminPaymentsPage() {
     mode,
   };
 
+  const [transactions, totals] = await Promise.all([
+    recentPaymentTransactions(50),
+    paymentTransactionTotals(),
+  ]);
+
   return (
     <div className="flex flex-col gap-6">
       <header>
@@ -47,6 +81,66 @@ export default async function AdminPaymentsPage() {
           receipt review needed. Bank transfer with a manual receipt stays available as a fallback.
         </p>
       </header>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Payments</CardTitle>
+          <CardDescription>
+            {totals.successCount === 0
+              ? "No successful payments recorded yet."
+              : `${totals.successCount} successful ${totals.successCount === 1 ? "payment" : "payments"} recorded — ${formatMoney(totals.successCents, "GHS")} total, across invoices and Analytics subscriptions.`}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {transactions.length === 0 ? (
+            <p className="rounded-md border border-dashed p-6 text-center text-sm text-muted-foreground">
+              Payments will show up here as soon as the first one comes through.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Type</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Reference</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((tx) => (
+                    <TableRow key={tx.id}>
+                      <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
+                        {dateTimeFmt.format(new Date(tx.createdAt))}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-xs">{KIND_LABEL[tx.kind] ?? tx.kind}</TableCell>
+                      <TableCell className="max-w-xs truncate text-sm">
+                        {tx.description}
+                        {tx.payerEmail && (
+                          <span className="block text-xs text-muted-foreground">{tx.payerEmail}</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap tabular-nums">
+                        {formatMoney(tx.amountCents, tx.currency)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="secondary" className={STATUS_BADGE[tx.status] ?? ""}>
+                          {tx.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[160px] truncate font-mono text-xs text-muted-foreground">
+                        {tx.reference}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>
