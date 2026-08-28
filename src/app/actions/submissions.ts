@@ -1,13 +1,41 @@
 "use server";
 
 import { z } from "zod";
+import { eq } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { submissions } from "@/db/schema";
+import { submissions, staff } from "@/db/schema";
+import { notify } from "@/lib/notifications";
 
 export type FormState = {
   ok: boolean;
   message: string;
 };
+
+/**
+ * Notifies every active staff member of a new site submission. `submissionType`
+ * matches the `submissions.type` column (and the /admin/inbox filter value).
+ * Best-effort — never throws, so a notify failure can't break form submission.
+ */
+async function notifyStaffOfSubmission(submissionType: string, title: string, body: string): Promise<void> {
+  try {
+    const activeStaff = await requireDb()
+      .select({ id: staff.id })
+      .from(staff)
+      .where(eq(staff.status, "active"));
+    for (const s of activeStaff) {
+      await notify({
+        recipientType: "staff",
+        recipientId: s.id,
+        type: submissionType,
+        title,
+        body,
+        link: `/admin/inbox?type=${submissionType}`,
+      });
+    }
+  } catch (err) {
+    console.error("notifyStaffOfSubmission:", err);
+  }
+}
 
 const phoneOptional = z
   .string()
@@ -53,6 +81,7 @@ export async function submitQuoteRequest(
         service: d.service,
         message: d.details || null,
       });
+    await notifyStaffOfSubmission("quote", `New quote request from ${d.name}`, d.service);
     return {
       ok: true,
       message:
@@ -88,6 +117,11 @@ export async function submitWaitlist(
         name: parsed.data.email.split("@")[0] || "Waitlist signup",
         email: parsed.data.email,
       });
+    await notifyStaffOfSubmission(
+      `waitlist_${division}`,
+      `New ${division === "analytics" ? "Analytics" : "Academy"} waitlist signup`,
+      parsed.data.email,
+    );
     return {
       ok: true,
       message: "You're on the list — we'll let you know when we launch.",
@@ -134,6 +168,7 @@ export async function submitContactMessage(
         service: d.topic,
         message: d.message,
       });
+    await notifyStaffOfSubmission("contact", `New message from ${d.name}`, d.topic);
     return {
       ok: true,
       message: "Message sent — we'll get back to you soon.",
@@ -176,6 +211,7 @@ export async function submitChatHandoff(
         email: d.contact.includes("@") ? d.contact : null,
         message: d.note || null,
       });
+    await notifyStaffOfSubmission("chat_handoff", `New chat handoff from ${d.name}`, d.contact);
     return { ok: true, message: "Got it — the team will reach out soon." };
   } catch {
     return {
