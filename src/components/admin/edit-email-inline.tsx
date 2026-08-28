@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
 import { Pencil, Check, X } from "lucide-react";
 import type { FormState } from "@/app/actions/submissions";
 import { Button } from "@/components/ui/button";
@@ -20,9 +20,11 @@ export function EditEmailInline({
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState(action, initial);
 
-  useEffect(() => {
+  const [lastHandledState, setLastHandledState] = useState(state);
+  if (state !== lastHandledState) {
+    setLastHandledState(state);
     if (state.ok) setEditing(false);
-  }, [state]);
+  }
 
   if (!editing) {
     return (
