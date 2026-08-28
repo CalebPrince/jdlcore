@@ -108,6 +108,45 @@ export async function inviteInspector(_prev: InviteState, formData: FormData): P
   };
 }
 
+const emailSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  email: z.string().trim().email().max(200),
+});
+
+export async function updateInspectorEmail(_prev: FormState, formData: FormData): Promise<FormState> {
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Unauthorized" };
+  const parsed = emailSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Enter a valid email address." };
+  const email = parsed.data.email.toLowerCase();
+
+  try {
+    const database = requireDb();
+    const existing = await database
+      .select({ id: inspectors.id })
+      .from(inspectors)
+      .where(eq(inspectors.email, email))
+      .limit(1);
+    if (existing[0] && existing[0].id !== parsed.data.id) {
+      return { ok: false, message: "Another inspector account already uses that email." };
+    }
+    await database.update(inspectors).set({ email }).where(eq(inspectors.id, parsed.data.id));
+  } catch (err) {
+    console.error("updateInspectorEmail:", err);
+    return { ok: false, message: "Could not update the email." };
+  }
+
+  revalidatePath("/admin/inspectors");
+  await logAudit({
+    actor: current,
+    action: "inspector.email_changed",
+    targetType: "inspector",
+    targetId: parsed.data.id,
+    summary: `Changed inspector #${parsed.data.id}'s email to ${email}.`,
+  });
+  return { ok: true, message: "Email updated." };
+}
+
 const toggleSchema = z.object({
   id: z.coerce.number().int().positive(),
   active: z.enum(["true", "false"]),

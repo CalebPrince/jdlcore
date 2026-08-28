@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { toggleInspectorActive } from "@/app/actions/inspector-authadmin";
+import { toggleInspectorActive, updateInspectorEmail } from "@/app/actions/inspector-authadmin";
 import { InviteInspectorForm } from "@/components/admin/inspector-forms";
+import { EditEmailInline } from "@/components/admin/edit-email-inline";
 
 export const dynamic = "force-dynamic";
 
@@ -76,10 +77,10 @@ export default async function AdminInspectorsPage() {
                 >
                   <div className="min-w-[180px] flex-1">
                     <p className="m-0 text-sm font-semibold text-navy-950">{i.name}</p>
-                    <p className="m-0 mt-0.5 text-xs text-muted-foreground">
-                      {i.email}
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground">
+                      <EditEmailInline id={i.id} email={i.email} action={updateInspectorEmail} />
                       {i.phone ? ` · ${i.phone}` : ""}
-                    </p>
+                    </div>
                   </div>
                   <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                   <Badge variant={i.active ? "secondary" : "outline"}>

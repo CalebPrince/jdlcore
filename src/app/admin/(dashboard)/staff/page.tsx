@@ -11,8 +11,9 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { toggleStaffActive } from "@/app/actions/staff-admin";
+import { toggleStaffActive, updateStaffEmail } from "@/app/actions/staff-admin";
 import { InviteStaffForm } from "@/components/admin/staff-forms";
+import { EditEmailInline } from "@/components/admin/edit-email-inline";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,9 @@ export default async function AdminStaffPage() {
                 >
                   <div className="min-w-[180px] flex-1">
                     <p className="m-0 text-sm font-semibold text-navy-950">{s.name}</p>
-                    <p className="m-0 mt-0.5 text-xs text-muted-foreground">{s.email}</p>
+                    <div className="mt-0.5">
+                      <EditEmailInline id={s.id} email={s.email} action={updateStaffEmail} />
+                    </div>
                   </div>
                   <Badge variant="outline">{ROLE_LABEL[s.role] ?? s.role}</Badge>
                   <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>

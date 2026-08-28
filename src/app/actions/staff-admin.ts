@@ -125,6 +125,45 @@ export async function toggleStaffActive(formData: FormData): Promise<void> {
   });
 }
 
+const emailSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  email: z.string().trim().email().max(200),
+});
+
+export async function updateStaffEmail(_prev: FormState, formData: FormData): Promise<FormState> {
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Unauthorized" };
+  const parsed = emailSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Enter a valid email address." };
+  const email = parsed.data.email.toLowerCase();
+
+  try {
+    const database = requireDb();
+    const existing = await database
+      .select({ id: staff.id })
+      .from(staff)
+      .where(eq(staff.email, email))
+      .limit(1);
+    if (existing[0] && existing[0].id !== parsed.data.id) {
+      return { ok: false, message: "Another staff account already uses that email." };
+    }
+    await database.update(staff).set({ email }).where(eq(staff.id, parsed.data.id));
+  } catch (err) {
+    console.error("updateStaffEmail:", err);
+    return { ok: false, message: "Could not update the email." };
+  }
+
+  revalidatePath("/admin/staff");
+  await logAudit({
+    actor: current,
+    action: "staff.email_changed",
+    targetType: "staff",
+    targetId: parsed.data.id,
+    summary: `Changed staff #${parsed.data.id}'s email to ${email}.`,
+  });
+  return { ok: true, message: "Email updated." };
+}
+
 const roleSchema = z.object({
   id: z.coerce.number().int().positive(),
   role: z.enum(["operations", "administrator", "superadmin"]),
