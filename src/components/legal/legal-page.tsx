@@ -27,9 +27,9 @@ export function LegalPage({
       <SiteHeader
         homeHref="/"
         navLinks={[
-          { href: "/inspection", label: "Inspection" },
-          { href: "/analytics", label: "Analytics" },
-          { href: "/academy", label: "Academy" },
+          { href: "https://inspect.jdlcore.com", label: "Inspection" },
+          { href: "https://analytics.jdlcore.com", label: "Analytics" },
+          { href: "https://academy.jdlcore.com", label: "Academy" },
           { href: "/contact", label: "Contact" },
         ]}
         cta={{ href: "/contact", label: "Contact Us" }}
@@ -73,9 +73,9 @@ export function LegalPage({
         brandLine="Independent inspection, industry data analytics, and oil & gas education — one standard of integrity."
         columnLabel="Divisions"
         divisionLinks={[
-          { href: "/inspection", label: "Inspection Services" },
-          { href: "/analytics", label: "Analytics" },
-          { href: "/academy", label: "Academy" },
+          { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
+          { href: "https://analytics.jdlcore.com", label: "Analytics" },
+          { href: "https://academy.jdlcore.com", label: "Academy" },
         ]}
         thisDivision={[
           { href: "/privacy", label: "Privacy Policy" },

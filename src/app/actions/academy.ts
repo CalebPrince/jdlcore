@@ -86,7 +86,7 @@ export async function academyRegister(_previous: FormState, formData: FormData):
           "Your learner account is ready.",
           "Browse the course catalogue, enrol in a programme, and track your progress from your LMS dashboard.",
         ],
-        "https://jdlcore.com/academy/lms",
+        "https://academy.jdlcore.com/academy/lms",
         "Open your dashboard",
       ),
     });
@@ -210,7 +210,7 @@ async function checkAcademyCourseCompletion(learnerId: number, lessonId: number)
             `You have completed <strong>${recipient[0].courseTitle}</strong>.`,
             `Your certificate number is <strong>${number}</strong>. It is ready to view, verify, and download.`,
           ],
-          `https://jdlcore.com/academy/certificates/${encodeURIComponent(number)}`,
+          `https://academy.jdlcore.com/academy/certificates/${encodeURIComponent(number)}`,
           "View your certificate",
         ),
       });

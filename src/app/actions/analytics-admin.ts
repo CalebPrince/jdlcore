@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireStaffRole } from "@/lib/staff-auth";
@@ -19,13 +18,6 @@ export type GrantState = {
   setupLink?: string;
   emailed?: boolean;
 };
-
-async function origin(): Promise<string> {
-  const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";
-  const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
-  return `${proto}://${host}`;
-}
 
 async function deliverInvite(input: {
   email: string;
@@ -100,7 +92,7 @@ export async function grantAnalyticsAccess(
     return { ok: false, message: "Could not grant access — try again." };
   }
 
-  const link = `${await origin()}/analytics/setup?token=${token}`;
+  const link = `https://analytics.jdlcore.com/analytics/setup?token=${token}`;
   revalidatePath("/admin/analytics");
 
   let emailed = false;

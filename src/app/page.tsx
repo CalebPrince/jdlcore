@@ -9,9 +9,9 @@ export const metadata: Metadata = {
 };
 
 const companies = [
-  { href: "/inspection", name: "Inspection Services", tag: "Flagship", logo: "/logo-inspection.png", logoAlt: "JDL Core Inspection Services logo", blurb: "Independent tank gauging, stock monitoring & quantity verification." },
-  { href: "/analytics", name: "Analytics", tag: "Live Beta", logo: "/logo-analytics.png", logoAlt: "JDL Core Analytics logo", blurb: "Industry-data intelligence, on demand — not a static report." },
-  { href: "/academy", name: "Academy", tag: "Now Enrolling", logo: null, logoAlt: undefined, blurb: "Oil & gas training, built by the people who do the inspections." },
+  { href: "https://inspect.jdlcore.com", name: "Inspection Services", tag: "Flagship", logo: "/logo-inspection.png", logoAlt: "JDL Core Inspection Services logo", blurb: "Independent tank gauging, stock monitoring & quantity verification." },
+  { href: "https://analytics.jdlcore.com", name: "Analytics", tag: "Live Beta", logo: "/logo-analytics.png", logoAlt: "JDL Core Analytics logo", blurb: "Industry-data intelligence, on demand — not a static report." },
+  { href: "https://academy.jdlcore.com", name: "Academy", tag: "Now Enrolling", logo: null, logoAlt: undefined, blurb: "Oil & gas training, built by the people who do the inspections." },
 ] as const;
 
 export default async function HomePage() {

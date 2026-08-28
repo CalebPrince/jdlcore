@@ -60,7 +60,7 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
     reply: () => ({
       text: "You can submit a request with job details on our quote form and we'll follow up to confirm scope and pricing.",
       quickReplies: [
-        { label: "Open Request Form", href: "/inspection#quote" },
+        { label: "Open Request Form", href: "https://inspect.jdlcore.com/#quote" },
         "How It Works",
         "Talk to a Person",
       ],
@@ -85,8 +85,8 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
     reply: () => ({
       text: "JDL Core Analytics is live in beta, with source-grounded answers, citations, conversation history, and report exports.",
       quickReplies: [
-        { label: "Explore Analytics", href: "/analytics" },
-        { label: "Subscriber Sign In", href: "/analytics/login" },
+        { label: "Explore Analytics", href: "https://analytics.jdlcore.com" },
+        { label: "Subscriber Sign In", href: "https://analytics.jdlcore.com/analytics/login" },
         "Our Services",
       ],
     }),
@@ -96,8 +96,8 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
     reply: () => ({
       text: "JDL Core Academy is open. Learners can register, complete petroleum operations courses, take assessments, and earn verifiable certificates.",
       quickReplies: [
-        { label: "Explore Academy", href: "/academy" },
-        { label: "Create Learner Account", href: "/academy/register" },
+        { label: "Explore Academy", href: "https://academy.jdlcore.com" },
+        { label: "Create Learner Account", href: "https://academy.jdlcore.com/academy/register" },
         "Our Services",
       ],
     }),

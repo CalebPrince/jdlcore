@@ -10,9 +10,9 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
       ? requested
       : "academy";
   const back = {
-    portal: { href: "/inspection", label: "Inspection Services" },
-    analytics: { href: "/analytics", label: "Analytics" },
-    academy: { href: "/academy", label: "Academy" },
+    portal: { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
+    analytics: { href: "https://analytics.jdlcore.com", label: "Analytics" },
+    academy: { href: "https://academy.jdlcore.com", label: "Academy" },
     inspector: { href: "/inspector", label: "Inspector Portal" },
     staff: { href: "/admin", label: "Admin" },
   }[defaultType];

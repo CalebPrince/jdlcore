@@ -34,9 +34,9 @@ export default async function ContactPage() {
       <SiteHeader
         navLinks={[
           { href: "/", label: "JDL Core Home" },
-          { href: "/inspection", label: "Inspection Services" },
-          { href: "/analytics", label: "Analytics" },
-          { href: "/academy", label: "Academy" },
+          { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
+          { href: "https://analytics.jdlcore.com", label: "Analytics" },
+          { href: "https://academy.jdlcore.com", label: "Academy" },
           { href: "/contact", label: "Contact" },
         ]}
         cta={{ href: "#form", label: "Send a Message" }}
@@ -158,9 +158,9 @@ export default async function ContactPage() {
         brandLine="Independent inspection, industry data analytics, and oil & gas education — one standard of integrity, three divisions."
         columnLabel="Divisions"
         divisionLinks={[
-          { href: "/inspection", label: "Inspection Services" },
-          { href: "/analytics", label: "Analytics" },
-          { href: "/academy", label: "Academy" },
+          { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
+          { href: "https://analytics.jdlcore.com", label: "Analytics" },
+          { href: "https://academy.jdlcore.com", label: "Academy" },
         ]}
         thisDivision={[
           { href: "#form", label: "Send a Message" },
