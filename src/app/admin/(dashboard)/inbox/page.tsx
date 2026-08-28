@@ -112,22 +112,22 @@ export default async function AdminInboxPage({
               this inbox.
             </p>
           ) : (
-            <Table>
+            <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Contact</TableHead>
-                  <TableHead>Service / Topic</TableHead>
+                  <TableHead className="w-[110px]">Date</TableHead>
+                  <TableHead className="w-[110px]">Type</TableHead>
+                  <TableHead className="w-[130px]">Name</TableHead>
+                  <TableHead className="w-[150px]">Contact</TableHead>
+                  <TableHead className="w-[120px]">Service / Topic</TableHead>
                   <TableHead>Message</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
+                  <TableHead className="w-[90px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="whitespace-nowrap text-xs">
+                    <TableCell className="text-xs">
                       {new Date(r.createdAt).toLocaleString("en-GB", {
                         day: "2-digit",
                         month: "short",
@@ -137,11 +137,11 @@ export default async function AdminInboxPage({
                       })}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="whitespace-nowrap">
+                      <Badge variant="secondary" className="whitespace-normal">
                         {TYPE_LABELS[r.type] ?? r.type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="whitespace-nowrap font-medium">
+                    <TableCell className="break-words font-medium">
                       {r.name}
                       {r.company ? (
                         <span className="block text-xs text-muted-foreground">
@@ -149,12 +149,12 @@ export default async function AdminInboxPage({
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="text-xs">
+                    <TableCell className="break-words text-xs">
                       {r.phone && <span className="block">{r.phone}</span>}
-                      {r.email && <span className="block">{r.email}</span>}
+                      {r.email && <span className="block break-all">{r.email}</span>}
                     </TableCell>
-                    <TableCell className="text-xs">{r.service ?? "—"}</TableCell>
-                    <TableCell className="max-w-[280px] truncate text-xs text-muted-foreground" title={r.message ?? undefined}>
+                    <TableCell className="break-words text-xs">{r.service ?? "—"}</TableCell>
+                    <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
                       {r.message ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
