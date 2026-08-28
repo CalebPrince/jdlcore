@@ -79,7 +79,7 @@ export function ConvertQuoteSheet({
           Convert to Job
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-md">
+      <SheetContent className="w-full overflow-y-auto px-6 sm:max-w-md">
         <SheetHeader>
           <SheetTitle className="font-display">Convert to Portal Job</SheetTitle>
           <SheetDescription>
