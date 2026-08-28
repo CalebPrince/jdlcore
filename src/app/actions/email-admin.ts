@@ -38,6 +38,13 @@ export async function saveEmailSettings(
   if (!f.success) return { ok: false, message: "Invalid values." };
   const v = f.data;
 
+  // Guards against a browser/password-manager autofilling something into
+  // this field (it happened twice — an unrelated saved password silently
+  // overwrote a working key) — a real Resend key always starts with "re_".
+  if (v.resendKey?.trim() && !v.resendKey.trim().startsWith("re_")) {
+    return { ok: false, message: "That doesn't look like a Resend API key (should start with \"re_\") — nothing was saved." };
+  }
+
   try {
     await saveEmailConfig({
       enabled: v.enabled === "on",

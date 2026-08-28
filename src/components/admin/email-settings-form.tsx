@@ -55,7 +55,9 @@ export function EmailSettingsForm({ view }: { view: EmailSettingsView }) {
             id="e-resend"
             name="resendKey"
             type="password"
-            autoComplete="off"
+            autoComplete="new-password"
+            data-lpignore="true"
+            data-1p-ignore="true"
             placeholder={view.resendKeyMasked ? `Stored (${view.resendKeyMasked}) — leave blank to keep` : "re_..."}
           />
         </div>
@@ -78,7 +80,9 @@ export function EmailSettingsForm({ view }: { view: EmailSettingsView }) {
             id="e-pass"
             name="smtpPass"
             type="password"
-            autoComplete="off"
+            autoComplete="new-password"
+            data-lpignore="true"
+            data-1p-ignore="true"
             placeholder={view.smtpPassMasked ? `Stored (${view.smtpPassMasked}) — leave blank to keep` : "App password"}
           />
         </div>
