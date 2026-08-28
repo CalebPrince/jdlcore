@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq } from "drizzle-orm";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
@@ -100,7 +100,7 @@ export default async function AdminJobDetailPage({
   const activeInspectors = await database
     .select({ id: inspectors.id, name: inspectors.name })
     .from(inspectors)
-    .where(eq(inspectors.active, true));
+    .where(and(eq(inspectors.active, true), eq(inspectors.status, "active")));
   const assignedInspector = job.assignedInspectorId
     ? await database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
     : [];
