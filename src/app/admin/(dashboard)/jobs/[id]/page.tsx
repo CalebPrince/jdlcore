@@ -71,12 +71,15 @@ export default async function AdminJobDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  console.error("[DEBUG] job page start");
   const { id } = await params;
   const jobId = Number(id);
   if (!Number.isInteger(jobId)) notFound();
 
+  console.error("[DEBUG] before getStaff");
   const staff = await getStaff();
   if (!staff) notFound();
+  console.error("[DEBUG] after getStaff");
 
   const database = requireDb();
   const rows = await database
@@ -85,10 +88,12 @@ export default async function AdminJobDetailPage({
     .innerJoin(clients, eq(jobs.clientId, clients.id))
     .where(eq(jobs.id, jobId))
     .limit(1);
+  console.error("[DEBUG] after job+client query");
   if (!rows[0]) notFound();
   const job = rows[0].job;
   const client = rows[0].client;
 
+  console.error("[DEBUG] before Promise.all");
   const [timeline, docs, bills, activeInspectors, assignedInspector, completion, tankList, readings, coq, comments, invoiceSettings, aiReviews] =
     await Promise.all([
       database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt)),
@@ -109,6 +114,7 @@ export default async function AdminJobDetailPage({
       getInvoiceSettings(),
       loadJobReviews(jobId),
     ]);
+  console.error("[DEBUG] after Promise.all");
 
   const defaultDueDate = new Date();
   defaultDueDate.setDate(defaultDueDate.getDate() + (Number(invoiceSettings.termsDays) || 14));
