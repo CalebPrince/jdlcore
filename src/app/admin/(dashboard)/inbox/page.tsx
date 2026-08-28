@@ -115,19 +115,19 @@ export default async function AdminInboxPage({
             <Table className="table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-[110px]">Date</TableHead>
-                  <TableHead className="w-[110px]">Type</TableHead>
+                  <TableHead className="w-[100px]">Date</TableHead>
+                  <TableHead className="w-[140px]">Type</TableHead>
                   <TableHead className="w-[130px]">Name</TableHead>
                   <TableHead className="w-[150px]">Contact</TableHead>
-                  <TableHead className="w-[120px]">Service / Topic</TableHead>
+                  <TableHead className="w-[130px]">Service / Topic</TableHead>
                   <TableHead>Message</TableHead>
-                  <TableHead className="w-[90px] text-right">Actions</TableHead>
+                  <TableHead className="w-[120px] text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {rows.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="text-xs">
+                    <TableCell className="whitespace-normal text-xs">
                       {new Date(r.createdAt).toLocaleString("en-GB", {
                         day: "2-digit",
                         month: "short",
@@ -137,11 +137,11 @@ export default async function AdminInboxPage({
                       })}
                     </TableCell>
                     <TableCell>
-                      <Badge variant="secondary" className="whitespace-normal">
+                      <Badge variant="secondary">
                         {TYPE_LABELS[r.type] ?? r.type}
                       </Badge>
                     </TableCell>
-                    <TableCell className="break-words font-medium">
+                    <TableCell className="whitespace-normal break-words font-medium">
                       {r.name}
                       {r.company ? (
                         <span className="block text-xs text-muted-foreground">
@@ -149,11 +149,11 @@ export default async function AdminInboxPage({
                         </span>
                       ) : null}
                     </TableCell>
-                    <TableCell className="break-words text-xs">
+                    <TableCell className="whitespace-normal break-words text-xs">
                       {r.phone && <span className="block">{r.phone}</span>}
                       {r.email && <span className="block break-all">{r.email}</span>}
                     </TableCell>
-                    <TableCell className="break-words text-xs">{r.service ?? "—"}</TableCell>
+                    <TableCell className="whitespace-normal break-words text-xs">{r.service ?? "—"}</TableCell>
                     <TableCell className="whitespace-normal break-words text-xs text-muted-foreground">
                       {r.message ?? "—"}
                     </TableCell>
