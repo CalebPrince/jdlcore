@@ -170,21 +170,36 @@ const roleSchema = z.object({
 });
 
 export async function changeStaffRole(_prev: FormState, formData: FormData): Promise<FormState> {
-  const current = await requireStaffRole([...ADMIN_ROLES]);
+  // Superadmin-only: this can grant the highest privilege level, so it's a
+  // stricter gate than the other staff-management actions above.
+  const current = await requireStaffRole(["superadmin"]);
   if (!current) return { ok: false, message: "Unauthorized" };
   const parsed = roleSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Invalid role." };
-  await requireDb()
-    .update(staff)
-    .set({ role: parsed.data.role })
-    .where(eq(staff.id, parsed.data.id));
+  if (parsed.data.id === current.id) return { ok: false, message: "You can't change your own role." };
+
+  const database = requireDb();
+  const target = await database.select().from(staff).where(eq(staff.id, parsed.data.id)).limit(1);
+  if (!target[0]) return { ok: false, message: "Staff account not found." };
+
+  if (target[0].role === "superadmin" && parsed.data.role !== "superadmin") {
+    const otherSuperadmins = await database
+      .select({ id: staff.id })
+      .from(staff)
+      .where(and(eq(staff.role, "superadmin"), eq(staff.status, "active"), ne(staff.id, parsed.data.id)));
+    if (otherSuperadmins.length === 0) {
+      return { ok: false, message: "Can't change the last super admin's role." };
+    }
+  }
+
+  await database.update(staff).set({ role: parsed.data.role }).where(eq(staff.id, parsed.data.id));
   revalidatePath("/admin/staff");
   await logAudit({
     actor: current,
     action: "staff.role_changed",
     targetType: "staff",
     targetId: parsed.data.id,
-    summary: `Changed staff #${parsed.data.id}'s role to ${parsed.data.role}.`,
+    summary: `Changed ${target[0].name}'s role to ${parsed.data.role}.`,
   });
   return { ok: true, message: "Role updated." };
 }

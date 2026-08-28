@@ -15,6 +15,7 @@ import { deleteStaff, toggleStaffActive, updateStaffEmail } from "@/app/actions/
 import { InviteStaffForm } from "@/components/admin/staff-forms";
 import { EditEmailInline } from "@/components/admin/edit-email-inline";
 import { ConfirmDeleteButton } from "@/components/admin/confirm-delete-button";
+import { RoleSelectInline } from "@/components/admin/role-select-inline";
 
 export const dynamic = "force-dynamic";
 
@@ -88,7 +89,11 @@ export default async function AdminStaffPage() {
                       <EditEmailInline id={s.id} email={s.email} action={updateStaffEmail} />
                     </div>
                   </div>
-                  <Badge variant="outline">{ROLE_LABEL[s.role] ?? s.role}</Badge>
+                  {current.role === "superadmin" && s.id !== current.id ? (
+                    <RoleSelectInline id={s.id} role={s.role} />
+                  ) : (
+                    <Badge variant="outline">{ROLE_LABEL[s.role] ?? s.role}</Badge>
+                  )}
                   <Badge variant={statusMeta.variant}>{statusMeta.label}</Badge>
                   <span className="text-xs text-ink-faint">
                     Added {dateFmt.format(new Date(s.createdAt))}
