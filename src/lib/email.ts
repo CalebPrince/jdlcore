@@ -238,3 +238,28 @@ export function maskKeyLike(value: string | null): string | null {
   const tail = value.slice(-4);
   return `${"\u2022".repeat(6)}${tail}`;
 }
+
+/** Shared navy/gold branded HTML shell for transactional emails. */
+export function brandedEmailHtml(input: {
+  label: string;
+  heading: string;
+  bodyLines: string[];
+  ctaUrl?: string;
+  ctaLabel?: string;
+  footer?: string;
+}): string {
+  return [
+    `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2733">`,
+    `<div style="background:#081826;padding:18px 24px;border-radius:8px 8px 0 0">`,
+    `<strong style="color:#f6cf6e;font-size:15px;letter-spacing:1px">${input.label}</strong>`,
+    `</div>`,
+    `<div style="border:1px solid #e5e2da;border-top:0;padding:24px;border-radius:0 0 8px 8px">`,
+    `<h2 style="margin:0 0 12px;font-size:17px">${input.heading}</h2>`,
+    ...input.bodyLines.map((l) => `<p style="margin:0 0 10px;font-size:14px;line-height:1.55">${l}</p>`),
+    input.ctaUrl && input.ctaLabel
+      ? `<p style="margin:16px 0 0"><a href="${input.ctaUrl}" style="display:inline-block;background:#c98e12;color:#081826;font-weight:bold;font-size:13px;padding:10px 20px;border-radius:999px;text-decoration:none">${input.ctaLabel}</a></p>`
+      : "",
+    input.footer ? `<p style="margin:18px 0 0;font-size:11px;color:#98a2ad">${input.footer}</p>` : "",
+    `</div></div>`,
+  ].join("");
+}

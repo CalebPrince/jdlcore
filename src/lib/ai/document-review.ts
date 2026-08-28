@@ -1,9 +1,10 @@
 import "server-only";
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { aiReviews, staff } from "@/db/schema";
+import { aiReviews } from "@/db/schema";
 import { runCompletion, AiUnavailableError, type Attachment } from "./gateway";
-import { notify } from "@/lib/notifications";
+import { notifyStaffBoth } from "@/lib/notifications";
+import { brandedEmailHtml } from "@/lib/email";
 
 export type Severity = "none" | "low" | "medium" | "high";
 export type ReviewTargetType = "completion_data" | "document" | "receipt";
@@ -50,28 +51,29 @@ async function persistAndNotify(
 
   if (result.severity === "none") return;
 
-  const opsStaff = await database
-    .select({ id: staff.id })
-    .from(staff)
-    .where(and(inArray(staff.role, [...OPS_ROLES]), eq(staff.status, "active")));
-
   const labels: Record<ReviewTargetType, string> = {
     completion_data: "completion data",
     document: "an uploaded document",
     receipt: "a payment receipt",
   };
+  const title = `AI flagged ${labels[targetType]} on ${jobRef}`;
+  const body = result.summary || `Severity: ${result.severity}`;
 
-  for (const s of opsStaff) {
-    await notify({
-      recipientType: "staff",
-      recipientId: s.id,
-      jobId,
-      type: "ai_review_flag",
-      title: `AI flagged ${labels[targetType]} on ${jobRef}`,
-      body: result.summary || `Severity: ${result.severity}`,
-      link: `/admin/jobs/${jobId}`,
-    });
-  }
+  await notifyStaffBoth({
+    roles: [...OPS_ROLES],
+    type: "ai_review_flag",
+    title,
+    body,
+    link: `/admin/jobs/${jobId}`,
+    emailSubject: title,
+    emailHtml: brandedEmailHtml({
+      label: "JDL CORE ADMIN",
+      heading: title,
+      bodyLines: [body],
+      ctaUrl: `https://jdlcore.com/admin/jobs/${jobId}`,
+      ctaLabel: "Open Job",
+    }),
+  });
 }
 
 /** Best-effort — never throws. Failures are logged and silently skipped so the calling action always succeeds. */

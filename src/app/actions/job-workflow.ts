@@ -9,8 +9,8 @@ import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { generateCoqAndInvoice } from "@/lib/coq";
-import { notify } from "@/lib/notifications";
-import { sendNotification } from "@/lib/email";
+import { notifyBoth } from "@/lib/notifications";
+import { brandedEmailHtml } from "@/lib/email";
 import type { FormState } from "./submissions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
@@ -33,19 +33,26 @@ async function clientEmailForJob(jobId: number) {
   return rows[0] ?? null;
 }
 
-function notifyHtml(heading: string, bodyLines: string[], jobRef: string): string {
-  return [
-    `<div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;color:#1a2733">`,
-    `<div style="background:#081826;padding:18px 24px;border-radius:8px 8px 0 0">`,
-    `<strong style="color:#f6cf6e;font-size:15px;letter-spacing:1px">JDL CORE CLIENT PORTAL</strong>`,
-    `</div>`,
-    `<div style="border:1px solid #e5e2da;border-top:0;padding:24px;border-radius:0 0 8px 8px">`,
-    `<h2 style="margin:0 0 12px;font-size:17px">${heading}</h2>`,
-    ...bodyLines.map((l) => `<p style="margin:0 0 10px;font-size:14px;line-height:1.55">${l}</p>`),
-    `<p style="margin:16px 0 0"><a href="https://jdlcore.com/portal" style="display:inline-block;background:#c98e12;color:#081826;font-weight:bold;font-size:13px;padding:10px 20px;border-radius:999px;text-decoration:none">Open the portal</a></p>`,
-    `<p style="margin:18px 0 0;font-size:11px;color:#98a2ad">Job reference: ${jobRef}</p>`,
-    `</div></div>`,
-  ].join("");
+function clientEmail(heading: string, bodyLines: string[], jobRef: string): string {
+  return brandedEmailHtml({
+    label: "JDL CORE CLIENT PORTAL",
+    heading,
+    bodyLines,
+    ctaUrl: "https://jdlcore.com/portal",
+    ctaLabel: "Open the portal",
+    footer: `Job reference: ${jobRef}`,
+  });
+}
+
+function inspectorEmail(heading: string, bodyLines: string[], jobRef: string): string {
+  return brandedEmailHtml({
+    label: "JDL CORE INSPECTOR PORTAL",
+    heading,
+    bodyLines,
+    ctaUrl: "https://jdlcore.com/inspector",
+    ctaLabel: "Open Inspector Portal",
+    footer: `Job reference: ${jobRef}`,
+  });
 }
 
 function revalidateJob(jobId: number) {
@@ -99,25 +106,31 @@ export async function assignInspector(_prev: FormState, formData: FormData): Pro
     actorName: staff.name,
   });
 
-  await notify({
+  await notifyBoth({
     recipientType: "inspector",
     recipientId: inspectorId,
+    email: inspector.email,
     jobId,
     type: "new_assignment",
     title: `New assignment — ${job.ref}`,
     body: `You've been assigned to ${job.service}.`,
     link: `/inspector/jobs/${jobId}`,
+    emailSubject: `[${job.ref}] New assignment - JDL Core`,
+    emailHtml: inspectorEmail(`New assignment — ${job.ref}`, [`You've been assigned to ${job.service}.`], job.ref),
   });
 
   const recipient = await clientEmailForJob(jobId);
   if (recipient) {
-    await notify({
+    await notifyBoth({
       recipientType: "client",
       recipientId: recipient.clientId,
+      email: recipient.email,
       jobId,
       type: "inspector_assigned",
       title: `Inspector assigned — ${job.ref}`,
       link: `/portal/jobs/${jobId}`,
+      emailSubject: `[${recipient.ref}] Inspector assigned - JDL Core`,
+      emailHtml: clientEmail(`Inspector assigned — ${recipient.ref}`, ["An inspector has been assigned to your request."], recipient.ref),
     });
   }
 
@@ -201,15 +214,25 @@ export async function rejectJob(_prev: FormState, formData: FormData): Promise<F
   });
 
   if (job.assignedInspectorId) {
-    await notify({
-      recipientType: "inspector",
-      recipientId: job.assignedInspectorId,
-      jobId,
-      type: "amendment_required",
-      title: `Amendment required — ${job.ref}`,
-      body: comment,
-      link: `/inspector/jobs/${jobId}`,
-    });
+    const inspRows = await database
+      .select({ email: inspectors.email })
+      .from(inspectors)
+      .where(eq(inspectors.id, job.assignedInspectorId))
+      .limit(1);
+    if (inspRows[0]) {
+      await notifyBoth({
+        recipientType: "inspector",
+        recipientId: job.assignedInspectorId,
+        email: inspRows[0].email,
+        jobId,
+        type: "amendment_required",
+        title: `Amendment required — ${job.ref}`,
+        body: comment,
+        link: `/inspector/jobs/${jobId}`,
+        emailSubject: `[${job.ref}] Amendment required - JDL Core`,
+        emailHtml: inspectorEmail(`Amendment required — ${job.ref}`, [comment], job.ref),
+      });
+    }
   }
 
   revalidateJob(jobId);
@@ -260,18 +283,16 @@ export async function verifyPayment(_prev: FormState, formData: FormData): Promi
 
   const recipient = await clientEmailForJob(jobId);
   if (recipient) {
-    await notify({
+    await notifyBoth({
       recipientType: "client",
       recipientId: recipient.clientId,
+      email: recipient.email,
       jobId,
       type: "payment_verified",
       title: `Payment verified — ${job.ref}`,
       link: `/portal/jobs/${jobId}`,
-    });
-    await sendNotification({
-      to: recipient.email,
-      subject: `[${recipient.ref}] Payment verified - JDL Core`,
-      html: notifyHtml(`Payment verified for ${recipient.ref}`, ["Thank you — your payment has been verified."], recipient.ref),
+      emailSubject: `[${recipient.ref}] Payment verified - JDL Core`,
+      emailHtml: clientEmail(`Payment verified for ${recipient.ref}`, ["Thank you — your payment has been verified."], recipient.ref),
     });
   }
 
@@ -303,14 +324,17 @@ export async function rejectPaymentSubmission(_prev: FormState, formData: FormDa
 
   const recipient = await clientEmailForJob(jobId);
   if (recipient) {
-    await notify({
+    await notifyBoth({
       recipientType: "client",
       recipientId: recipient.clientId,
+      email: recipient.email,
       jobId,
       type: "payment_rejected",
       title: `Payment rejected — ${recipient.ref}`,
       body: reason,
       link: `/portal/jobs/${jobId}`,
+      emailSubject: `[${recipient.ref}] Payment submission rejected - JDL Core`,
+      emailHtml: clientEmail(`Payment rejected — ${recipient.ref}`, [reason], recipient.ref),
     });
   }
 
@@ -413,14 +437,17 @@ export async function addStaffJobComment(_prev: FormState, formData: FormData): 
 
   const recipient = await clientEmailForJob(jobId);
   if (recipient) {
-    await notify({
+    await notifyBoth({
       recipientType: "client",
       recipientId: recipient.clientId,
+      email: recipient.email,
       jobId,
       type: "job_comment",
       title: `New reply on ${job.ref}`,
       body: body.slice(0, 140),
       link: `/portal/jobs/${jobId}`,
+      emailSubject: `[${job.ref}] New reply on your job - JDL Core`,
+      emailHtml: clientEmail(`New reply on ${job.ref}`, [body.slice(0, 500)], job.ref),
     });
   }
 

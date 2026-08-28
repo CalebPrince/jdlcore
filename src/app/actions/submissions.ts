@@ -1,10 +1,10 @@
 "use server";
 
 import { z } from "zod";
-import { eq } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { submissions, staff } from "@/db/schema";
-import { notify } from "@/lib/notifications";
+import { submissions } from "@/db/schema";
+import { notifyStaffBoth } from "@/lib/notifications";
+import { brandedEmailHtml } from "@/lib/email";
 
 export type FormState = {
   ok: boolean;
@@ -12,29 +12,25 @@ export type FormState = {
 };
 
 /**
- * Notifies every active staff member of a new site submission. `submissionType`
- * matches the `submissions.type` column (and the /admin/inbox filter value).
- * Best-effort — never throws, so a notify failure can't break form submission.
+ * Notifies every active staff member (bell + email) of a new site submission.
+ * `submissionType` matches the `submissions.type` column (and the
+ * /admin/inbox filter value). Best-effort — notifyStaffBoth never throws.
  */
 async function notifyStaffOfSubmission(submissionType: string, title: string, body: string): Promise<void> {
-  try {
-    const activeStaff = await requireDb()
-      .select({ id: staff.id })
-      .from(staff)
-      .where(eq(staff.status, "active"));
-    for (const s of activeStaff) {
-      await notify({
-        recipientType: "staff",
-        recipientId: s.id,
-        type: submissionType,
-        title,
-        body,
-        link: `/admin/inbox?type=${submissionType}`,
-      });
-    }
-  } catch (err) {
-    console.error("notifyStaffOfSubmission:", err);
-  }
+  await notifyStaffBoth({
+    type: submissionType,
+    title,
+    body,
+    link: `/admin/inbox?type=${submissionType}`,
+    emailSubject: title,
+    emailHtml: brandedEmailHtml({
+      label: "JDL CORE ADMIN",
+      heading: title,
+      bodyLines: [body],
+      ctaUrl: `https://jdlcore.com/admin/inbox?type=${submissionType}`,
+      ctaLabel: "Open Inbox",
+    }),
+  });
 }
 
 const phoneOptional = z

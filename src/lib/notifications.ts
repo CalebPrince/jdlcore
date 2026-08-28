@@ -1,7 +1,9 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { notifications } from "@/db/schema";
+import { notifications, staff } from "@/db/schema";
+import { sendNotification } from "@/lib/email";
+import type { StaffRole } from "@/lib/staff-auth";
 
 export type RecipientType = "client" | "inspector" | "staff";
 
@@ -71,5 +73,68 @@ export async function recentNotifications(
       .limit(limit);
   } catch {
     return [];
+  }
+}
+
+/** Fires both the in-app bell and a real email for one recipient. */
+export async function notifyBoth(input: {
+  recipientType: RecipientType;
+  recipientId: number;
+  email: string;
+  jobId?: number | null;
+  type: string;
+  title: string;
+  body?: string | null;
+  link?: string | null;
+  emailSubject: string;
+  emailHtml: string;
+}): Promise<void> {
+  await notify({
+    recipientType: input.recipientType,
+    recipientId: input.recipientId,
+    jobId: input.jobId,
+    type: input.type,
+    title: input.title,
+    body: input.body,
+    link: input.link,
+  });
+  await sendNotification({ to: input.email, subject: input.emailSubject, html: input.emailHtml });
+}
+
+/** Fires both the in-app bell and a real email for every active staff member (optionally role-filtered). */
+export async function notifyStaffBoth(input: {
+  roles?: StaffRole[];
+  type: string;
+  title: string;
+  body: string;
+  link?: string;
+  emailSubject: string;
+  emailHtml: string;
+}): Promise<void> {
+  try {
+    const database = requireDb();
+    const rows = await database
+      .select({ id: staff.id, email: staff.email })
+      .from(staff)
+      .where(
+        input.roles && input.roles.length > 0
+          ? and(eq(staff.status, "active"), inArray(staff.role, input.roles))
+          : eq(staff.status, "active"),
+      );
+    for (const s of rows) {
+      await notifyBoth({
+        recipientType: "staff",
+        recipientId: s.id,
+        email: s.email,
+        type: input.type,
+        title: input.title,
+        body: input.body,
+        link: input.link,
+        emailSubject: input.emailSubject,
+        emailHtml: input.emailHtml,
+      });
+    }
+  } catch (err) {
+    console.error("notifyStaffBoth:", err);
   }
 }

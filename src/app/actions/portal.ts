@@ -13,11 +13,32 @@ import {
   verifyPassword,
 } from "@/lib/portal-auth";
 import { makeRef } from "@/lib/jobs";
-import { notify } from "@/lib/notifications";
+import { notifyStaffBoth } from "@/lib/notifications";
+import { brandedEmailHtml } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
 import type { FormState } from "./submissions";
 
+const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
+
 export type PortalFormState = { ok: boolean; message: string };
+
+async function notifyOpsOfJob(jobId: number, type: string, title: string, body: string): Promise<void> {
+  await notifyStaffBoth({
+    roles: [...OPS_ROLES],
+    type,
+    title,
+    body,
+    link: `/admin/jobs/${jobId}`,
+    emailSubject: title,
+    emailHtml: brandedEmailHtml({
+      label: "JDL CORE ADMIN",
+      heading: title,
+      bodyLines: [body],
+      ctaUrl: `https://jdlcore.com/admin/jobs/${jobId}`,
+      ctaLabel: "Open Job",
+    }),
+  });
+}
 
 const schema = z.object({
   email: z.string().trim().email().max(200),
@@ -116,6 +137,13 @@ export async function requestService(_prev: FormState, formData: FormData): Prom
     return { ok: false, message: "Could not submit your request. Please try again." };
   }
 
+  await notifyOpsOfJob(
+    jobId,
+    "service_requested",
+    `New service request from ${client.name}`,
+    `${client.name} requested ${f.service}. It's awaiting inspector assignment.`,
+  );
+
   revalidatePath("/portal");
   revalidatePath("/admin/jobs");
   return { ok: true, message: "Request submitted — Operations will assign an inspector shortly." };
@@ -189,6 +217,13 @@ export async function markPaymentSubmitted(_prev: FormState, formData: FormData)
     });
   }
 
+  await notifyOpsOfJob(
+    f.jobId,
+    "payment_receipt_submitted",
+    `Payment receipt submitted — ${row.job.ref}`,
+    `${client.name} submitted a payment receipt for invoice ${row.invoice.number}. It needs verification.`,
+  );
+
   revalidatePath(`/portal/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);
   return { ok: true, message: "Payment receipt submitted — Operations will verify it shortly." };
@@ -223,6 +258,13 @@ export async function addJobComment(_prev: FormState, formData: FormData): Promi
     authorName: client.name,
     body: f.body,
   });
+
+  await notifyOpsOfJob(
+    f.jobId,
+    "client_comment",
+    `New comment from ${client.name}`,
+    f.body,
+  );
 
   revalidatePath(`/portal/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);

@@ -7,6 +7,7 @@ import { z } from "zod";
 import { requireDb } from "@/db";
 import { academyLearners, analyticsUsers, clients, inspectors, passwordResetTokens, staff } from "@/db/schema";
 import { sendNotification } from "@/lib/email";
+import { notify, type RecipientType } from "@/lib/notifications";
 import { hashPassword } from "@/lib/portal-auth";
 
 export type RecoveryState = { ok: boolean; message: string; loginHref?: string };
@@ -33,6 +34,23 @@ export async function requestPasswordReset(_previous: RecoveryState, formData: F
   await database.update(passwordResetTokens).set({ usedAt: new Date() }).where(and(eq(passwordResetTokens.accountType, parsed.data.accountType), eq(passwordResetTokens.accountId, account.id), isNull(passwordResetTokens.usedAt)));
   await database.insert(passwordResetTokens).values({ accountType: parsed.data.accountType, accountId: account.id, tokenHash: digest(rawToken), expiresAt: new Date(Date.now() + 60 * 60 * 1000) });
   const link = `${await origin()}/account/reset-password?token=${rawToken}`;
+
+  const bellRecipientType: RecipientType | null =
+    parsed.data.accountType === "portal"
+      ? "client"
+      : parsed.data.accountType === "inspector" || parsed.data.accountType === "staff"
+        ? parsed.data.accountType
+        : null;
+  if (bellRecipientType) {
+    await notify({
+      recipientType: bellRecipientType,
+      recipientId: account.id,
+      type: "password_reset_requested",
+      title: "Password reset requested",
+      body: "A password reset was requested for your account. If this wasn't you, you can ignore it.",
+    });
+  }
+
   await sendNotification({
     to: email,
     subject: "Reset your JDL Core password",

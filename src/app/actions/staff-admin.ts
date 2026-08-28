@@ -8,6 +8,7 @@ import { requireDb } from "@/db";
 import { staff } from "@/db/schema";
 import { issueStaffSetupToken, requireStaffRole } from "@/lib/staff-auth";
 import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email";
+import { notify } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
@@ -86,6 +87,15 @@ export async function inviteStaff(_prev: InviteState, formData: FormData): Promi
     targetType: "staff",
     targetId: staffId,
     summary: `Invited/updated ${f.name} (${f.email}) as ${f.role}.`,
+  });
+
+  await notify({
+    recipientType: "staff",
+    recipientId: staffId,
+    type: "staff_invited",
+    title: `You're in, ${f.name}`,
+    body: "A JDL Core staff account has been created for you. Sign in to set your password.",
+    link: "/admin",
   });
 
   let emailed = false;

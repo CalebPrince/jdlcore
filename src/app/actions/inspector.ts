@@ -15,9 +15,12 @@ import {
 import { hashPassword, verifyPassword } from "@/lib/portal-auth";
 import { canTransition, type Actor } from "@/lib/job-workflow";
 import type { JobStatus } from "@/lib/jobs";
-import { notify } from "@/lib/notifications";
+import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
+import { brandedEmailHtml } from "@/lib/email";
 import { reviewCompletionData } from "@/lib/ai/document-review";
 import type { FormState } from "./submissions";
+
+const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 
 const initialFail = (message: string): FormState => ({ ok: false, message });
 
@@ -152,13 +155,22 @@ function revalidateJob(jobId: number) {
 }
 
 async function notifyOperationsRole(jobRef: string, title: string, body: string | undefined, jobId: number) {
-  // Operations staff aren't individually addressed here — the admin jobs list
-  // already surfaces every open job, so we skip a per-staff in-app notification
-  // and rely on that list plus email being wired later if needed.
-  void jobRef;
-  void title;
-  void body;
-  void jobId;
+  const message = body || `Job ${jobRef} needs Operations' attention.`;
+  await notifyStaffBoth({
+    roles: [...OPS_ROLES],
+    type: "ops_action_needed",
+    title,
+    body: message,
+    link: `/admin/jobs/${jobId}`,
+    emailSubject: title,
+    emailHtml: brandedEmailHtml({
+      label: "JDL CORE ADMIN",
+      heading: title,
+      bodyLines: [message],
+      ctaUrl: `https://jdlcore.com/admin/jobs/${jobId}`,
+      ctaLabel: "Open Job",
+    }),
+  });
 }
 
 const jobIdSchema = z.object({ jobId: z.coerce.number().int().positive() });
@@ -191,6 +203,8 @@ export async function acceptAssignment(_prev: FormState, formData: FormData): Pr
     actorId: inspector.id,
     actorName: inspector.name,
   });
+
+  await notifyOperationsRole(job.ref, `${inspector.name} accepted job ${job.ref}`, undefined, job.id);
 
   revalidateJob(job.id);
   return { ok: true, message: "Assignment accepted." };
@@ -227,6 +241,13 @@ export async function declineAssignment(_prev: FormState, formData: FormData): P
     actorId: inspector.id,
     actorName: inspector.name,
   });
+
+  await notifyOperationsRole(
+    job.ref,
+    `${inspector.name} declined job ${job.ref}`,
+    `Reason: ${parsed.data.reason}`,
+    job.id,
+  );
 
   revalidateJob(job.id);
   return { ok: true, message: "Assignment declined — sent back to Operations." };
@@ -451,14 +472,26 @@ export async function submitForApproval(_prev: FormState, formData: FormData): P
     .where(eq(jobs.id, job.id))
     .limit(1);
   if (recipient[0]) {
-    await notify({
+    const title = `Job completed — ${recipient[0].ref}`;
+    const body = "The inspector has completed the work and it's now under Operations review.";
+    await notifyBoth({
       recipientType: "client",
       recipientId: recipient[0].clientId,
+      email: recipient[0].email,
       jobId: job.id,
       type: "job_completed",
-      title: `Job completed — ${recipient[0].ref}`,
-      body: "The inspector has completed the work and it's now under Operations review.",
+      title,
+      body,
       link: `/portal/jobs/${job.id}`,
+      emailSubject: title,
+      emailHtml: brandedEmailHtml({
+        label: "JDL CORE CLIENT PORTAL",
+        heading: title,
+        bodyLines: [body],
+        ctaUrl: "https://jdlcore.com/portal",
+        ctaLabel: "Open the portal",
+        footer: `Job reference: ${recipient[0].ref}`,
+      }),
     });
   }
   await notifyOperationsRole(job.ref, "Report awaiting approval", undefined, job.id);
@@ -490,6 +523,37 @@ export async function amendAndResubmit(_prev: FormState, formData: FormData): Pr
   });
 
   await triggerCompletionReview(job);
+
+  const recipient = await database
+    .select({ email: clients.email, ref: jobs.ref, clientId: jobs.clientId })
+    .from(jobs)
+    .innerJoin(clients, eq(jobs.clientId, clients.id))
+    .where(eq(jobs.id, job.id))
+    .limit(1);
+  if (recipient[0]) {
+    const title = `Amended report resubmitted — ${recipient[0].ref}`;
+    const body = "Your amended inspection report has been resubmitted and is now under Operations review.";
+    await notifyBoth({
+      recipientType: "client",
+      recipientId: recipient[0].clientId,
+      email: recipient[0].email,
+      jobId: job.id,
+      type: "job_resubmitted",
+      title,
+      body,
+      link: `/portal/jobs/${job.id}`,
+      emailSubject: title,
+      emailHtml: brandedEmailHtml({
+        label: "JDL CORE CLIENT PORTAL",
+        heading: title,
+        bodyLines: [body],
+        ctaUrl: "https://jdlcore.com/portal",
+        ctaLabel: "Open the portal",
+        footer: `Job reference: ${recipient[0].ref}`,
+      }),
+    });
+  }
+  await notifyOperationsRole(job.ref, `Amended report resubmitted for ${job.ref}`, undefined, job.id);
 
   revalidateJob(job.id);
   return { ok: true, message: "Resubmitted to Operations." };
