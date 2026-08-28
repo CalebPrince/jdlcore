@@ -4,11 +4,15 @@ const ROOT_HOST = "jdlcore.com";
 
 const nextConfig: NextConfig = {
   async rewrites() {
-    return [
-      { source: "/", has: [{ type: "host", value: "inspect.jdlcore.com" }], destination: "/inspection" },
-      { source: "/", has: [{ type: "host", value: "analytics.jdlcore.com" }], destination: "/analytics" },
-      { source: "/", has: [{ type: "host", value: "academy.jdlcore.com" }], destination: "/academy" },
-    ];
+    return {
+      beforeFiles: [
+        { source: "/", has: [{ type: "host", value: "inspect.jdlcore.com" }], destination: "/inspection" },
+        { source: "/", has: [{ type: "host", value: "analytics.jdlcore.com" }], destination: "/analytics" },
+        { source: "/", has: [{ type: "host", value: "academy.jdlcore.com" }], destination: "/academy" },
+      ],
+      afterFiles: [],
+      fallback: [],
+    };
   },
   async redirects() {
     return [
