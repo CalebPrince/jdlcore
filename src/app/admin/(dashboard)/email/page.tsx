@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import {
   EmailSettingsForm,
+  TestAllNotificationsForm,
   TestAllStaffEmailForm,
   TestEmailForm,
   type EmailSettingsView,
@@ -123,6 +124,19 @@ export default async function AdminEmailPage() {
               </tbody>
             </table>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Notification System Test</CardTitle>
+          <CardDescription>
+            Confirm every notification type in the system actually reaches an inbox — not just that
+            the provider is configured.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TestAllNotificationsForm />
         </CardContent>
       </Card>
     </div>

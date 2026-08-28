@@ -2,7 +2,9 @@
 
 import { useActionState } from "react";
 import { saveEmailSettings, sendTestEmail, sendTestEmailToAllStaff } from "@/app/actions/email-admin";
+import { testAllNotificationTypes, type TestRunState } from "@/app/actions/notification-test";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,6 +12,7 @@ import { Switch } from "@/components/ui/switch";
 import type { FormState } from "@/app/actions/submissions";
 
 const initial: FormState = { ok: false, message: "" };
+const initialTestRun: TestRunState = { ok: false, message: "" };
 
 export type EmailSettingsView = {
   enabled: boolean;
@@ -147,5 +150,63 @@ export function TestAllStaffEmailForm() {
         </span>
       )}
     </form>
+  );
+}
+
+export function TestAllNotificationsForm() {
+  const [state, action, pending] = useActionState(testAllNotificationTypes, initialTestRun);
+  return (
+    <div className="flex flex-col gap-3 rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
+      <div>
+        <p className="m-0 text-sm font-semibold text-navy-950">Notification system test</p>
+        <p className="m-0 text-xs text-muted-foreground">
+          Fires every client, staff, and inspector notification type (30 events) as a real email to
+          your own inbox, plus one summary in your bell — proof each one actually delivers.
+          Superadmin only.
+        </p>
+      </div>
+      <form action={action}>
+        <Button type="submit" variant="outline" disabled={pending} className="shrink-0">
+          {pending ? "Testing all notification types…" : "Test All Notification Types"}
+        </Button>
+      </form>
+      {(state.message || state.ok) && (
+        <span className={`text-xs ${state.ok ? "text-[#1f7a4d]" : "text-red-600"}`}>
+          {state.message}
+        </span>
+      )}
+      {state.results && state.results.length > 0 && (
+        <div className="max-h-64 overflow-y-auto rounded-lg border" style={{ borderColor: "var(--border)" }}>
+          <table className="w-full text-xs">
+            <thead>
+              <tr
+                className="sticky top-0 border-b bg-muted/40 text-left uppercase tracking-wide text-muted-foreground"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <th className="px-3 py-1.5 font-medium">Category</th>
+                <th className="px-3 py-1.5 font-medium">Notification</th>
+                <th className="px-3 py-1.5 font-medium">Result</th>
+              </tr>
+            </thead>
+            <tbody>
+              {state.results.map((r, i) => (
+                <tr key={i} className="border-b last:border-b-0" style={{ borderColor: "var(--border)" }}>
+                  <td className="whitespace-nowrap px-3 py-1.5 text-muted-foreground">{r.category}</td>
+                  <td className="px-3 py-1.5">{r.label}</td>
+                  <td className="px-3 py-1.5">
+                    <Badge
+                      variant="outline"
+                      className={r.ok ? "border-[rgba(31,122,77,0.4)] text-[#1f7a4d]" : "border-red-300 text-red-600"}
+                    >
+                      {r.ok ? "sent" : "failed"}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
   );
 }
