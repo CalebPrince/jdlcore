@@ -317,6 +317,19 @@ function parseDecimal3(raw: string | undefined): { ok: true; value: string | nul
   return { ok: true, value: parsed.data };
 }
 
+/** Like parseDecimal3 but for higher-precision gauging figures (temperature, density, VCF). */
+function parseDecimalN(
+  raw: string | undefined,
+  scale: number,
+): { ok: true; value: string | null } | { ok: false; message: string } {
+  if (!raw || raw.trim() === "") return { ok: true, value: null };
+  const re = new RegExp(`^-?\\d+(\\.\\d{1,${scale}})?$`);
+  if (!re.test(raw.trim())) {
+    return { ok: false, message: `Enter a number with up to ${scale} decimal places.` };
+  }
+  return { ok: true, value: raw.trim() };
+}
+
 export async function saveCompletionData(_prev: FormState, formData: FormData): Promise<FormState> {
   const inspector = await getInspector();
   if (!inspector) return initialFail("Unauthorized");
@@ -379,6 +392,15 @@ const stockReadingSchema = z.object({
   dischargesLoads: z.string().optional(),
   closingStock: z.string().optional(),
   gsv: z.string().optional(),
+  dipHeightMm: z.string().optional(),
+  temperatureC: z.string().optional(),
+  densityAt20: z.string().optional(),
+  vcf: z.string().optional(),
+  gov: z.string().optional(),
+  netWeightAir: z.string().optional(),
+  netWeightVacuum: z.string().optional(),
+  pumpableStock: z.string().optional(),
+  statusRemark: z.string().trim().max(40).optional(),
   notes: z.string().trim().max(2000).optional(),
 });
 
@@ -401,6 +423,11 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
     ["dischargesLoads", f.dischargesLoads] as const,
     ["closingStock", f.closingStock] as const,
     ["gsv", f.gsv] as const,
+    ["dipHeightMm", f.dipHeightMm] as const,
+    ["gov", f.gov] as const,
+    ["netWeightAir", f.netWeightAir] as const,
+    ["netWeightVacuum", f.netWeightVacuum] as const,
+    ["pumpableStock", f.pumpableStock] as const,
   ];
   const parsedValues: Record<string, string | null> = {};
   for (const [key, raw] of fields) {
@@ -408,6 +435,13 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
     if (!result.ok) return initialFail(`${key}: ${result.message}`);
     parsedValues[key] = result.value;
   }
+
+  const temperatureC = parseDecimalN(f.temperatureC, 2);
+  if (!temperatureC.ok) return initialFail(`temperatureC: ${temperatureC.message}`);
+  const densityAt20 = parseDecimalN(f.densityAt20, 4);
+  if (!densityAt20.ok) return initialFail(`densityAt20: ${densityAt20.message}`);
+  const vcf = parseDecimalN(f.vcf, 5);
+  if (!vcf.ok) return initialFail(`vcf: ${vcf.message}`);
 
   await requireDb().insert(stockReadings).values({
     jobId: f.jobId,
@@ -419,6 +453,15 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
     dischargesLoads: parsedValues.dischargesLoads,
     closingStock: parsedValues.closingStock,
     gsv: parsedValues.gsv,
+    dipHeightMm: parsedValues.dipHeightMm,
+    temperatureC: temperatureC.value,
+    densityAt20: densityAt20.value,
+    vcf: vcf.value,
+    gov: parsedValues.gov,
+    netWeightAir: parsedValues.netWeightAir,
+    netWeightVacuum: parsedValues.netWeightVacuum,
+    pumpableStock: parsedValues.pumpableStock,
+    statusRemark: f.statusRemark || null,
     notes: f.notes || null,
     recordedByInspectorId: inspector.id,
   });

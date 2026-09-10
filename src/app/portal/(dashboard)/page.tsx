@@ -10,9 +10,12 @@ import { requireDb } from "@/db";
 import { jobs, invoices } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
+import { loadGaugeBoard, loadTankTrendSeries } from "@/lib/reports";
 import { Card, CardContent } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { flagOverdueInvoices } from "@/lib/overdue-invoices";
+import { GaugeBoard } from "@/components/reports/gauge-board";
+import { TankTrendGrid } from "@/components/reports/tank-trend-grid";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +48,17 @@ export default async function PortalDashboardPage({
     unpaidCount = rows[0]?.count ?? 0;
   } catch {
     /* render empty state */
+  }
+
+  let board: Awaited<ReturnType<typeof loadGaugeBoard>> = [];
+  let trends: Awaited<ReturnType<typeof loadTankTrendSeries>> = [];
+  try {
+    [board, trends] = await Promise.all([
+      loadGaugeBoard({ clientId: client.id }),
+      loadTankTrendSeries({ clientId: client.id }),
+    ]);
+  } catch {
+    /* section is hidden below when empty */
   }
 
   const active = jobList.filter((j) => j.status !== "closed").length;
@@ -86,6 +100,21 @@ export default async function PortalDashboardPage({
           highlight={unpaidCount > 0}
         />
       </div>
+
+      {board.length > 0 && (
+        <section className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h2 className="m-0 font-display text-lg font-bold text-navy-950">
+              Inventory Monitoring
+            </h2>
+            <Link href="/portal/reports" className="link-arrow text-sm whitespace-nowrap">
+              Full reports →
+            </Link>
+          </div>
+          <GaugeBoard depots={board} compact />
+          {trends.length > 0 && <TankTrendGrid trends={trends} />}
+        </section>
+      )}
 
       <section className="flex flex-col gap-4">
         <div className="flex items-center justify-between">

@@ -352,6 +352,19 @@ export default async function AdminJobDetailPage({
                     Opening {r.openingStock ?? "—"} · Receipts {r.receipts ?? "—"} · Transfers {r.transfers ?? "—"} ·
                     {" "}Discharges/Loads {r.dischargesLoads ?? "—"} · Closing {r.closingStock ?? "—"} · GSV {r.gsv ?? "—"}
                   </p>
+                  {(r.dipHeightMm != null ||
+                    r.temperatureC != null ||
+                    r.densityAt20 != null ||
+                    r.netWeightAir != null ||
+                    r.pumpableStock != null ||
+                    r.statusRemark) && (
+                    <p className="m-0 mt-1 text-xs text-muted-foreground">
+                      {r.statusRemark ? `${r.statusRemark} · ` : ""}
+                      Height {r.dipHeightMm ?? "—"} mm · Temp {r.temperatureC ?? "—"} °C · Density {r.densityAt20 ?? "—"} ·
+                      {" "}VCF {r.vcf ?? "—"} · GOV {r.gov ?? "—"} · Net wt (air) {r.netWeightAir ?? "—"} ·
+                      {" "}Pumpable {r.pumpableStock ?? "—"}
+                    </p>
+                  )}
                 </div>
               ))}
             </CardContent>

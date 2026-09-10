@@ -56,6 +56,18 @@ export function CreateTankForm({
             <Input id="tk-name" name="name" required placeholder="Tank 3" />
           </div>
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-kind">Type</Label>
+            <select
+              id="tk-kind"
+              name="kind"
+              defaultValue="tank"
+              className="h-9 rounded-md border border-input bg-transparent px-3 text-sm shadow-xs"
+            >
+              <option value="tank">Storage tank</option>
+              <option value="pipeline">Pipeline / line item</option>
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="tk-product">Product</Label>
             <Input id="tk-product" name="product" placeholder="AGO" />
           </div>
@@ -66,6 +78,14 @@ export function CreateTankForm({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tk-capacity">Capacity (MT)</Label>
             <Input id="tk-capacity" name="capacity" type="number" step="0.001" min="0" placeholder="5000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-maxheight">Max gauge height (mm)</Label>
+            <Input id="tk-maxheight" name="maxGaugeHeightMm" type="number" step="0.001" min="0" placeholder="18000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="tk-minstop">Min pumpable stop (MT)</Label>
+            <Input id="tk-minstop" name="minPumpableStop" type="number" step="0.001" min="0" placeholder="200" />
           </div>
           <div className="sm:col-span-3 lg:col-span-6">
             <Button type="submit" disabled={pending} className="btn-gold">

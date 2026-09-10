@@ -59,12 +59,21 @@ export default async function AdminTanksPage() {
                   style={{ borderColor: "var(--border)" }}
                 >
                   <div className="min-w-[220px] flex-1">
-                    <p className="m-0 text-sm font-semibold text-navy-950">{t.name}</p>
+                    <p className="m-0 text-sm font-semibold text-navy-950">
+                      {t.name}
+                      {t.kind === "pipeline" ? (
+                        <span className="ml-1.5 align-middle text-[11px] font-medium text-muted-foreground">
+                          pipeline
+                        </span>
+                      ) : null}
+                    </p>
                     <p className="m-0 mt-0.5 text-xs text-muted-foreground">
                       {clientName.get(t.clientId) ?? "Unknown client"}
                       {t.product ? ` · ${t.product}` : ""}
                       {t.depot ? ` · ${t.depot}` : ""}
                       {t.capacity ? ` · ${Number(t.capacity).toLocaleString()} ${t.capacityUnit}` : ""}
+                      {t.maxGaugeHeightMm ? ` · ${Number(t.maxGaugeHeightMm).toLocaleString()} mm max` : ""}
+                      {t.minPumpableStop ? ` · min-stop ${Number(t.minPumpableStop).toLocaleString()}` : ""}
                     </p>
                   </div>
                   <Badge variant={t.active ? "secondary" : "outline"}>

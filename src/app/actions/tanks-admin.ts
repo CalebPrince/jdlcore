@@ -14,11 +14,16 @@ const ADMIN_ROLES = ["administrator", "superadmin"] as const;
 const createSchema = z.object({
   clientId: z.coerce.number().int().positive(),
   name: z.string().trim().min(1).max(120),
+  kind: z.enum(["tank", "pipeline"]).optional(),
   product: z.string().trim().max(120).optional(),
   depot: z.string().trim().max(120).optional(),
   capacity: z.string().optional(),
   capacityUnit: z.string().trim().max(20).optional(),
+  maxGaugeHeightMm: z.string().optional(),
+  minPumpableStop: z.string().optional(),
 });
+
+const cleanNumeric = (v: string | undefined): string | null => (v && v.trim() !== "" ? v.trim() : null);
 
 export async function createTank(_prev: FormState, formData: FormData): Promise<FormState> {
   const current = await requireStaffRole([...ADMIN_ROLES]);
@@ -32,10 +37,13 @@ export async function createTank(_prev: FormState, formData: FormData): Promise<
     .values({
       clientId: f.clientId,
       name: f.name,
+      kind: f.kind || "tank",
       product: f.product || null,
       depot: f.depot || null,
-      capacity: f.capacity && f.capacity.trim() !== "" ? f.capacity : null,
+      capacity: cleanNumeric(f.capacity),
       capacityUnit: f.capacityUnit || "MT",
+      maxGaugeHeightMm: cleanNumeric(f.maxGaugeHeightMm),
+      minPumpableStop: cleanNumeric(f.minPumpableStop),
     })
     .returning({ id: tanks.id });
 

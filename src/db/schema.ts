@@ -238,10 +238,13 @@ export const tanks = pgTable(
       .notNull()
       .references(() => clients.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    kind: text("kind").notNull().default("tank"), // tank | pipeline
     product: text("product"),
     depot: text("depot"),
     capacity: numeric("capacity", { precision: 14, scale: 3 }),
     capacityUnit: text("capacity_unit").notNull().default("MT"),
+    maxGaugeHeightMm: numeric("max_gauge_height_mm", { precision: 14, scale: 3 }),
+    minPumpableStop: numeric("min_pumpable_stop", { precision: 14, scale: 3 }),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -266,6 +269,16 @@ export const stockReadings = pgTable(
     dischargesLoads: numeric("discharges_loads", { precision: 14, scale: 3 }),
     closingStock: numeric("closing_stock", { precision: 14, scale: 3 }),
     gsv: numeric("gsv", { precision: 14, scale: 3 }),
+    // Optional tank-gauging detail (section 14 / gauge board).
+    dipHeightMm: numeric("dip_height_mm", { precision: 14, scale: 3 }),
+    temperatureC: numeric("temperature_c", { precision: 6, scale: 2 }),
+    densityAt20: numeric("density_at_20", { precision: 8, scale: 4 }),
+    vcf: numeric("vcf", { precision: 8, scale: 5 }),
+    gov: numeric("gov", { precision: 14, scale: 3 }),
+    netWeightAir: numeric("net_weight_air", { precision: 14, scale: 3 }),
+    netWeightVacuum: numeric("net_weight_vacuum", { precision: 14, scale: 3 }),
+    pumpableStock: numeric("pumpable_stock", { precision: 14, scale: 3 }),
+    statusRemark: text("status_remark"),
     notes: text("notes"),
     recordedByInspectorId: integer("recorded_by_inspector_id").references(() => inspectors.id, {
       onDelete: "set null",

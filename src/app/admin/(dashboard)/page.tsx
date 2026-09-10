@@ -13,6 +13,8 @@ import {
 import { requireDb } from "@/db";
 import { submissions } from "@/db/schema";
 import { getContactSettings, DEFAULT_SETTINGS } from "@/lib/settings";
+import { loadGaugeBoard } from "@/lib/reports";
+import { GaugeBoard } from "@/components/reports/gauge-board";
 import {
   Card,
   CardContent,
@@ -73,6 +75,13 @@ export default async function AdminDashboardPage() {
     dbError = true;
   }
 
+  let board: Awaited<ReturnType<typeof loadGaugeBoard>> = [];
+  try {
+    board = await loadGaugeBoard({});
+  } catch {
+    /* section is hidden below when empty */
+  }
+
   const byType = new Map(stats?.counts.map((c) => [c.type, c.count]) ?? []);
   const total = stats?.counts.reduce((sum, c) => sum + c.count, 0) ?? 0;
 
@@ -86,6 +95,23 @@ export default async function AdminDashboardPage() {
           Everything happening across jdlcore.com at a glance.
         </p>
       </div>
+
+      {board.length > 0 && (
+        <Card>
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <div>
+              <CardTitle className="font-display">Inventory Monitoring</CardTitle>
+              <CardDescription>Latest depot gauge readings from Stock Monitoring jobs</CardDescription>
+            </div>
+            <Link href="/admin/reports" className="link-arrow shrink-0 text-sm whitespace-nowrap">
+              View all →
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <GaugeBoard depots={board} compact limit={2} />
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">

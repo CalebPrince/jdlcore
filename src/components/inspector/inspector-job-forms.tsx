@@ -244,6 +244,49 @@ export function StockReadingForm({ jobId, tanks }: { jobId: number; tanks: { id:
           <Textarea id={`sr-notes-${jobId}`} name="notes" rows={2} />
         </div>
       </div>
+
+      <details className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
+        <summary className="cursor-pointer font-medium text-navy-950">Gauging detail (optional)</summary>
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-dip-${jobId}`}>Dip height (mm)</Label>
+            <Input id={`sr-dip-${jobId}`} name="dipHeightMm" inputMode="decimal" placeholder="0.000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-temp-${jobId}`}>Temperature (°C)</Label>
+            <Input id={`sr-temp-${jobId}`} name="temperatureC" inputMode="decimal" placeholder="0.00" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-den-${jobId}`}>Density @ 20°C</Label>
+            <Input id={`sr-den-${jobId}`} name="densityAt20" inputMode="decimal" placeholder="0.0000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-vcf-${jobId}`}>VCF</Label>
+            <Input id={`sr-vcf-${jobId}`} name="vcf" inputMode="decimal" placeholder="0.00000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-gov-${jobId}`}>GOV</Label>
+            <Input id={`sr-gov-${jobId}`} name="gov" inputMode="decimal" placeholder="0.000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-nwa-${jobId}`}>Net weight — air (MT)</Label>
+            <Input id={`sr-nwa-${jobId}`} name="netWeightAir" inputMode="decimal" placeholder="0.000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-nwv-${jobId}`}>Net weight — vacuum (MT)</Label>
+            <Input id={`sr-nwv-${jobId}`} name="netWeightVacuum" inputMode="decimal" placeholder="0.000" />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor={`sr-pump-${jobId}`}>Pumpable stock (MT)</Label>
+            <Input id={`sr-pump-${jobId}`} name="pumpableStock" inputMode="decimal" placeholder="0.000" />
+          </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor={`sr-remark-${jobId}`}>Status remark</Label>
+            <Input id={`sr-remark-${jobId}`} name="statusRemark" maxLength={40} placeholder="FEEDING, PLANT SUCTION, GOOD…" />
+          </div>
+        </div>
+      </details>
+
       <Button type="submit" disabled={pending || tanks.length === 0} variant="outline" className="self-start">
         {pending ? "Logging…" : "Log Stock Reading"}
       </Button>

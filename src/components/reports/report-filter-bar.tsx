@@ -7,11 +7,26 @@ export function ReportFilterBar({
   current,
   clients,
   inspectors,
+  products,
+  depots,
+  tanks,
 }: {
   basePath: string;
-  current: { clientId?: string; inspectorId?: string; serviceType?: string; from?: string; to?: string };
+  current: {
+    clientId?: string;
+    inspectorId?: string;
+    serviceType?: string;
+    product?: string;
+    depot?: string;
+    tankId?: string;
+    from?: string;
+    to?: string;
+  };
   clients?: { id: number; name: string; company: string | null }[];
   inspectors?: { id: number; name: string }[];
+  products?: string[];
+  depots?: string[];
+  tanks?: { id: number; name: string }[];
 }) {
   return (
     <form
@@ -73,6 +88,60 @@ export function ReportFilterBar({
           ))}
         </select>
       </div>
+      {products && products.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="rf-product">Product</Label>
+          <select
+            id="rf-product"
+            name="product"
+            defaultValue={current.product ?? ""}
+            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs"
+          >
+            <option value="">All products</option>
+            {products.map((p) => (
+              <option key={p} value={p}>
+                {p}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {depots && depots.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="rf-depot">Depot</Label>
+          <select
+            id="rf-depot"
+            name="depot"
+            defaultValue={current.depot ?? ""}
+            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs"
+          >
+            <option value="">All depots</option>
+            {depots.map((d) => (
+              <option key={d} value={d}>
+                {d}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      {tanks && tanks.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="rf-tank">Tank</Label>
+          <select
+            id="rf-tank"
+            name="tankId"
+            defaultValue={current.tankId ?? ""}
+            className="h-9 rounded-md border border-input bg-transparent px-2 text-sm shadow-xs"
+          >
+            <option value="">All tanks</option>
+            {tanks.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="rf-from">From</Label>
         <input

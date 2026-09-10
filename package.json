@@ -14,7 +14,8 @@
     "db:migrate:recovery": "node scripts/migrate-auth-recovery.cjs",
     "db:migrate:paystack": "node scripts/migrate-paystack.cjs",
     "db:migrate:analytics-billing": "node scripts/migrate-analytics-billing.cjs",
-    "db:migrate:payment-transactions": "node scripts/migrate-payment-transactions.cjs"
+    "db:migrate:payment-transactions": "node scripts/migrate-payment-transactions.cjs",
+    "db:migrate:gauge-board": "node scripts/migrate-gauge-board.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
