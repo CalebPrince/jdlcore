@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
@@ -38,6 +38,7 @@ import {
 } from "@/components/admin/workflow-forms";
 import { AdminJobComments } from "@/components/admin/admin-job-comments";
 import { AiReviewBanner } from "@/components/admin/ai-review-banner";
+import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { loadJobReviews } from "@/lib/ai/document-review";
 import {
   DOCUMENT_KIND_META,
@@ -106,7 +107,17 @@ export default async function AdminJobDetailPage({
     : [];
   const completion = await database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1);
   const tankList = await database.select().from(tanks).where(eq(tanks.clientId, job.clientId));
-  const readings = await database.select().from(stockReadings).where(eq(stockReadings.jobId, jobId)).orderBy(desc(stockReadings.readingDate));
+  const readings = await database
+    .select()
+    .from(stockReadings)
+    .where(eq(stockReadings.jobId, jobId))
+    .orderBy(desc(stockReadings.readingDate))
+    .limit(12);
+  const readingCountRows = await database
+    .select({ n: sql<number>`count(*)::int` })
+    .from(stockReadings)
+    .where(eq(stockReadings.jobId, jobId));
+  const readingCount = readingCountRows[0]?.n ?? readings.length;
   const coq = await database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1);
   const comments = await database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt));
   const invoiceSettings = await getInvoiceSettings();
@@ -337,16 +348,29 @@ export default async function AdminJobDetailPage({
         {tankList.length > 0 && job.serviceType === "stock_monitoring" && (
           <Card>
             <CardHeader>
-              <CardTitle className="font-display">Stock Readings ({readings.length})</CardTitle>
+              <CardTitle className="font-display">Stock Readings ({readingCount})</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {readings.length === 0 && (
+            <CardContent className="flex flex-col gap-3">
+              <details className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)" }}>
+                <summary className="cursor-pointer text-sm font-semibold text-navy-950">
+                  Import from stock sheet
+                </summary>
+                <div className="mt-3">
+                  <StockSheetImport jobId={job.id} tanks={tankList} />
+                </div>
+              </details>
+              {readingCount === 0 && (
                 <p className="m-0 text-sm text-muted-foreground">No stock readings logged yet.</p>
               )}
               {readings.map((r) => (
                 <div key={r.id} className="rounded-lg border p-3 text-sm" style={{ borderColor: "var(--border)" }}>
-                  <p className="m-0 font-semibold text-navy-950">
+                  <p className="m-0 flex flex-wrap items-center gap-2 font-semibold text-navy-950">
                     {tankById.get(r.tankId)?.name ?? `Tank #${r.tankId}`} — {dateFmt.format(new Date(r.readingDate))}
+                    {r.source === "import" && (
+                      <Badge variant="outline" className="gap-1">
+                        <FileUp className="h-3 w-3" /> from sheet
+                      </Badge>
+                    )}
                   </p>
                   <p className="m-0 text-xs text-muted-foreground">
                     Opening {r.openingStock ?? "—"} · Receipts {r.receipts ?? "—"} · Transfers {r.transfers ?? "—"} ·
@@ -367,6 +391,11 @@ export default async function AdminJobDetailPage({
                   )}
                 </div>
               ))}
+              {readingCount > readings.length && (
+                <p className="m-0 text-xs text-muted-foreground">
+                  Showing the {readings.length} most recent of {readingCount}. Full history is on the Reports gauge board.
+                </p>
+              )}
             </CardContent>
           </Card>
         )}

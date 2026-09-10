@@ -96,18 +96,11 @@ export default async function AdminReportsPage({
             tanks={tankOptions.tanks}
           />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-display">Gauge Board</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <GaugeBoard depots={board} />
-            </CardContent>
-          </Card>
+          <GaugeBoard depots={board} />
 
           <Card>
             <CardHeader>
-              <CardTitle className="font-display">Tank Trends (32 days)</CardTitle>
+              <CardTitle className="font-display">Gross Standard Volume — 32-Day Trends</CardTitle>
             </CardHeader>
             <CardContent>
               <TankTrendGrid trends={trends} />

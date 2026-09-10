@@ -18,6 +18,7 @@ import type { JobStatus } from "@/lib/jobs";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewCompletionData } from "@/lib/ai/document-review";
+import { parseDecimal3, parseDecimalN } from "@/lib/decimal";
 import type { FormState } from "./submissions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
@@ -307,28 +308,6 @@ const completionSchema = z.object({
   metricTonnesVacuum: z.string().optional(),
   inspectorComments: z.string().trim().max(4000).optional(),
 });
-
-const decimal3 = z.string().regex(/^\d+(\.\d{1,3})?$/, "Enter a number with up to 3 decimal places.");
-
-function parseDecimal3(raw: string | undefined): { ok: true; value: string | null } | { ok: false; message: string } {
-  if (!raw || raw.trim() === "") return { ok: true, value: null };
-  const parsed = decimal3.safeParse(raw.trim());
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
-  return { ok: true, value: parsed.data };
-}
-
-/** Like parseDecimal3 but for higher-precision gauging figures (temperature, density, VCF). */
-function parseDecimalN(
-  raw: string | undefined,
-  scale: number,
-): { ok: true; value: string | null } | { ok: false; message: string } {
-  if (!raw || raw.trim() === "") return { ok: true, value: null };
-  const re = new RegExp(`^-?\\d+(\\.\\d{1,${scale}})?$`);
-  if (!re.test(raw.trim())) {
-    return { ok: false, message: `Enter a number with up to ${scale} decimal places.` };
-  }
-  return { ok: true, value: raw.trim() };
-}
 
 export async function saveCompletionData(_prev: FormState, formData: FormData): Promise<FormState> {
   const inspector = await getInspector();

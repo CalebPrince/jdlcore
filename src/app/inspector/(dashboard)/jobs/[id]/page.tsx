@@ -14,6 +14,7 @@ import {
   StockReadingForm,
   SubmitForApprovalForm,
 } from "@/components/inspector/inspector-job-forms";
+import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
@@ -159,9 +160,17 @@ export default async function InspectorJobDetailPage({
         ["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status) && (
           <Card>
             <CardHeader>
-              <CardTitle className="font-display">Log Stock Reading</CardTitle>
+              <CardTitle className="font-display">Stock Readings</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-3">
+              <details className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)" }}>
+                <summary className="cursor-pointer text-sm font-semibold text-navy-950">
+                  Import from stock sheet
+                </summary>
+                <div className="mt-3">
+                  <StockSheetImport jobId={job.id} tanks={tankList} />
+                </div>
+              </details>
               <StockReadingForm jobId={job.id} tanks={tankList} />
             </CardContent>
           </Card>

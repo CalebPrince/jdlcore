@@ -1,15 +1,19 @@
 import type { DepotBoard } from "@/lib/reports";
+import { Card, CardContent } from "@/components/ui/card";
 import { FigureTile, fmtQty } from "@/components/reports/figure-tile";
 import { TankGaugeCard } from "@/components/reports/tank-gauge";
+import { PipelineCard } from "@/components/reports/pipeline-card";
 
-const stampFmt = new Intl.DateTimeFormat("en-GB", {
-  day: "2-digit",
-  month: "short",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
-const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" });
+const timeFmt = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hour12: false });
+const longDate = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric" });
+const dayFmt = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long" });
+
+function inServiceUnit(tanks: number, pipelines: number): string {
+  const t = tanks === 1 ? "tank" : "tanks";
+  if (pipelines === 0) return t;
+  if (pipelines === 1) return `${t} + SPM line`;
+  return `${t} + ${pipelines} pipelines`;
+}
 
 export function GaugeBoard({
   depots,
@@ -31,68 +35,92 @@ export function GaugeBoard({
   const shown = limit ? depots.slice(0, limit) : depots;
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       {shown.map((board) => (
-        <section key={board.depot ?? "unassigned"} className="flex flex-col gap-4">
-          <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-            <h3 className="m-0 font-display text-base font-bold text-navy-950">
-              {board.depot ?? "Unassigned depot"}
-              {board.clientName ? (
-                <span className="ml-2 text-xs font-medium text-muted-foreground">{board.clientName}</span>
-              ) : null}
-            </h3>
-            {board.asOf ? (
-              <span className="font-mono text-xs text-muted-foreground">
-                as of {stampFmt.format(new Date(board.asOf))}
-              </span>
-            ) : null}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <FigureTile label="Gross Std Vol" value={fmtQty(board.totals.gsv)} unit="m³" />
-            <FigureTile label="Net Weight (air)" value={fmtQty(board.totals.netWeightAir)} unit="MT" />
-            <FigureTile label="Pumpable Stock" value={fmtQty(board.totals.pumpableStock)} unit="MT" />
-            <FigureTile
-              label="In Service"
-              value={String(board.totals.inServiceCount)}
-              unit={board.totals.inServiceCount === 1 ? "tank" : "tanks"}
-              sub={board.totals.pipelineCount > 0 ? `+ ${board.totals.pipelineCount} pipeline` : undefined}
-            />
-          </div>
-
-          {board.tanks.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {board.tanks.map((t) => (
-                <TankGaugeCard key={t.tankId} tank={t} compact={compact} />
-              ))}
+        <Card key={board.depot ?? "unassigned"}>
+          <CardContent className="flex flex-col gap-5">
+            {/* Header */}
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b pb-4" style={{ borderColor: "var(--border)" }}>
+              <div>
+                <p className="m-0 font-mono text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {(board.clientName ?? "Client") + " · TANKS DAILY SITUATION"}
+                </p>
+                <h3 className="m-0 mt-1 font-display text-xl font-bold text-navy-950">
+                  {board.depot ?? "Unassigned depot"}
+                </h3>
+              </div>
+              {board.asOf && (
+                <div className="text-right">
+                  <p className="m-0 font-mono text-2xl font-bold leading-none tracking-tight text-navy-950">
+                    {timeFmt.format(new Date(board.asOf))}
+                  </p>
+                  <p className="m-0 mt-1 font-mono text-[11px] uppercase tracking-wide text-muted-foreground">
+                    {longDate.format(new Date(board.asOf))}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
 
-          {board.pipelines.length > 0 && (
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {board.pipelines.map((p) => (
-                <TankGaugeCard key={p.tankId} tank={p} compact={compact} />
-              ))}
+            {/* Summary tiles */}
+            <div className="grid grid-cols-2 divide-x divide-y rounded-xl border sm:grid-cols-4 sm:divide-y-0" style={{ borderColor: "var(--border)" }}>
+              <FigureTile label="Gross Standard Vol." value={fmtQty(board.totals.gsv)} unit="m³" sub="@20°C" />
+              <FigureTile label="Net Weight (Air)" value={fmtQty(board.totals.netWeightAir)} unit="MT" />
+              <FigureTile label="Pumpable Stock" value={fmtQty(board.totals.pumpableStock)} unit="MT" />
+              <FigureTile
+                label="In Service"
+                value={String(board.totals.inServiceCount)}
+                unit={inServiceUnit(board.totals.inServiceCount, board.totals.pipelineCount)}
+              />
             </div>
-          )}
 
-          {board.missingDays.length > 0 && (
-            <p className="m-0 text-xs text-muted-foreground">
-              No readings recorded on{" "}
-              {board.missingDays
-                .map((d) => dayFmt.format(new Date(d)))
-                .join(", ")}
-              {" "}— those days are omitted from the trend.
-            </p>
-          )}
-        </section>
+            {/* Storage tanks */}
+            {board.tanks.length > 0 && (
+              <div className="flex flex-col gap-3">
+                <p className="m-0 font-mono text-xs font-semibold uppercase tracking-[0.12em] text-navy-950">
+                  Storage Tanks — Dip Gauge Reading
+                </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {board.tanks.map((t) => (
+                    <TankGaugeCard key={t.tankId} tank={t} compact={compact} />
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pipeline */}
+            {board.pipelines.length > 0 && (
+              <div className="grid grid-cols-1 gap-3">
+                {board.pipelines.map((p) => (
+                  <PipelineCard key={p.tankId} line={p} />
+                ))}
+              </div>
+            )}
+
+            {/* Notes / footer */}
+            <div className="flex flex-col gap-1 border-t pt-3 text-[11px] text-muted-foreground" style={{ borderColor: "var(--border)" }}>
+              {board.missingDays.length > 0 && (
+                <p className="m-0">
+                  No readings recorded on {board.missingDays.map((d) => dayFmt.format(new Date(d))).join(", ")} — those
+                  dates are omitted and consecutive readings joined directly.
+                </p>
+              )}
+              <p className="m-0">
+                Dashed line marks each tank&apos;s minimum pumpable stop. Fill % is read off dip height ÷{" "}
+                {board.maxGaugeHeightMm != null ? `${fmtQty(board.maxGaugeHeightMm)} mm` : "each tank's"} max gauge stop.
+              </p>
+              {board.sourceLabel && (
+                <p className="m-0">
+                  <span className="font-semibold text-navy-950">Source:</span> {board.sourceLabel}
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
       ))}
 
-      {limit && depots.length > limit ? (
-        <p className="m-0 text-xs text-muted-foreground">
-          Showing {limit} of {depots.length} depots.
-        </p>
-      ) : null}
+      {limit && depots.length > limit && (
+        <p className="m-0 text-xs text-muted-foreground">Showing {limit} of {depots.length} depots.</p>
+      )}
     </div>
   );
 }

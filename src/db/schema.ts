@@ -10,6 +10,7 @@ import {
   uniqueIndex,
   date,
   numeric,
+  type AnyPgColumn,
 } from "drizzle-orm/pg-core";
 
 export const settings = pgTable("settings", {
@@ -280,6 +281,10 @@ export const stockReadings = pgTable(
     pumpableStock: numeric("pumpable_stock", { precision: 14, scale: 3 }),
     statusRemark: text("status_remark"),
     notes: text("notes"),
+    source: text("source").notNull().default("manual"), // manual | import
+    importId: integer("import_id").references((): AnyPgColumn => stockImports.id, {
+      onDelete: "set null",
+    }),
     recordedByInspectorId: integer("recorded_by_inspector_id").references(() => inspectors.id, {
       onDelete: "set null",
     }),
@@ -290,6 +295,32 @@ export const stockReadings = pgTable(
     index("stock_readings_tank_idx").on(table.tankId),
     index("stock_readings_date_idx").on(table.readingDate),
   ],
+);
+
+/**
+ * One row per "upload a depot stock sheet and let AI extract the readings" run.
+ * `fileData` keeps the original sheet for audit — internal-only, never surfaced in the
+ * client portal (there is deliberately no `documents` row for it).
+ */
+export const stockImports = pgTable(
+  "stock_imports",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    actorType: text("actor_type").notNull(), // inspector | staff
+    actorId: integer("actor_id"),
+    actorName: text("actor_name").notNull(),
+    fileName: text("file_name").notNull(),
+    mimeType: text("mime_type"),
+    sizeBytes: integer("size_bytes"),
+    provider: text("provider"),
+    rowCount: integer("row_count").notNull().default(0),
+    fileData: text("file_data"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("stock_imports_job_idx").on(table.jobId)],
 );
 
 /** Client-visible comment thread on a job (section 3) — distinct from the system jobUpdates timeline. */
@@ -819,6 +850,7 @@ export type JobUpdate = typeof jobUpdates.$inferSelect;
 export type JobCompletionData = typeof jobCompletionData.$inferSelect;
 export type Tank = typeof tanks.$inferSelect;
 export type StockReading = typeof stockReadings.$inferSelect;
+export type StockImport = typeof stockImports.$inferSelect;
 export type JobComment = typeof jobComments.$inferSelect;
 export type Certificate = typeof certificates.$inferSelect;
 export type AiReview = typeof aiReviews.$inferSelect;

@@ -28,6 +28,7 @@ type CallOpts = {
   timeoutMs: number;
   model: string;
   attachment?: Attachment;
+  temperature: number;
 };
 
 type Leg = {
@@ -60,6 +61,7 @@ export async function runCompletion(opts: {
   maxTokens?: number;
   totalTimeoutMs?: number;
   attachment?: Attachment;
+  temperature?: number;
 }): Promise<{ text: string; provider: ProviderName }> {
   const settings = await getAiSettings();
   const legs = buildLegs(settings, !!opts.attachment);
@@ -90,6 +92,7 @@ export async function runCompletion(opts: {
         timeoutMs: Math.min(perCall, remaining),
         model: leg.model,
         attachment: opts.attachment,
+        temperature: opts.temperature ?? 0.4,
       });
       if (text && text.trim()) return { text: text.trim(), provider: leg.name };
       failures.push(`${leg.name}: empty response`);
@@ -147,7 +150,7 @@ async function callGemini(opts: CallOpts): Promise<string> {
   const body = {
     systemInstruction: { parts: [{ text: opts.system }] },
     contents,
-    generationConfig: { maxOutputTokens: opts.maxTokens, temperature: 0.4 },
+    generationConfig: { maxOutputTokens: opts.maxTokens, temperature: opts.temperature },
   };
   const json = (await withHardTimeout(
     fetchJson(url, {
@@ -196,7 +199,7 @@ async function callAnthropic(opts: CallOpts): Promise<string> {
       body: JSON.stringify({
         model: opts.model,
         max_tokens: opts.maxTokens,
-        temperature: 0.4,
+        temperature: opts.temperature,
         system: opts.system,
         messages,
       }),
@@ -222,7 +225,7 @@ async function callGroq(opts: CallOpts): Promise<string> {
       body: JSON.stringify({
         model: opts.model,
         max_tokens: opts.maxTokens,
-        temperature: 0.4,
+        temperature: opts.temperature,
         messages: [
           { role: "system", content: opts.system },
           ...opts.turns.map((t) => ({ role: t.role, content: t.content })),

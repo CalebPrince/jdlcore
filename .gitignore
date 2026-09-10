@@ -36,3 +36,6 @@ yarn-error.log*
 .netlify
 
 .vercel
+
+# Playwright MCP artifacts
+.playwright-mcp/

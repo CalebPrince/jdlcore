@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, gte, inArray, lte, sql, type SQL } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { clients, inspectors, jobCompletionData, jobs, stockReadings, tanks } from "@/db/schema";
+import { clients, inspectors, jobCompletionData, jobs, stockImports, stockReadings, tanks } from "@/db/schema";
 
 /** Falls back to submittedAt when the inspector left the optional completion date blank. */
 const effectiveDate = sql<string>`coalesce(${jobCompletionData.dateTimeCompleted}, ${jobCompletionData.submittedAt})`;
@@ -161,6 +161,8 @@ export type DepotBoard = {
   clientName: string | null;
   asOf: string | null;
   missingDays: string[];
+  maxGaugeHeightMm: number | null;
+  sourceLabel: string | null;
   totals: {
     gsv: number;
     netWeightAir: number;
@@ -219,6 +221,24 @@ export async function loadGaugeBoard(filters: ReportFilters): Promise<DepotBoard
     const list = byTank.get(r.tankId) ?? [];
     list.push(r);
     byTank.set(r.tankId, list);
+  }
+
+  // Newest imported sheet name per job in scope, for the "Source:" footer line.
+  const jobIds = [...new Set(readingRows.map((r) => r.jobId))];
+  const importByJob = new Map<number, string>();
+  if (jobIds.length) {
+    const imps = await db
+      .select({ jobId: stockImports.jobId, fileName: stockImports.fileName, createdAt: stockImports.createdAt })
+      .from(stockImports)
+      .where(inArray(stockImports.jobId, jobIds))
+      .orderBy(desc(stockImports.createdAt));
+    for (const im of imps) if (!importByJob.has(im.jobId)) importByJob.set(im.jobId, im.fileName);
+  }
+  const tankToJobs = new Map<number, number[]>();
+  for (const r of readingRows) {
+    const arr = tankToJobs.get(r.tankId) ?? [];
+    if (!arr.includes(r.jobId)) arr.push(r.jobId);
+    tankToJobs.set(r.tankId, arr);
   }
 
   const gauges: TankGauge[] = tankRows.map((t) => {
@@ -291,8 +311,6 @@ export async function loadGaugeBoard(filters: ReportFilters): Promise<DepotBoard
     groups.set(key, list);
   }
 
-  const singleClient = new Set(tankRows.map((t) => t.clientName)).size === 1;
-
   const boards: DepotBoard[] = [];
   for (const [key, list] of groups) {
     const inService = list.filter((g) => g.readingDate != null);
@@ -315,11 +333,19 @@ export async function loadGaugeBoard(filters: ReportFilters): Promise<DepotBoard
       if (missingDays.length > 20) missingDays = [];
     }
 
+    const sourceLabel =
+      [...new Set(list.flatMap((g) => (tankToJobs.get(g.tankId) ?? []).map((j) => importByJob.get(j)).filter(Boolean)))][0] ??
+      null;
+    const maxHeights = list.map((g) => g.maxGaugeHeightMm).filter((h): h is number => h != null);
+    const uniformHeight = maxHeights.length && maxHeights.every((h) => h === maxHeights[0]) ? maxHeights[0] : null;
+
     boards.push({
       depot: key || null,
-      clientName: singleClient ? (list[0]?.clientName ?? null) : null,
+      clientName: list[0]?.clientName ?? null,
       asOf,
       missingDays,
+      maxGaugeHeightMm: uniformHeight,
+      sourceLabel: sourceLabel as string | null,
       totals: {
         gsv: sumField(inService, "gsv"),
         netWeightAir: sumField(inService, "netWeightAir"),

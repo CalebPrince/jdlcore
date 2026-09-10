@@ -97,20 +97,20 @@ export default async function AdminDashboardPage() {
       </div>
 
       {board.length > 0 && (
-        <Card>
-          <CardHeader className="flex-row items-center justify-between space-y-0">
+        <section className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <CardTitle className="font-display">Inventory Monitoring</CardTitle>
-              <CardDescription>Latest depot gauge readings from Stock Monitoring jobs</CardDescription>
+              <h2 className="m-0 font-display text-lg font-bold text-navy-950">Inventory Monitoring</h2>
+              <p className="m-0 text-sm text-muted-foreground">
+                Latest depot gauge readings from Stock Monitoring jobs
+              </p>
             </div>
             <Link href="/admin/reports" className="link-arrow shrink-0 text-sm whitespace-nowrap">
               View all →
             </Link>
-          </CardHeader>
-          <CardContent>
-            <GaugeBoard depots={board} compact limit={2} />
-          </CardContent>
-        </Card>
+          </div>
+          <GaugeBoard depots={board} compact limit={2} />
+        </section>
       )}
 
       {/* Stat cards */}

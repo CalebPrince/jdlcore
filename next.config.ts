@@ -3,6 +3,7 @@ import type { NextConfig } from "next";
 const ROOT_HOST = "jdlcore.com";
 
 const nextConfig: NextConfig = {
+  serverExternalPackages: ["exceljs"],
   async rewrites() {
     return {
       beforeFiles: [
