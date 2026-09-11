@@ -17,7 +17,7 @@ export default async function CourseLibraryPage() {
   return (
     <>
       <SiteHeader
-        logo={null}
+        logo="/logo-academy.png"
         logoAlt="JDL Core Academy"
         homeHref="/academy"
         navLinks={[

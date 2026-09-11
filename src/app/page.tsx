@@ -72,7 +72,7 @@ const DIVISIONS = [
     href: "https://academy.jdlcore.com",
     name: "Academy",
     tag: "Now Enrolling",
-    logo: null,
+    logo: "/logo-academy.png",
     logoAlt: "JDL Core Academy",
     blurb:
       "Oil & gas training built by the people who do the inspections. Practical courses in tank gauging, quantity verification, and stock control, with certificates on completion.",
@@ -140,7 +140,7 @@ export default async function HomePage() {
       />
 
       <SiteHeader
-        logo={null}
+        logo="/logo-jdlcore.png"
         logoAlt="JDL Core"
         homeHref="/"
         navLinks={[
@@ -505,7 +505,7 @@ export default async function HomePage() {
 
       <SiteFooter
         settings={settings}
-        logo={null}
+        logo="/logo-jdlcore.png"
         logoAlt="JDL Core"
         brandLine="Independent inspection, industry-data analytics, and oil & gas education. One standard of integrity, three divisions."
         copyrightName="JDL Core"

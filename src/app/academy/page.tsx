@@ -12,7 +12,7 @@ export default async function AcademyPage() {
   const settings = await getContactSettings();
   return <>
     <SiteHeader
-      logo={null}
+      logo="/logo-academy.png"
       logoAlt="JDL Core Academy"
       homeHref="/academy"
       navLinks={[
@@ -34,7 +34,7 @@ export default async function AcademyPage() {
       <section className="bg-paper-deep py-20"><div className="wrap grid gap-10 lg:grid-cols-[.75fr_1.25fr]"><div><p className="eyebrow">The JDL method</p><h2 className="text-3xl">Competence is observable.</h2><p className="mt-4 text-ink-soft">Every learning path moves from explanation to calculation to a scenario drawn from real operations.</p></div><div className="grid gap-px overflow-hidden rounded-2xl bg-black/10 sm:grid-cols-3"><Method icon={BookOpen} title="Learn" text="Concise concepts and annotated field examples."/><Method icon={ClipboardCheck} title="Check" text="Knowledge tests with clear answer reasoning."/><Method icon={BadgeCheck} title="Demonstrate" text="Practical assessments tied to job skills."/></div></div></section>
       <section className="wrap py-20"><div className="rounded-[28px] bg-gold-500 p-8 lg:flex lg:items-center lg:justify-between lg:p-12"><div><Users className="mb-4 h-8 w-8 text-navy-950"/><h2 className="text-3xl">Training a whole operations team?</h2><p className="mt-2 max-w-2xl text-navy-950/70">Create role-based learning plans, monitor completion, and keep one evidence trail for your workforce.</p></div><a href={`mailto:${settings.emailAcademy}`} className="mt-6 inline-flex rounded-full bg-navy-950 px-7 py-4 font-bold text-white lg:mt-0">Discuss team training</a></div></section>
     </main>
-    <SiteFooter settings={settings} brandLine="Practical petroleum operations education, built by working inspectors." copyrightName="JDL Core Academy" logo={null} logoAlt="JDL Core Academy" homeHref="/academy" divisionLinks={[{href:"/academy",label:"Home"}]} thisDivision={[{href:"/academy/courses",label:"Courses"},{href:"/academy/lms",label:"Learner LMS"}]} />
+    <SiteFooter settings={settings} brandLine="Practical petroleum operations education, built by working inspectors." copyrightName="JDL Core Academy" logo="/logo-academy.png" logoAlt="JDL Core Academy" homeHref="/academy" divisionLinks={[{href:"/academy",label:"Home"}]} thisDivision={[{href:"/academy/courses",label:"Courses"},{href:"/academy/lms",label:"Learner LMS"}]} />
   </>;
 }
 
