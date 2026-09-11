@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, ExternalLink, Mail } from "lucide-react";
+import { ArrowUpRight, ExternalLink } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ChatWidget } from "@/components/chat-widget";
 import { Reveal } from "@/components/reveal";
 import { OverviewMockup, AnalyticsChatMockup, AcademyMockup } from "@/components/mockups";
+import { ContactForm } from "@/components/forms/contact-form";
+import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { getContactSettings, whatsappLink } from "@/lib/settings";
 
 export const metadata: Metadata = {
   title: "JDL Core | Independent Oil & Gas Inspection, Analytics & Training",
   description:
-    "JDL Core is a West African oil & gas group with three divisions: independent inspection and quantity verification, an on-demand industry-data analytics platform, and a technical training academy — one standard of integrity across all three.",
+    "JDL Core is a West African oil & gas group with three divisions: independent inspection and quantity verification, an on-demand industry-data analytics platform, and a technical training academy, held to one standard of integrity.",
   keywords: [
     "oil and gas inspection",
     "independent stock monitoring",
@@ -58,7 +60,7 @@ const DIVISIONS = [
     logo: "/logo-analytics.png",
     logoAlt: "JDL Core Analytics",
     blurb:
-      "Industry-data intelligence you query on demand — ask a question in plain language and get an answer backed by real inspection data, not a static quarterly report.",
+      "Industry-data intelligence you query on demand. Ask a question in plain language and get an answer backed by real inspection data, not a static quarterly report.",
     points: [
       "Ask questions in plain language",
       "Answers grounded in field data",
@@ -73,7 +75,7 @@ const DIVISIONS = [
     logo: null,
     logoAlt: "JDL Core Academy",
     blurb:
-      "Oil & gas training built by the people who do the inspections — practical courses in tank gauging, quantity verification, and stock control, with certificates on completion.",
+      "Oil & gas training built by the people who do the inspections. Practical courses in tank gauging, quantity verification, and stock control, with certificates on completion.",
     points: [
       "Courses built by working inspectors",
       "Tank gauging & quantity verification",
@@ -86,7 +88,7 @@ const DIVISIONS = [
 const APPROACH = [
   {
     title: "No stake in the outcome",
-    body: "JDL Core has no commercial interest in either side of a transaction. Every reading and every report reflects what our people found in the field — nothing else.",
+    body: "JDL Core has no commercial interest in either side of a transaction. Every reading and every report reflects what our people found in the field, nothing more.",
   },
   {
     title: "Documented end to end",
@@ -97,6 +99,16 @@ const APPROACH = [
     body: "The discipline that governs an inspection also governs the data we publish and the courses we teach. Integrity at the core is the operating model, not a tagline.",
   },
 ];
+
+function DetailIcon({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-navy-100 text-navy-800">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="h-[19px] w-[19px]">
+        {children}
+      </svg>
+    </div>
+  );
+}
 
 export default async function HomePage() {
   const settings = await getContactSettings();
@@ -135,9 +147,9 @@ export default async function HomePage() {
           { href: "#divisions", label: "Divisions" },
           { href: "#about", label: "About" },
           { href: "#approach", label: "Our Approach" },
-          { href: "/contact", label: "Contact" },
+          { href: "#contact", label: "Contact" },
         ]}
-        cta={{ href: "/contact", label: "Get in Touch" }}
+        cta={{ href: "#contact", label: "Get in Touch" }}
         showAdminLogin
       />
 
@@ -154,17 +166,17 @@ export default async function HomePage() {
                 Training
               </h1>
               <p className="mt-4 max-w-[560px] text-[1.1rem] text-ink-soft">
-                JDL Core is one group with three divisions — a flagship
-                inspection practice that verifies stock and quantities, an
-                analytics platform that turns that field data into answers, and
-                an academy that trains the next set of inspectors. One standard
-                of integrity runs through all three.
+                JDL Core is one group with three divisions: a flagship inspection
+                practice that verifies stock and quantities, an analytics
+                platform that turns that field data into answers, and an academy
+                that trains the next set of inspectors. One standard of integrity
+                runs through all three.
               </p>
               <div className="mt-7 mb-2 flex flex-wrap gap-3.5">
                 <Link href="#divisions" className="btn-gold btn-gold-lg">
                   Explore the Divisions
                 </Link>
-                <Link href="/contact" className="btn-ghost px-8 py-4 text-base">
+                <Link href="#contact" className="btn-ghost px-8 py-4 text-base">
                   Talk to the Team
                 </Link>
               </div>
@@ -190,7 +202,7 @@ export default async function HomePage() {
               </h2>
               <p className="text-ink-soft">
                 Each division runs as its own business with its own site and
-                login. Choose the one that fits — each link opens in a new tab so
+                login. Choose the one that fits. Each link opens in a new tab so
                 you don&apos;t lose your place here.
               </p>
               <div className="group-home-hint mt-5">
@@ -276,19 +288,19 @@ export default async function HomePage() {
               <p className="mt-4">
                 Stock discrepancies in oil &amp; gas are expensive and hard to
                 catch after the fact. JDL Core started as an independent
-                inspection practice built to catch them in the field — verifying
+                inspection practice built to catch them in the field: verifying
                 quantities, monitoring collateral, and supervising loading and
                 discharge so operators, lenders, and traders can decide on
                 numbers that actually hold up.
               </p>
               <p className="mt-4">
-                The Analytics platform grew out of that inspection work: once you
+                The Analytics platform grew out of that inspection work. Once you
                 have years of verified field data, the natural next step is to
-                let people question it directly. The Academy closes the loop —
+                let people question it directly. The Academy closes the loop by
                 training the inspectors and stock controllers the industry keeps
                 asking for. Three divisions, one chain of custody for the truth.
               </p>
-              <Link href="/contact" className="link-arrow mt-2 inline-block">
+              <Link href="#contact" className="link-arrow mt-2 inline-block">
                 Talk to us about your operation &rarr;
               </Link>
             </Reveal>
@@ -321,7 +333,7 @@ export default async function HomePage() {
                 <h4 className="font-display font-bold">The Group</h4>
                 <p className="m-0 text-[0.92rem] text-ink-soft">
                   Inspection Services (flagship), Analytics (live beta), and the
-                  Academy (now enrolling) — run as separate businesses under a
+                  Academy (now enrolling), run as separate businesses under a
                   shared standard.
                 </p>
               </div>
@@ -399,39 +411,94 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* ============ CTA BAND ============ */}
-        <section className="section-dark py-21">
-          <div className="wrap grid items-center gap-10 lg:grid-cols-[1.2fr_0.8fr]">
-            <Reveal>
-              <p className="eyebrow !text-gold-300">Not Sure Where to Start?</p>
-              <h2 className="text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
-                Tell Us About the Job — We&apos;ll Point You the Right Way
+        {/* ============ CONTACT ============ */}
+        <section id="contact" className="scroll-mt-20 bg-paper-deep py-21">
+          <div className="wrap">
+            <Reveal className="mb-11 max-w-[640px]">
+              <p className="eyebrow">Contact</p>
+              <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
+                Tell Us About the Job
               </h2>
-              <p className="mt-4 max-w-[560px] text-[rgba(248,247,243,0.78)]">
+              <p className="text-ink-soft">
                 Whether you need an inspection scheduled, access to the analytics
-                beta, or a team trained, one message reaches the whole group.
+                beta, or a team trained, one message reaches the whole group and
+                we&apos;ll point you to the right division.
               </p>
             </Reveal>
-            <Reveal className="flex flex-col gap-3">
-              <a href={`mailto:${settings.emailInfo}`} className="btn-gold btn-gold-lg">
-                <Mail aria-hidden="true" size={17} strokeWidth={1.8} />
-                Email {settings.emailInfo}
-              </a>
-              <a
-                href={wa}
-                target="_blank"
-                rel="noopener"
-                className="inline-flex items-center justify-center gap-2 rounded-full border border-white/20 bg-white/5 px-6 py-3.5 text-sm font-semibold text-paper transition-colors hover:bg-white/12"
-              >
-                Message on WhatsApp
-              </a>
-              <Link
-                href="/contact"
-                className="link-arrow link-arrow-light self-center"
-              >
-                Or use the contact form &rarr;
-              </Link>
-            </Reveal>
+
+            <div className="grid items-start gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+              <Reveal>
+                <div
+                  className="rounded-[var(--radius)] border bg-white p-7 shadow-[var(--shadow-sm-soft)] sm:p-8"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <h3 className="text-[1.2rem] font-bold">Send Us a Message</h3>
+                  <p className="mb-6 text-[0.95rem] text-ink-soft">
+                    Fill this out and we&apos;ll get back to you, or use WhatsApp
+                    for a faster reply.
+                  </p>
+                  <ContactForm />
+                </div>
+              </Reveal>
+
+              <Reveal>
+                <div
+                  className="flex flex-col gap-5 rounded-[var(--radius)] border bg-white p-7 shadow-[var(--shadow-sm-soft)]"
+                  style={{ borderColor: "var(--border)" }}
+                >
+                  <div className="flex items-start gap-3.5">
+                    <DetailIcon>
+                      <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92Z" />
+                    </DetailIcon>
+                    <div>
+                      <h4 className="m-0 mb-0.5 text-[0.9rem] font-bold">Phone</h4>
+                      <a href={settings.phoneHref} className="m-0 text-[0.92rem] text-ink-soft hover:text-navy-950">
+                        {settings.phoneDisplay}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <DetailIcon>
+                      <path d="M4 5h16v11H8l-4 4V5Z" />
+                      <path d="M8 9h8M8 12h5" />
+                    </DetailIcon>
+                    <div>
+                      <h4 className="m-0 mb-0.5 text-[0.9rem] font-bold">Email</h4>
+                      <a href={`mailto:${settings.emailInfo}`} className="m-0 text-[0.92rem] text-ink-soft hover:text-navy-950">
+                        {settings.emailInfo}
+                      </a>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <DetailIcon>
+                      <path d="M12 21s7-6.5 7-11.5A7 7 0 0 0 5 9.5C5 14.5 12 21 12 21Z" />
+                      <circle cx="12" cy="9.5" r="2.5" />
+                    </DetailIcon>
+                    <div>
+                      <h4 className="m-0 mb-0.5 text-[0.9rem] font-bold">Address</h4>
+                      <p className="m-0 text-[0.92rem] text-ink-soft">{settings.address}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3.5">
+                    <div
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px]"
+                      style={{ background: "rgba(37,211,102,0.15)", color: "#1e9e56" }}
+                    >
+                      <WhatsAppIcon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h4 className="m-0 mb-0.5 text-[0.9rem] font-bold">WhatsApp</h4>
+                      <a href={wa} target="_blank" rel="noopener" className="m-0 text-[0.92rem] text-ink-soft hover:text-navy-950">
+                        {settings.whatsappDisplay}
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              </Reveal>
+            </div>
           </div>
         </section>
       </main>
@@ -440,7 +507,7 @@ export default async function HomePage() {
         settings={settings}
         logo={null}
         logoAlt="JDL Core"
-        brandLine="Independent inspection, industry-data analytics, and oil & gas education — one standard of integrity, three divisions."
+        brandLine="Independent inspection, industry-data analytics, and oil & gas education. One standard of integrity, three divisions."
         copyrightName="JDL Core"
         homeHref="/"
         columnLabel="Divisions"
@@ -452,7 +519,7 @@ export default async function HomePage() {
         thisDivision={[
           { href: "#about", label: "About the Group" },
           { href: "#approach", label: "Our Approach" },
-          { href: "/contact", label: "Contact" },
+          { href: "#contact", label: "Contact" },
           { href: "/admin/login", label: "Staff Login" },
         ]}
       />
