@@ -12,6 +12,7 @@ export function AcademyAuthFrame({
   return (
     <AuthShell
       brand="JDL Core Academy"
+      logo="/logo-academy.png"
       title={title}
       description={description}
       backHref="/academy"
