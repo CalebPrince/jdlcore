@@ -84,12 +84,12 @@ export function OverviewMockup() {
     <MockupFrame url="overview.jdlcore.com">
       <div className="flex gap-2.5">
         <Stat num="Live" lbl="Inspection" />
-        <Stat num="Soon" lbl="Analytics" />
-        <Stat num="Soon" lbl="Academy" />
+        <Stat num="Beta" lbl="Analytics" />
+        <Stat num="Open" lbl="Academy" />
       </div>
       <Row label="JDL-2026-00041" pill="done" />
-      <Row label="Analytics waitlist" pill="progress" />
-      <Row label="Academy curriculum" pill="review" />
+      <Row label="Analytics queries" pill="progress" />
+      <Row label="Academy enrolment" pill="review" />
     </MockupFrame>
   );
 }
