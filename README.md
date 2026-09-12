@@ -23,6 +23,15 @@ The application combines public marketing sites with secure workspaces for staff
 - Space Grotesk for display typography and IBM Plex Sans for body text through `next/font`
 - Next.js Server Actions for authenticated workflows and forms
 
+## AI functionality
+
+JDL Core runs its own AI features on a shared multi-provider gateway (`src/lib/ai/gateway.ts`) rather than depending on a single vendor. It calls Google Gemini, Anthropic Claude, and Groq in order, automatically failing over to the next provider on error, empty response, or truncation, with per-provider models and enable/disable switches configurable from the Admin Command Center.
+
+- **Public site assistant** — a chat widget on the marketing site answers general questions about JDL Core and its divisions, and redirects quote and inspection requests to the contact form or WhatsApp rather than inventing prices, dates, or availability.
+- **Analytics chat workspace** — the subscriber-facing Analytics product is a source-grounded chat assistant that answers from retrieved reference material, cites factual claims with `[Doc n]` markers, keeps conversation history, and supports report exports.
+- **AI-assisted quality review** — submitted inspection data, uploaded documents, and payment receipts can be reviewed by AI for inconsistencies such as mismatched numbers or incomplete or altered documents. The review flags a severity level and notifies operations staff; a human always makes the final call.
+- **AI stock-sheet import** — uploaded petroleum depot "tanks daily situation" sheets are parsed by AI into structured tank-gauge reading rows (dip height, temperature, density, VCF, GOV/GSV, stock movements) for staff to review before saving.
+
 ## Apple-inspired UI system
 
 The interface follows Apple-caliber design principles adapted to the JDL Core brand. It does not reproduce Apple product pages or proprietary interface styling.
