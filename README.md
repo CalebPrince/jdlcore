@@ -1,6 +1,8 @@
 # JDL Core Platform
 
-JDL Core is a multi-division oil and gas platform covering independent inspection services, source-grounded industry analytics, and practical operations training.
+**Industry: Oil & Gas** — independent inspection, industry analytics, and operations training for the oil & gas sector.
+
+JDL Core is a West African oil & gas group with three divisions: independent inspection services, source-grounded industry analytics, and practical operations training for the sector.
 
 The application combines public marketing sites with secure workspaces for staff, clients, inspectors, analytics subscribers, and academy learners.
 
