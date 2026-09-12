@@ -12,8 +12,9 @@ import { buildPlatformContext } from "./knowledge-store";
 export async function buildAnalyticsSystemPrompt(
   user: { name: string; company: string | null },
   contextBlocks: string[] = [],
+  question?: string,
 ): Promise<string> {
-  const [settings, knowledge] = await Promise.all([getContactSettings(), buildPlatformContext()]);
+  const [settings, knowledge] = await Promise.all([getContactSettings(), buildPlatformContext(question)]);
   const contactLines = [
     settings.phoneDisplay && `Phone/WhatsApp: ${settings.phoneDisplay}`,
     settings.emailInfo && `General email: ${settings.emailInfo}`,

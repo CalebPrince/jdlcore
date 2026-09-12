@@ -3,8 +3,8 @@ import { getContactSettings } from "@/lib/settings";
 import { getAiSettings, DEFAULT_PERSONA } from "./settings";
 import { buildPlatformContext } from "./knowledge-store";
 
-export async function buildChatSystemPrompt(): Promise<string> {
-  const [contact, ai, knowledge] = await Promise.all([getContactSettings(), getAiSettings(), buildPlatformContext()]);
+export async function buildChatSystemPrompt(question?: string): Promise<string> {
+  const [contact, ai, knowledge] = await Promise.all([getContactSettings(), getAiSettings(), buildPlatformContext(question)]);
   const persona = ai.chatPersona.trim() || DEFAULT_PERSONA;
   return [
     persona,

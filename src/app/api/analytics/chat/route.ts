@@ -123,7 +123,7 @@ export async function POST(req: Request) {
 
   const sources = await retrieveKnowledge(parsed.data.message, user.clientId);
   const contextBlocks = sources.map((source) => `${source.title}\n${source.quote}`);
-  const system = await buildAnalyticsSystemPrompt(user, contextBlocks);
+  const system = await buildAnalyticsSystemPrompt(user, contextBlocks, parsed.data.message);
 
   try {
     const completion = await runCompletion({

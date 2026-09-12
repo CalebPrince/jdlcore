@@ -33,7 +33,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const [system] = await Promise.all([buildChatSystemPrompt()]);
+    const [system] = await Promise.all([buildChatSystemPrompt(payload.message)]);
     const turns: ChatTurn[] = [
       ...(payload.history ?? []),
       { role: "user", content: payload.message },
