@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AiSettingsForm } from "@/components/admin/ai-settings-form";
+import { KnowledgeForm } from "@/components/admin/knowledge-form";
+import { loadKnowledgeRegistry } from "@/lib/ai/knowledge-store";
 import { getStaff } from "@/lib/staff-auth";
 import {
   getAiSettings,
@@ -17,6 +19,7 @@ export default async function AdminAiSettingsPage() {
   if (!current || current.role !== "superadmin") notFound();
 
   const s = await getAiSettings();
+  const registry = await loadKnowledgeRegistry().catch(() => null);
   const anyConfigured = PROVIDER_ORDER.some((p) => s[`${p}Key`]);
 
   return (
@@ -49,6 +52,8 @@ export default async function AdminAiSettingsPage() {
           </AlertDescription>
         </Alert>
       )}
+
+      {registry ? <KnowledgeForm registry={registry} /> : <Alert><AlertDescription>Platform knowledge could not be loaded. Reload when the database is available to edit it.</AlertDescription></Alert>}
 
       <AiSettingsForm
         view={{

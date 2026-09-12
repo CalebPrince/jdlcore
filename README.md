@@ -25,12 +25,42 @@ The application combines public marketing sites with secure workspaces for staff
 
 ## AI functionality
 
+The public and Analytics assistants share versioned company and division knowledge. Superadmins can review the code-based Inspection, Analytics, and Academy baseline, save drafts, publish updates, and add divisions under **Admin > AI Settings > Platform knowledge**. This describes application capabilities; it does not grant access to live records or execute actions. See [Platform knowledge](docs/platform-knowledge.md) for publishing behavior, storage, and validation.
+
 JDL Core runs its own AI features on a shared multi-provider gateway (`src/lib/ai/gateway.ts`) rather than depending on a single vendor. It calls Google Gemini, Anthropic Claude, and Groq in order, automatically failing over to the next provider on error, empty response, or truncation, with per-provider models and enable/disable switches configurable from the Admin Command Center.
 
 - **Public site assistant** — a chat widget on the marketing site answers general questions about JDL Core and its divisions, and redirects quote and inspection requests to the contact form or WhatsApp rather than inventing prices, dates, or availability.
 - **Analytics chat workspace** — the subscriber-facing Analytics product is a source-grounded chat assistant that answers from retrieved reference material, cites factual claims with `[Doc n]` markers, keeps conversation history, and supports report exports.
 - **AI-assisted quality review** — submitted inspection data, uploaded documents, and payment receipts can be reviewed by AI for inconsistencies such as mismatched numbers or incomplete or altered documents. The review flags a severity level and notifies operations staff; a human always makes the final call.
 - **AI stock-sheet import** — uploaded petroleum depot "tanks daily situation" sheets are parsed by AI into structured tank-gauge reading rows (dip height, temperature, density, VCF, GOV/GSV, stock movements) for staff to review before saving.
+
+### Platform knowledge foundation — implemented
+
+- Shared company overview and structured division records for Inspection Services, Analytics, and Academy, describing purpose, application capabilities, workflows, users, pages, and limitations.
+- Superadmin editor in **Admin > AI Settings > Platform knowledge**, including support for additional divisions without changing the central assistant prompt.
+- Separate draft and published snapshots, numbered publications, editor attribution, publication dates, and settings audit events. Stale revisions are rejected to prevent concurrent overwrites.
+- Published knowledge is loaded into both the public and Analytics assistant prompts on each request. Admin-only business review notes are excluded from model context.
+- Validation enforces unique division identifiers, required fields, and size limits. Failed knowledge reads produce an unavailable-context instruction rather than restoring obsolete knowledge.
+- Corrected the default persona's property/vehicle inspection description and outdated development-status instructions. Corrected the scripted client-portal response and the Analytics message for searches with no matching excerpts.
+
+The registry uses the existing `settings` table under `ai_platform_knowledge_v1`; **no database migration is required**. Before an administrator publishes, version 0 uses the code-based baseline. Business availability, accreditation, pricing, and service commitments still require review. This is shared prompt context, not model training or autonomous access to application data.
+
+Only public product information belongs in the registry. Adding a division does not create its pages or integrations. The current implementation keeps the latest draft and published snapshot, not a complete revision archive. Scripted browser fallback responses do not load custom divisions; dynamic answers require a configured AI provider.
+
+Validation completed for this change: production build, TypeScript checking, targeted ESLint, and `node scripts/test-platform-knowledge.cjs`. Tests cover new divisions, validation, exclusion of review notes, published-only context, malformed storage, and database outages. The production build reports existing unused-variable warnings in unrelated files. Authenticated browser publishing and live model-answer verification remain rollout checks.
+
+### What to implement next
+
+These are planned steps, not currently available agent features:
+
+1. **Validate the knowledge in the running application.** Review the seeded business notes, save a draft, confirm it does not affect answers, publish, and verify answers about all three divisions and a newly added division. Test cross-division questions, unavailable evidence, and requests for private records.
+2. **Improve knowledge lifecycle and retrieval.** Add revision history and rollback, preview the exact published context, and flag knowledge for review when application workflows change. As the catalogue grows, retrieve relevant division details within a token budget while retaining a shared company overview.
+3. **Add authorized read tools.** Start with an Admin operations assistant that can inspect permitted jobs, review flags, stock readings, and reference documents. Enforce identity and access inside every tool; return linked evidence and use application code for calculations.
+4. **Build a bounded agent runner.** Extend the provider gateway with structured tool calls and results, persist runs and steps, and enforce time, step, and spending limits. Validate provider tool support before enabling failover for agent runs.
+5. **Introduce reviewed actions.** Reuse business services and job transition rules to prepare exact proposed changes. Recheck permissions and record state at approval time, prevent duplicate execution on retries, and retain durable action records. Keep inspection approval, payment verification, report issuance, and external messages under explicit staff control initially.
+6. **Add reliable background monitoring.** Introduce a durable worker and scheduler for job follow-ups and stock exceptions, with retries, deduplication, and actionable notifications. Expand to client and learner assistance after access controls and accuracy are verified.
+
+Before relying on automated inspection review, distinguish invalid or failed AI reviews from a successful review with severity `none`. Improve document retrieval beyond the current keyword-ranked chunk sample before using it for broad investigations.
 
 ## Apple-inspired UI system
 

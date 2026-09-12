@@ -1,12 +1,14 @@
 import "server-only";
 import { getContactSettings } from "@/lib/settings";
 import { getAiSettings, DEFAULT_PERSONA } from "./settings";
+import { buildPlatformContext } from "./knowledge-store";
 
 export async function buildChatSystemPrompt(): Promise<string> {
-  const [contact, ai] = await Promise.all([getContactSettings(), getAiSettings()]);
+  const [contact, ai, knowledge] = await Promise.all([getContactSettings(), getAiSettings(), buildPlatformContext()]);
   const persona = ai.chatPersona.trim() || DEFAULT_PERSONA;
   return [
     persona,
+    knowledge,
     "",
     "Current site details:",
     `- Phone / WhatsApp: ${contact.whatsappDisplay}`,
@@ -19,6 +21,6 @@ export async function buildChatSystemPrompt(): Promise<string> {
     "- Plain sentences only; never use em dashes or en dashes.",
     "- Do not invent prices, availability dates, statistics or certifications.",
     "- For quotes, inspections or anything beyond general questions, direct the visitor to the Request an Inspection form on this site or the phone/WhatsApp above.",
-    "- Analytics and Academy divisions are in development; say so if asked instead of promising services they do not offer yet.",
+    "- Use PLATFORM KNOWLEDGE for division descriptions and navigation. Do not infer launch status or commercial availability.",
   ].join("\n");
 }

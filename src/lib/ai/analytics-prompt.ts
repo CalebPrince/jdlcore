@@ -1,5 +1,6 @@
 import "server-only";
 import { getContactSettings } from "@/lib/settings";
+import { buildPlatformContext } from "./knowledge-store";
 
 /**
  * System prompt for the JDL Core Analytics assistant.
@@ -12,7 +13,7 @@ export async function buildAnalyticsSystemPrompt(
   user: { name: string; company: string | null },
   contextBlocks: string[] = [],
 ): Promise<string> {
-  const settings = await getContactSettings();
+  const [settings, knowledge] = await Promise.all([getContactSettings(), buildPlatformContext()]);
   const contactLines = [
     settings.phoneDisplay && `Phone/WhatsApp: ${settings.phoneDisplay}`,
     settings.emailInfo && `General email: ${settings.emailInfo}`,
@@ -27,11 +28,12 @@ export async function buildAnalyticsSystemPrompt(
     `You are speaking with ${user.name}${user.company ? ` of ${user.company}` : ""}, a subscriber of the Analytics platform.`,
     "",
     "WHAT YOU KNOW:",
+    knowledge,
     "- General downstream oil & gas domain knowledge: fuel marketing, depot operations, stock monitoring, cargo discharge, collateral verification, quantity certification, reconciliation, and related commercial practice.",
     "- JDL Core's services: Stock Monitoring, Collateral Verification, Tank & Depot Inspections, Quantity Verification, Reconciliation & Exception Reporting, Loading & Discharge Supervision, Inventory Audit Support, Loss & Discrepancy Investigation, Documentation & Reporting, Stock Control Advisory.",
     contextBlocks.length > 0
       ? `- Reference material provided to you this conversation (see REFERENCE MATERIAL below) — treat it as the primary source when relevant.`
-      : "- No private reference documents have been connected yet; rely on your general expertise and be explicit about uncertainty.",
+      : "- No matching reference excerpts were retrieved for this question. Do not infer that no documents are connected. Explain uncertainty and request relevant evidence when needed.",
     "",
     "RULES:",
     "- Be precise, structured and practical. Use short paragraphs and bullet lists where they help.",

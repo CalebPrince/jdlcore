@@ -76,7 +76,7 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
   {
     test: /track|status|portal|dashboard|invoice/i,
     reply: () => ({
-      text: "A client portal for tracking requests, reports and invoices is in development. For now, our team can update you directly.",
+      text: "Sign in to the client portal to track your own requests, reports and invoices, or contact the team for help.",
       quickReplies: ["Talk to a Person", "Our Services"],
     }),
   },
