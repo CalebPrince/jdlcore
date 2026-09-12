@@ -4,6 +4,13 @@ JDL Core is a multi-division oil and gas platform covering independent inspectio
 
 The application combines public marketing sites with secure workspaces for staff, clients, inspectors, analytics subscribers, and academy learners.
 
+## Live sites
+
+- [jdlcore.com](https://jdlcore.com) — group landing page
+- [inspect.jdlcore.com](https://inspect.jdlcore.com) — Inspection Services
+- [analytics.jdlcore.com](https://analytics.jdlcore.com) — Analytics
+- [academy.jdlcore.com](https://academy.jdlcore.com) — Academy
+
 ## Stack
 
 - Next.js 15 App Router, React 19, and TypeScript
@@ -144,4 +151,4 @@ The production build performs compilation, type checking, route generation, and 
 
 ## Current asset note
 
-The Inspection and Analytics divisions use supplied brand logos. JDL Core Academy currently uses a text-based brand treatment because a dedicated Academy logo has not been provided.
+All four brand marks (JDL Core group, Inspection Services, Analytics, and Academy) use supplied logo assets rendered with Next.js Image, cropped tight and to a consistent scale across headers, footers, division cards, and authentication forms.
