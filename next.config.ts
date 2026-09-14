@@ -4,6 +4,14 @@ const ROOT_HOST = "jdlcore.com";
 
 const nextConfig: NextConfig = {
   serverExternalPackages: ["exceljs"],
+  // Server Actions default to a 1 MB body limit, well under the 4 MB file caps
+  // enforced in code (receipts, uploads) — raise it so those checks are the ones
+  // that actually fire, instead of Next hard-rejecting the request first.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "10mb",
+    },
+  },
   async rewrites() {
     return {
       beforeFiles: [
