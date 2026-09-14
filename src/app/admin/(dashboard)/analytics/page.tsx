@@ -173,9 +173,9 @@ export default async function AdminAnalyticsPage({
               <TableBody>
                 {knowledge.map((doc) => (
                   <TableRow key={doc.id}>
-                    <TableCell className="font-medium">{doc.title}{doc.error && <span className="block max-w-xl text-xs font-normal text-red-700">{doc.error}</span>}</TableCell>
+                    <TableCell className="font-medium">{doc.title}{doc.error && <span className={`block max-w-xl text-xs font-normal ${doc.status === "failed" ? "text-red-700" : "text-muted-foreground"}`}>{doc.error}</span>}</TableCell>
                     <TableCell className="text-xs">{doc.scope === "global" ? "All subscribers" : clientOptions.find((client) => client.id === doc.clientId)?.label ?? "Private client"}</TableCell>
-                    <TableCell><Badge variant="secondary" className={doc.status === "ready" ? STATUS_BADGE.active : doc.status === "failed" ? "bg-red-50 text-red-700" : STATUS_BADGE.invited}>{doc.status}</Badge></TableCell>
+                    <TableCell><Badge variant="secondary" className={doc.status === "ready" ? STATUS_BADGE.active : doc.status === "failed" ? "bg-red-50 text-red-700" : doc.status === "unsupported" ? "bg-muted text-muted-foreground" : STATUS_BADGE.invited}>{doc.status}</Badge></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{new Date(doc.sourceDate ?? doc.createdAt).toLocaleDateString("en-GB")}</TableCell>
                     <TableCell className="text-right"><form action={deleteKnowledgeDocument}><input type="hidden" name="documentId" value={doc.id} /><ConfirmSubmitButton>Remove</ConfirmSubmitButton></form></TableCell>
                   </TableRow>

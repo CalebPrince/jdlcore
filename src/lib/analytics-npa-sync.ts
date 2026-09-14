@@ -123,12 +123,12 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
         .from(knowledgeDocuments)
         .where(inArray(knowledgeDocuments.url, urls))
     : [];
-  // Only a *ready* row means "already ingested, skip". A row stuck in "processing" (the
+  // "ready" and "unsupported" are terminal — skip forever. A row stuck in "processing" (the
   // function got killed mid-file — download stall, timeout) or "failed" is retried, reusing
   // the same row rather than piling up duplicates for the same URL.
-  const readyUrls = new Set(existing.filter((r) => r.status === "ready").map((r) => r.url));
-  const retryIdByUrl = new Map(existing.filter((r) => r.status !== "ready").map((r) => [r.url, r.id]));
-  const pending = discovered.filter((f) => !readyUrls.has(f.url));
+  const doneUrls = new Set(existing.filter((r) => r.status === "ready" || r.status === "unsupported").map((r) => r.url));
+  const retryIdByUrl = new Map(existing.filter((r) => !doneUrls.has(r.url)).map((r) => [r.url, r.id]));
+  const pending = discovered.filter((f) => !doneUrls.has(f.url));
 
   let added = 0;
   let skippedUnsupported = 0;
@@ -139,15 +139,33 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
     if (processed >= maxDocuments || Date.now() - start > maxMs) break;
     processed += 1;
 
+    const sourceDate = parseNpaModifiedDate(file.modified);
+    const retryId = retryIdByUrl.get(file.url);
+
     const mimeType = mimeTypeFor(file.type);
     if (!mimeType) {
       skippedUnsupported += 1;
+      // Persisted as terminal so this file isn't rediscovered and re-skipped on every
+      // future pass — it previously had no DB row at all, so it got "skipped" again and
+      // again forever, forever inflating this count without ever making real progress.
+      if (retryId !== undefined) {
+        await database
+          .update(knowledgeDocuments)
+          .set({ title: file.title, sourceDate, status: "unsupported", error: `Unsupported file type: .${file.type}` })
+          .where(eq(knowledgeDocuments.id, retryId));
+      } else {
+        await database.insert(knowledgeDocuments).values({
+          title: file.title,
+          scope: "global",
+          url: file.url,
+          sourceDate,
+          status: "unsupported",
+          error: `Unsupported file type: .${file.type}`,
+        });
+      }
       continue;
     }
 
-    const sourceDate = parseNpaModifiedDate(file.modified);
-
-    const retryId = retryIdByUrl.get(file.url);
     let documentId: number;
     if (retryId !== undefined) {
       documentId = retryId;
@@ -163,6 +181,10 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
         .returning({ id: knowledgeDocuments.id });
       documentId = inserted[0].id;
     }
+
+    // NPA's host has thrown failures under back-to-back requests — a short, polite gap
+    // between file downloads avoids tripping that rather than racing through the batch.
+    if (processed > 1) await new Promise((resolve) => setTimeout(resolve, 300));
 
     try {
       const res = await fetch(file.url);
@@ -189,7 +211,7 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
   return {
     scanned: discovered.length,
     added,
-    skippedExisting: readyUrls.size,
+    skippedExisting: doneUrls.size,
     skippedUnsupported,
     failed,
     remaining: pending.length - processed,

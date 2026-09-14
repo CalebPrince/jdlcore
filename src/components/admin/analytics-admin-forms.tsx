@@ -240,10 +240,12 @@ export function NpaSyncButton() {
             {progress.status === "done" ? "Sync again" : progress.status === "paused" ? "Resume sync" : "Sync all NPA documents"}
           </Button>
         )}
-        {progress.scanned > 0 && (
+        {progress.scanned > 0 ? (
           <span className="text-xs text-muted-foreground">
             {done} / {progress.scanned} documents ({pct}%){running ? " — syncing…" : ""}
           </span>
+        ) : (
+          running && <span className="text-xs text-muted-foreground">Starting sync — checking NPA for documents…</span>
         )}
       </div>
       {progress.scanned > 0 && (
