@@ -1,10 +1,5 @@
 "use server";
 
-// syncNpaKnowledgeNow below budgets up to 45s internally — without this, the platform's
-// default function timeout (as low as 10s on some plans) would kill it mid-file, well
-// before that internal budget ever gets a chance to stop it cleanly.
-export const maxDuration = 60;
-
 import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
