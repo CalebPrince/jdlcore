@@ -141,7 +141,7 @@ export default async function AdminAnalyticsPage() {
           <KnowledgeUploadForm clients={clientOptions} />
           <div className="rounded-xl border border-dashed p-3" style={{ borderColor: "var(--border)" }}>
             <p className="m-0 mb-2 text-xs text-muted-foreground">
-              National Petroleum Authority documents (npa.gov.gh) sync automatically once a day. Use this to pull the current backlog in faster.
+              National Petroleum Authority documents (npa.gov.gh) sync automatically once a day. Start a full sync here to run it continuously instead of waiting — safe to pause and resume.
             </p>
             <NpaSyncButton />
           </div>

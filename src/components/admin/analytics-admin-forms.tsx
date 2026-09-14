@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useActionState } from "react";
 import {
   grantAnalyticsAccess,
@@ -8,7 +8,6 @@ import {
   uploadKnowledgeDocument,
   type GrantState,
   type KnowledgeUploadState,
-  type NpaSyncState,
 } from "@/app/actions/analytics-admin";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -155,32 +154,118 @@ export function KnowledgeUploadForm({ clients }: { clients: { id: number; label:
   );
 }
 
-const initialNpaSync: NpaSyncState = { ok: false, message: "" };
+type NpaProgress = {
+  status: "idle" | "running" | "paused" | "done" | "error";
+  scanned: number;
+  remaining: number | null;
+  added: number;
+  failed: number;
+  skippedUnsupported: number;
+  message: string;
+};
+
+const initialNpaProgress: NpaProgress = {
+  status: "idle",
+  scanned: 0,
+  remaining: null,
+  added: 0,
+  failed: 0,
+  skippedUnsupported: 0,
+  message: "",
+};
 
 /**
- * Manually drains the NPA backlog (a daily cron also runs this automatically —
- * see api/cron/npa-sync — but that's capped to ~30 docs/day so this lets staff
- * push through the historical archive faster). Click repeatedly: each click
- * processes one bounded batch and reports how many are left.
+ * Drains the NPA backlog automatically (a daily cron also runs this — see
+ * api/cron/npa-sync — but that's capped to ~30 docs/day, too slow for an
+ * ~977-document backfill). Each underlying call is still one bounded batch
+ * (server function limits), so this loops client-side, pausing briefly
+ * between calls, and shows live progress toward the true total. Safe to
+ * leave and come back to — progress lives in the database, not this
+ * component, so a paused/closed sync just resumes where it left off.
  */
 export function NpaSyncButton() {
-  const [state, action, pending] = useActionState(async () => syncNpaKnowledgeNow(), initialNpaSync);
-  const remaining = state.result?.remaining ?? 0;
+  const [progress, setProgress] = useState<NpaProgress>(initialNpaProgress);
+  const stopRequested = useRef(false);
+
+  async function runLoop() {
+    stopRequested.current = false;
+    setProgress((p) => ({ ...p, status: "running", message: "" }));
+    for (;;) {
+      if (stopRequested.current) {
+        setProgress((p) => ({ ...p, status: "paused" }));
+        return;
+      }
+      const res = await syncNpaKnowledgeNow();
+      if (!res.ok || !res.result) {
+        setProgress((p) => ({ ...p, status: "error", message: res.message }));
+        return;
+      }
+      const r = res.result;
+      setProgress((p) => ({
+        ...p,
+        scanned: r.scanned,
+        remaining: r.remaining,
+        added: p.added + r.added,
+        failed: p.failed + r.failed,
+        skippedUnsupported: p.skippedUnsupported + r.skippedUnsupported,
+      }));
+      if (r.remaining <= 0) {
+        setProgress((p) => ({ ...p, status: "done" }));
+        return;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+    }
+  }
+
+  const done = progress.remaining === null ? 0 : Math.max(0, progress.scanned - progress.remaining);
+  const pct = progress.scanned > 0 ? Math.min(100, Math.round((done / progress.scanned) * 100)) : 0;
+  const running = progress.status === "running";
+
   return (
-    <form action={action} className="flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <Button type="submit" disabled={pending} variant="outline" size="sm">
-          {pending ? "Syncing…" : "Sync NPA documents now"}
-        </Button>
-        {remaining > 0 && (
-          <span className="text-xs text-muted-foreground">{remaining} more to go — click again</span>
+    <div className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {running ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              stopRequested.current = true;
+            }}
+          >
+            Pause sync
+          </Button>
+        ) : (
+          <Button type="button" variant="outline" size="sm" onClick={runLoop}>
+            {progress.status === "done" ? "Sync again" : progress.status === "paused" ? "Resume sync" : "Sync all NPA documents"}
+          </Button>
+        )}
+        {progress.scanned > 0 && (
+          <span className="text-xs text-muted-foreground">
+            {done} / {progress.scanned} documents ({pct}%){running ? " — syncing…" : ""}
+          </span>
         )}
       </div>
-      {state.message && (
-        <Alert variant={state.ok ? "default" : "destructive"}>
-          <AlertDescription>{state.message}</AlertDescription>
+      {progress.scanned > 0 && (
+        <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-gold-600 transition-all duration-500"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+      {(progress.added > 0 || progress.failed > 0 || progress.skippedUnsupported > 0) && (
+        <p className="m-0 text-xs text-muted-foreground">
+          Added {progress.added} this run
+          {progress.failed > 0 && ` · ${progress.failed} failed`}
+          {progress.skippedUnsupported > 0 && ` · ${progress.skippedUnsupported} unsupported file type`}
+        </p>
+      )}
+      {progress.status === "error" && progress.message && (
+        <Alert variant="destructive">
+          <AlertDescription>{progress.message}</AlertDescription>
         </Alert>
       )}
-    </form>
+    </div>
   );
 }
