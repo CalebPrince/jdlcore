@@ -17,7 +17,8 @@
     "db:migrate:payment-transactions": "node scripts/migrate-payment-transactions.cjs",
     "db:migrate:gauge-board": "node scripts/migrate-gauge-board.cjs",
     "db:migrate:stock-import": "node scripts/migrate-stock-import.cjs",
-    "db:migrate:admin-assistant": "node scripts/migrate-admin-assistant.cjs"
+    "db:migrate:admin-assistant": "node scripts/migrate-admin-assistant.cjs",
+    "db:migrate:agent-runner": "node scripts/migrate-agent-runner.cjs"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

@@ -20,7 +20,14 @@ import type { ProviderName } from "@/lib/ai/settings";
 export type AiSettingsView = {
   providers: Record<
     ProviderName,
-    { label: string; model: string; enabled: boolean; maskedKey: string | null; hasKey: boolean }
+    {
+      label: string;
+      model: string;
+      enabled: boolean;
+      maskedKey: string | null;
+      hasKey: boolean;
+      agentToolsValidated: boolean;
+    }
   >;
   chatPersona: string;
 };
@@ -71,12 +78,17 @@ export function AiSettingsForm({ view }: { view: AiSettingsView }) {
             return (
               <div key={p.name} className="rounded-xl border p-4">
                 <input type="hidden" name={`${p.name}Enabled`} value={v.enabled ? "on" : ""} />
+                <input
+                  type="hidden"
+                  name={`${p.name}AgentToolsValidated`}
+                  value={v.agentToolsValidated ? "on" : ""}
+                />
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-navy-950">{v.label}</p>
                     <p className="text-xs text-muted-foreground">{p.blurb}</p>
                   </div>
-                  <ProviderSwitch name={p.name} defaultEnabled={v.enabled} />
+                  <ProviderSwitch name={p.name} field="Enabled" label="Enabled" defaultEnabled={v.enabled} />
                 </div>
                 <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div className="flex flex-col gap-1.5">
@@ -100,6 +112,22 @@ export function AiSettingsForm({ view }: { view: AiSettingsView }) {
                       autoComplete="off"
                     />
                   </div>
+                </div>
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-navy-50 px-3 py-2.5">
+                  <div>
+                    <p className="text-xs font-semibold text-navy-950">Validated for agent tool calls</p>
+                    <p className="text-[11px] text-muted-foreground">
+                      Confirm this provider&apos;s function-calling actually works with this app before turning it on — the
+                      Admin Operations Assistant will only run in agent mode (letting the model choose which read tools to
+                      call) through providers marked validated here. Off by default for every provider.
+                    </p>
+                  </div>
+                  <ProviderSwitch
+                    name={p.name}
+                    field="AgentToolsValidated"
+                    label="Validated"
+                    defaultEnabled={v.agentToolsValidated}
+                  />
                 </div>
               </div>
             );
@@ -145,21 +173,31 @@ export function AiSettingsForm({ view }: { view: AiSettingsView }) {
   );
 }
 
-function ProviderSwitch({ name, defaultEnabled }: { name: ProviderName; defaultEnabled: boolean }) {
+function ProviderSwitch({
+  name,
+  field,
+  label,
+  defaultEnabled,
+}: {
+  name: ProviderName;
+  field: "Enabled" | "AgentToolsValidated";
+  label: string;
+  defaultEnabled: boolean;
+}) {
   return (
     <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
       <Switch
         formAction={undefined}
-        name={`${name}-enabled-ui`}
+        name={`${name}-${field}-ui`}
         defaultChecked={defaultEnabled}
         onCheckedChange={(checked) => {
           const hidden = document.querySelector<HTMLInputElement>(
-            `input[name="${name}Enabled"]`,
+            `input[name="${name}${field}"]`,
           );
           if (hidden) hidden.value = checked ? "on" : "";
         }}
       />
-      Enabled
+      {label}
     </label>
   );
 }

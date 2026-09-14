@@ -66,6 +66,7 @@ export default async function AdminAiSettingsPage() {
                 enabled: s[`${p}Enabled`],
                 maskedKey: maskKey(s[`${p}Key`]),
                 hasKey: Boolean(s[`${p}Key`]),
+                agentToolsValidated: s[`${p}AgentToolsValidated`],
               },
             ]),
           ) as AiSettingsParameters,
@@ -97,5 +98,12 @@ export default async function AdminAiSettingsPage() {
 
 type AiSettingsParameters = Record<
   (typeof PROVIDER_ORDER)[number],
-  { label: string; model: string; enabled: boolean; maskedKey: string | null; hasKey: boolean }
+  {
+    label: string;
+    model: string;
+    enabled: boolean;
+    maskedKey: string | null;
+    hasKey: boolean;
+    agentToolsValidated: boolean;
+  }
 >;

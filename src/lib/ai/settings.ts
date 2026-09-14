@@ -22,12 +22,15 @@ export type AiSettings = {
   geminiKey: string | null;
   geminiModel: string;
   geminiEnabled: boolean;
+  geminiAgentToolsValidated: boolean;
   anthropicKey: string | null;
   anthropicModel: string;
   anthropicEnabled: boolean;
+  anthropicAgentToolsValidated: boolean;
   groqKey: string | null;
   groqModel: string;
   groqEnabled: boolean;
+  groqAgentToolsValidated: boolean;
   chatPersona: string;
 };
 
@@ -41,12 +44,15 @@ const DB_KEYS = {
   geminiKey: "ai_gemini_key",
   geminiModel: "ai_gemini_model",
   geminiEnabled: "ai_gemini_enabled",
+  geminiAgentToolsValidated: "ai_gemini_agent_tools_validated",
   anthropicKey: "ai_anthropic_key",
   anthropicModel: "ai_anthropic_model",
   anthropicEnabled: "ai_anthropic_enabled",
+  anthropicAgentToolsValidated: "ai_anthropic_agent_tools_validated",
   groqKey: "ai_groq_key",
   groqModel: "ai_groq_model",
   groqEnabled: "ai_groq_enabled",
+  groqAgentToolsValidated: "ai_groq_agent_tools_validated",
   chatPersona: "chat_persona",
 } as const;
 
@@ -64,12 +70,15 @@ export async function getAiSettings(): Promise<AiSettings> {
           DB_KEYS.geminiKey,
           DB_KEYS.geminiModel,
           DB_KEYS.geminiEnabled,
+          DB_KEYS.geminiAgentToolsValidated,
           DB_KEYS.anthropicKey,
           DB_KEYS.anthropicModel,
           DB_KEYS.anthropicEnabled,
+          DB_KEYS.anthropicAgentToolsValidated,
           DB_KEYS.groqKey,
           DB_KEYS.groqModel,
           DB_KEYS.groqEnabled,
+          DB_KEYS.groqAgentToolsValidated,
           DB_KEYS.chatPersona,
         ]),
       );
@@ -90,12 +99,15 @@ function fallbackSettings(): AiSettings {
     geminiKey: envOrNull(ENV_KEYS.gemini),
     geminiModel: DEFAULT_MODELS.gemini,
     geminiEnabled: true,
+    geminiAgentToolsValidated: false,
     anthropicKey: envOrNull(ENV_KEYS.anthropic),
     anthropicModel: DEFAULT_MODELS.anthropic,
     anthropicEnabled: true,
+    anthropicAgentToolsValidated: false,
     groqKey: envOrNull(ENV_KEYS.groq),
     groqModel: DEFAULT_MODELS.groq,
     groqEnabled: true,
+    groqAgentToolsValidated: false,
     chatPersona: "",
   };
 }
@@ -115,17 +127,24 @@ function buildSettings(map: Map<string, string>): AiSettings {
     const v = map.get(dbKey);
     return v === undefined || !(v === "0" || v === "false");
   };
+  // Opposite default from `enabled`: a provider's tool-calling behavior has
+  // not been exercised against this codebase's request/response mapping
+  // until an admin explicitly confirms it, so this stays off unless set.
+  const validated = (dbKey: string): boolean => map.get(dbKey) === "1" || map.get(dbKey) === "true";
   const persona = map.get(DB_KEYS.chatPersona) ?? "";
   return {
     geminiKey: dbOrEnv(DB_KEYS.geminiKey, "gemini"),
     geminiModel: model(DB_KEYS.geminiModel, "gemini"),
     geminiEnabled: enabled(DB_KEYS.geminiEnabled),
+    geminiAgentToolsValidated: validated(DB_KEYS.geminiAgentToolsValidated),
     anthropicKey: dbOrEnv(DB_KEYS.anthropicKey, "anthropic"),
     anthropicModel: model(DB_KEYS.anthropicModel, "anthropic"),
     anthropicEnabled: enabled(DB_KEYS.anthropicEnabled),
+    anthropicAgentToolsValidated: validated(DB_KEYS.anthropicAgentToolsValidated),
     groqKey: dbOrEnv(DB_KEYS.groqKey, "groq"),
     groqModel: model(DB_KEYS.groqModel, "groq"),
     groqEnabled: enabled(DB_KEYS.groqEnabled),
+    groqAgentToolsValidated: validated(DB_KEYS.groqAgentToolsValidated),
     chatPersona: persona,
   };
 }
@@ -136,14 +155,17 @@ export async function saveAiSettingsValues(values: {
   clearGeminiKey?: boolean;
   geminiModel?: string;
   geminiEnabled?: boolean;
+  geminiAgentToolsValidated?: boolean;
   anthropicKey?: string | null;
   clearAnthropicKey?: boolean;
   anthropicModel?: string;
   anthropicEnabled?: boolean;
+  anthropicAgentToolsValidated?: boolean;
   groqKey?: string | null;
   clearGroqKey?: boolean;
   groqModel?: string;
   groqEnabled?: boolean;
+  groqAgentToolsValidated?: boolean;
   chatPersona?: string;
 }): Promise<void> {
   if (!db) throw new Error("Database not configured");
@@ -156,6 +178,8 @@ export async function saveAiSettingsValues(values: {
     push(DB_KEYS.geminiModel, values.geminiModel.trim() || DEFAULT_MODELS.gemini);
   if (values.geminiEnabled !== undefined)
     push(DB_KEYS.geminiEnabled, values.geminiEnabled ? "1" : "0");
+  if (values.geminiAgentToolsValidated !== undefined)
+    push(DB_KEYS.geminiAgentToolsValidated, values.geminiAgentToolsValidated ? "1" : "0");
 
   if (values.clearAnthropicKey) push(DB_KEYS.anthropicKey, "");
   else if (values.anthropicKey?.trim())
@@ -164,6 +188,8 @@ export async function saveAiSettingsValues(values: {
     push(DB_KEYS.anthropicModel, values.anthropicModel.trim() || DEFAULT_MODELS.anthropic);
   if (values.anthropicEnabled !== undefined)
     push(DB_KEYS.anthropicEnabled, values.anthropicEnabled ? "1" : "0");
+  if (values.anthropicAgentToolsValidated !== undefined)
+    push(DB_KEYS.anthropicAgentToolsValidated, values.anthropicAgentToolsValidated ? "1" : "0");
 
   if (values.clearGroqKey) push(DB_KEYS.groqKey, "");
   else if (values.groqKey?.trim()) push(DB_KEYS.groqKey, values.groqKey.trim());
@@ -171,6 +197,8 @@ export async function saveAiSettingsValues(values: {
     push(DB_KEYS.groqModel, values.groqModel.trim() || DEFAULT_MODELS.groq);
   if (values.groqEnabled !== undefined)
     push(DB_KEYS.groqEnabled, values.groqEnabled ? "1" : "0");
+  if (values.groqAgentToolsValidated !== undefined)
+    push(DB_KEYS.groqAgentToolsValidated, values.groqAgentToolsValidated ? "1" : "0");
 
   if (values.chatPersona !== undefined)
     push(DB_KEYS.chatPersona, values.chatPersona);

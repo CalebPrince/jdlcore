@@ -12,14 +12,17 @@ const schema = z.object({
   geminiModel: z.string().max(120),
   geminiKey: z.string().max(400),
   clearGeminiKey: z.optional(z.string()),
+  geminiAgentToolsValidated: z.string(),
   anthropicEnabled: z.string(),
   anthropicModel: z.string().max(120),
   anthropicKey: z.string().max(400),
   clearAnthropicKey: z.optional(z.string()),
+  anthropicAgentToolsValidated: z.string(),
   groqEnabled: z.string(),
   groqModel: z.string().max(120),
   groqKey: z.string().max(400),
   clearGroqKey: z.optional(z.string()),
+  groqAgentToolsValidated: z.string(),
   chatPersona: z.string().max(4000),
 });
 
@@ -42,14 +45,17 @@ export async function saveAiSettings(
       geminiModel: f.geminiModel,
       geminiKey: f.geminiKey,
       clearGeminiKey: f.clearGeminiKey === "on",
+      geminiAgentToolsValidated: f.geminiAgentToolsValidated === "on",
       anthropicEnabled: f.anthropicEnabled === "on",
       anthropicModel: f.anthropicModel,
       anthropicKey: f.anthropicKey,
       clearAnthropicKey: f.clearAnthropicKey === "on",
+      anthropicAgentToolsValidated: f.anthropicAgentToolsValidated === "on",
       groqEnabled: f.groqEnabled === "on",
       groqModel: f.groqModel,
       groqKey: f.groqKey,
       clearGroqKey: f.clearGroqKey === "on",
+      groqAgentToolsValidated: f.groqAgentToolsValidated === "on",
       chatPersona: f.chatPersona,
     });
   } catch (err) {
@@ -63,14 +69,20 @@ export async function saveAiSettings(
     f.anthropicKey || f.clearAnthropicKey === "on" ? "Anthropic" : null,
     f.groqKey || f.clearGroqKey === "on" ? "Groq" : null,
   ].filter(Boolean);
+  const agentValidated = [
+    f.geminiAgentToolsValidated === "on" ? "Gemini" : null,
+    f.anthropicAgentToolsValidated === "on" ? "Anthropic" : null,
+    f.groqAgentToolsValidated === "on" ? "Groq" : null,
+  ].filter(Boolean);
   await logAudit({
     actor: current,
     action: "settings.ai_updated",
     targetType: "settings",
     summary:
-      touchedKeys.length > 0
+      (touchedKeys.length > 0
         ? `Updated AI settings — key changed for: ${touchedKeys.join(", ")}.`
-        : "Updated AI settings (models/persona, no keys changed).",
+        : "Updated AI settings (models/persona, no keys changed).") +
+      ` Agent tool-calling validated for: ${agentValidated.length > 0 ? agentValidated.join(", ") : "none"}.`,
   });
   return { ok: true, message: "AI settings saved." };
 }

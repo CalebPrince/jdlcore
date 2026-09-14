@@ -640,6 +640,52 @@ export const adminAssistantMessages = pgTable(
 );
 
 /**
+ * A bounded tool-calling agent run (roadmap step 4): the model itself chooses
+ * which read tools to call, across a capped number of steps, wall-clock time,
+ * and token budget — see src/lib/ai/agent-runner.ts. One row per run; the
+ * per-step detail (including every tool call and result) lives in agentSteps.
+ */
+export const agentRuns = pgTable(
+  "agent_runs",
+  {
+    id: serial("id").primaryKey(),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    goal: text("goal").notNull(),
+    status: text("status").notNull().default("running"), // running | completed | stopped_limit | failed
+    stopReason: text("stop_reason"), // completed | max_steps | max_time | max_tokens | error
+    totalSteps: integer("total_steps").notNull().default(0),
+    totalInputTokens: integer("total_input_tokens").notNull().default(0),
+    totalOutputTokens: integer("total_output_tokens").notNull().default(0),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [index("agent_runs_staff_idx").on(table.staffId)],
+);
+
+export const agentSteps = pgTable(
+  "agent_steps",
+  {
+    id: serial("id").primaryKey(),
+    runId: integer("run_id")
+      .notNull()
+      .references(() => agentRuns.id, { onDelete: "cascade" }),
+    stepNumber: integer("step_number").notNull(),
+    role: text("role").notNull(), // assistant | tool
+    content: text("content").notNull().default(""),
+    toolCalls: jsonb("tool_calls"), // [{id, name, arguments}] — present on assistant steps that requested tools
+    toolName: text("tool_name"), // present on tool-result steps
+    toolCallId: text("tool_call_id"), // present on tool-result steps
+    provider: text("provider"), // present on assistant steps
+    inputTokens: integer("input_tokens"),
+    outputTokens: integer("output_tokens"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("agent_steps_run_idx").on(table.runId)],
+);
+
+/**
  * Shared document store for retrieval-augmented answers.
  * scope='global'  -> admin-uploaded reference corpus for every subscriber.
  * scope='client'  -> a client's own files; answers scoped to their documents.
@@ -903,6 +949,8 @@ export type AnalyticsChat = typeof analyticsChats.$inferSelect;
 export type AnalyticsMessage = typeof analyticsMessages.$inferSelect;
 export type AdminAssistantChat = typeof adminAssistantChats.$inferSelect;
 export type AdminAssistantMessage = typeof adminAssistantMessages.$inferSelect;
+export type AgentRun = typeof agentRuns.$inferSelect;
+export type AgentStep = typeof agentSteps.$inferSelect;
 export type KnowledgeDocument = typeof knowledgeDocuments.$inferSelect;
 export type KnowledgeDocumentChunk = typeof knowledgeDocumentChunks.$inferSelect;
 export type AcademyLearner = typeof academyLearners.$inferSelect;

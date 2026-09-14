@@ -4,8 +4,13 @@ import { z } from "zod";
 import { requireDb } from "@/db";
 import { adminAssistantChats, adminAssistantMessages } from "@/db/schema";
 import { getStaff } from "@/lib/staff-auth";
+import { buildAdminAgentSystemPrompt } from "@/lib/ai/admin-assistant-prompt";
 import { buildAdminAssistantSystemPrompt } from "@/lib/ai/admin-assistant";
+import type { EvidenceItem } from "@/lib/ai/admin-assistant-tools";
+import { ADMIN_AGENT_TOOLS, executeAdminAgentTool } from "@/lib/ai/agent-tools";
+import { runBoundedAgent } from "@/lib/ai/agent-runner";
 import { AiUnavailableError, runCompletion } from "@/lib/ai/gateway";
+import { getAiSettings, PROVIDER_ORDER } from "@/lib/ai/settings";
 import { rateLimit } from "@/lib/ai/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -14,6 +19,47 @@ const bodySchema = z.object({
   chatId: z.coerce.number().int().positive().optional(),
   message: z.string().trim().min(1).max(1000),
 });
+
+/**
+ * Roadmap step 4: if at least one provider has been marked validated for
+ * agent tool calls (Admin > AI Settings — off by default for every
+ * provider), let the model itself choose which read tools to call in a
+ * bounded loop instead of the step-3 keyword-routed lookup. Returns null to
+ * fall back to that lookup mode — either because no provider is validated,
+ * or because the run itself failed (never lets an agent-mode failure become
+ * a hard error for the user when the older, simpler path can still answer).
+ */
+async function tryAgentMode(
+  staff: { id: number; name: string; role: string },
+  message: string,
+): Promise<{ reply: string; evidence: EvidenceItem[] } | null> {
+  const settings = await getAiSettings();
+  const agentCapable = PROVIDER_ORDER.some(
+    (p) => settings[`${p}Enabled`] && settings[`${p}Key`] && settings[`${p}AgentToolsValidated`],
+  );
+  if (!agentCapable) return null;
+
+  try {
+    const outcome = await runBoundedAgent({
+      staff,
+      goal: message,
+      system: buildAdminAgentSystemPrompt(staff),
+      tools: ADMIN_AGENT_TOOLS,
+      executeTool: (call) => executeAdminAgentTool(staff, call),
+      limits: { maxSteps: 6, maxWallClockMs: 45_000, maxTotalTokens: 20_000 },
+    });
+    if (outcome.status === "failed") return null;
+    return {
+      reply:
+        outcome.finalText ||
+        "I couldn't reach a definitive answer within the step/time limit for this question — try rephrasing or narrowing it.",
+      evidence: outcome.evidence,
+    };
+  } catch (err) {
+    console.error("admin assistant agent mode:", err);
+    return null;
+  }
+}
 
 export async function POST(req: Request) {
   const staff = await getStaff();
@@ -83,25 +129,42 @@ export async function POST(req: Request) {
   const recent = history.slice(-14);
 
   try {
-    const { system, evidence } = await buildAdminAssistantSystemPrompt(staff, parsed.data.message);
-    const completion = await runCompletion({
-      system,
-      turns: recent.map((m) => ({
-        role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
-        content: m.content,
-      })),
-      maxTokens: 800,
-      totalTimeoutMs: 30_000,
-    });
+    const agentResult = await tryAgentMode(staff, parsed.data.message);
+
+    let reply: string;
+    let evidence: EvidenceItem[];
+    let provider: string | null;
+    let mode: "agent" | "lookup";
+    if (agentResult) {
+      reply = agentResult.reply;
+      evidence = agentResult.evidence;
+      provider = null;
+      mode = "agent";
+    } else {
+      const built = await buildAdminAssistantSystemPrompt(staff, parsed.data.message);
+      const completion = await runCompletion({
+        system: built.system,
+        turns: recent.map((m) => ({
+          role: m.role === "assistant" ? ("assistant" as const) : ("user" as const),
+          content: m.content,
+        })),
+        maxTokens: 800,
+        totalTimeoutMs: 30_000,
+      });
+      reply = completion.text;
+      evidence = built.evidence;
+      provider = completion.provider;
+      mode = "lookup";
+    }
 
     await database.insert(adminAssistantMessages).values({
       chatId,
       role: "assistant",
-      content: completion.text,
+      content: reply,
       evidence,
     });
 
-    return NextResponse.json({ reply: completion.text, chatId, provider: completion.provider, evidence });
+    return NextResponse.json({ reply, chatId, provider, evidence, mode });
   } catch (err) {
     if (err instanceof AiUnavailableError) {
       return NextResponse.json(
