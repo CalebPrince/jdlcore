@@ -74,6 +74,12 @@ function mimeTypeFor(type: string): string | null {
   return null; // legacy .doc and anything else: not extractable, skip rather than fail loudly
 }
 
+/** NPA's `modified` field is a plain "Aug 11, 2026" string — the file's own real-world date. */
+function parseNpaModifiedDate(modified: string): Date | null {
+  const parsed = new Date(modified);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
 export type NpaSyncResult = {
   scanned: number;
   added: number;
@@ -139,6 +145,8 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
       continue;
     }
 
+    const sourceDate = parseNpaModifiedDate(file.modified);
+
     const retryId = retryIdByUrl.get(file.url);
     let documentId: number;
     if (retryId !== undefined) {
@@ -146,12 +154,12 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
       await database.delete(knowledgeDocumentChunks).where(eq(knowledgeDocumentChunks.documentId, documentId));
       await database
         .update(knowledgeDocuments)
-        .set({ title: file.title, mimeType, status: "processing", error: null })
+        .set({ title: file.title, mimeType, sourceDate, status: "processing", error: null })
         .where(eq(knowledgeDocuments.id, documentId));
     } else {
       const inserted = await database
         .insert(knowledgeDocuments)
-        .values({ title: file.title, scope: "global", url: file.url, mimeType, status: "processing" })
+        .values({ title: file.title, scope: "global", url: file.url, mimeType, sourceDate, status: "processing" })
         .returning({ id: knowledgeDocuments.id });
       documentId = inserted[0].id;
     }

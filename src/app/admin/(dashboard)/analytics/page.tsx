@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { count, desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 
 // syncNpaKnowledgeNow (invoked from this page) budgets up to 45s internally — without this,
@@ -50,7 +50,16 @@ const STATUS_BADGE: Record<string, string> = {
   disabled: "bg-muted text-muted-foreground",
 };
 
-export default async function AdminAnalyticsPage() {
+const KNOWLEDGE_PAGE_SIZE = 25;
+
+export default async function AdminAnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ kpage?: string }>;
+}) {
+  const sp = await searchParams;
+  const knowledgePage = Math.max(1, Number.parseInt(sp.kpage ?? "1", 10) || 1);
+  let knowledgeTotal = 0;
   let waitlist: {
     id: number;
     name: string;
@@ -78,7 +87,7 @@ export default async function AdminAnalyticsPage() {
   try {
     const database = requireDb();
     const today = new Date().toISOString().slice(0, 10);
-    const [wlRows, userRows, knowledgeRows, usageRows, clientRows] = await Promise.all([
+    const [wlRows, userRows, knowledgeRows, knowledgeCountRows, usageRows, clientRows] = await Promise.all([
       database
         .select({
           id: submissions.id,
@@ -106,11 +115,18 @@ export default async function AdminAnalyticsPage() {
         .from(analyticsUsers)
         .orderBy(desc(analyticsUsers.createdAt))
         .limit(200),
-      database.select().from(knowledgeDocuments).orderBy(desc(knowledgeDocuments.createdAt)).limit(100),
+      database
+        .select()
+        .from(knowledgeDocuments)
+        .orderBy(sql`coalesce(${knowledgeDocuments.sourceDate}, ${knowledgeDocuments.createdAt}) desc`)
+        .limit(KNOWLEDGE_PAGE_SIZE)
+        .offset((knowledgePage - 1) * KNOWLEDGE_PAGE_SIZE),
+      database.select({ total: count() }).from(knowledgeDocuments),
       database.select({ userId: analyticsDailyUsage.userId, count: analyticsDailyUsage.messageCount }).from(analyticsDailyUsage).where(eq(analyticsDailyUsage.usageDate, today)),
       database.select({ id: clients.id, name: clients.name, company: clients.company }).from(clients).where(eq(clients.active, true)).orderBy(clients.company, clients.name),
     ]);
     knowledge = knowledgeRows;
+    knowledgeTotal = knowledgeCountRows[0]?.total ?? 0;
     clientOptions = clientRows.map((client) => ({ id: client.id, label: client.company || client.name }));
 
     const byEmail = new Map(userRows.map((u) => [u.email.toLowerCase(), u]));
@@ -153,19 +169,46 @@ export default async function AdminAnalyticsPage() {
           </div>
           {knowledge.length > 0 && (
             <Table>
-              <TableHeader><TableRow><TableHead>Document</TableHead><TableHead>Audience</TableHead><TableHead>Status</TableHead><TableHead>Added</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Document</TableHead><TableHead>Audience</TableHead><TableHead>Status</TableHead><TableHead>Date</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>
               <TableBody>
                 {knowledge.map((doc) => (
                   <TableRow key={doc.id}>
                     <TableCell className="font-medium">{doc.title}{doc.error && <span className="block max-w-xl text-xs font-normal text-red-700">{doc.error}</span>}</TableCell>
                     <TableCell className="text-xs">{doc.scope === "global" ? "All subscribers" : clientOptions.find((client) => client.id === doc.clientId)?.label ?? "Private client"}</TableCell>
                     <TableCell><Badge variant="secondary" className={doc.status === "ready" ? STATUS_BADGE.active : doc.status === "failed" ? "bg-red-50 text-red-700" : STATUS_BADGE.invited}>{doc.status}</Badge></TableCell>
-                    <TableCell className="text-xs text-muted-foreground">{new Date(doc.createdAt).toLocaleDateString("en-GB")}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{new Date(doc.sourceDate ?? doc.createdAt).toLocaleDateString("en-GB")}</TableCell>
                     <TableCell className="text-right"><form action={deleteKnowledgeDocument}><input type="hidden" name="documentId" value={doc.id} /><ConfirmSubmitButton>Remove</ConfirmSubmitButton></form></TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
+          )}
+          {knowledgeTotal > KNOWLEDGE_PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+              <span>
+                Page {knowledgePage} of {Math.max(1, Math.ceil(knowledgeTotal / KNOWLEDGE_PAGE_SIZE))} · {knowledgeTotal} documents
+              </span>
+              <div className="flex gap-2">
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    href={knowledgePage <= 1 ? "#" : `/admin/analytics?kpage=${knowledgePage - 1}`}
+                    aria-disabled={knowledgePage <= 1}
+                    className={knowledgePage <= 1 ? "pointer-events-none opacity-50" : undefined}
+                  >
+                    Previous
+                  </Link>
+                </Button>
+                <Button asChild size="sm" variant="outline">
+                  <Link
+                    href={`/admin/analytics?kpage=${knowledgePage + 1}`}
+                    aria-disabled={knowledgePage >= Math.ceil(knowledgeTotal / KNOWLEDGE_PAGE_SIZE)}
+                    className={knowledgePage >= Math.ceil(knowledgeTotal / KNOWLEDGE_PAGE_SIZE) ? "pointer-events-none opacity-50" : undefined}
+                  >
+                    Next
+                  </Link>
+                </Button>
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>

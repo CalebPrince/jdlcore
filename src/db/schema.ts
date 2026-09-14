@@ -660,6 +660,11 @@ export const knowledgeDocuments = pgTable(
     sizeBytes: integer("size_bytes"),
     status: text("status").notNull().default("uploaded"), // uploaded | processing | ready | failed
     error: text("error"),
+    // The document's own real-world date (e.g. an "As of 10th August, 2026" price
+    // indicator's actual date, from the source's last-modified metadata) — distinct from
+    // createdAt, which is just when we happened to ingest it. Null for manual uploads;
+    // falls back to createdAt for display ordering.
+    sourceDate: timestamp("source_date", { withTimezone: true }),
     processedAt: timestamp("processed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
