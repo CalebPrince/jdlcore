@@ -112,10 +112,17 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
 
   const urls = discovered.map((f) => f.url);
   const existing = urls.length
-    ? await database.select({ url: knowledgeDocuments.url }).from(knowledgeDocuments).where(inArray(knowledgeDocuments.url, urls))
+    ? await database
+        .select({ id: knowledgeDocuments.id, url: knowledgeDocuments.url, status: knowledgeDocuments.status })
+        .from(knowledgeDocuments)
+        .where(inArray(knowledgeDocuments.url, urls))
     : [];
-  const existingUrls = new Set(existing.map((r) => r.url));
-  const pending = discovered.filter((f) => !existingUrls.has(f.url));
+  // Only a *ready* row means "already ingested, skip". A row stuck in "processing" (the
+  // function got killed mid-file — download stall, timeout) or "failed" is retried, reusing
+  // the same row rather than piling up duplicates for the same URL.
+  const readyUrls = new Set(existing.filter((r) => r.status === "ready").map((r) => r.url));
+  const retryIdByUrl = new Map(existing.filter((r) => r.status !== "ready").map((r) => [r.url, r.id]));
+  const pending = discovered.filter((f) => !readyUrls.has(f.url));
 
   let added = 0;
   let skippedUnsupported = 0;
@@ -132,11 +139,22 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
       continue;
     }
 
-    const inserted = await database
-      .insert(knowledgeDocuments)
-      .values({ title: file.title, scope: "global", url: file.url, mimeType, status: "processing" })
-      .returning({ id: knowledgeDocuments.id });
-    const documentId = inserted[0].id;
+    const retryId = retryIdByUrl.get(file.url);
+    let documentId: number;
+    if (retryId !== undefined) {
+      documentId = retryId;
+      await database.delete(knowledgeDocumentChunks).where(eq(knowledgeDocumentChunks.documentId, documentId));
+      await database
+        .update(knowledgeDocuments)
+        .set({ title: file.title, mimeType, status: "processing", error: null })
+        .where(eq(knowledgeDocuments.id, documentId));
+    } else {
+      const inserted = await database
+        .insert(knowledgeDocuments)
+        .values({ title: file.title, scope: "global", url: file.url, mimeType, status: "processing" })
+        .returning({ id: knowledgeDocuments.id });
+      documentId = inserted[0].id;
+    }
 
     try {
       const res = await fetch(file.url);
@@ -163,7 +181,7 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
   return {
     scanned: discovered.length,
     added,
-    skippedExisting: existingUrls.size,
+    skippedExisting: readyUrls.size,
     skippedUnsupported,
     failed,
     remaining: pending.length - processed,
