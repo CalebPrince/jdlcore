@@ -686,6 +686,41 @@ export const agentSteps = pgTable(
 );
 
 /**
+ * Roadmap step 5 ("reviewed actions"): a durable, human-reviewable proposal
+ * for a write the agent (or, in future, another automated caller) wants to
+ * make — never executed on its own. See src/lib/reviewed-actions.ts. The
+ * whole lifecycle (proposed -> approved/rejected -> executed/failed/stale)
+ * is recorded on this one row rather than split across tables, so a single
+ * query shows a complete audit trail for any proposal.
+ */
+export const proposedActions = pgTable(
+  "proposed_actions",
+  {
+    id: serial("id").primaryKey(),
+    actionType: text("action_type").notNull(), // e.g. "job_approval"
+    targetType: text("target_type").notNull(), // e.g. "job"
+    targetId: integer("target_id").notNull(),
+    summary: text("summary").notNull(),
+    payload: jsonb("payload").notNull(), // exact parameters the executor needs, e.g. {jobId}
+    proposedState: jsonb("proposed_state").notNull(), // snapshot of target state when proposed, for staleness checks
+    status: text("status").notNull().default("pending"), // pending | approved | rejected | executing | executed | failed | stale
+    agentRunId: integer("agent_run_id").references(() => agentRuns.id, { onDelete: "set null" }),
+    proposedByStaffId: integer("proposed_by_staff_id").references(() => staff.id, { onDelete: "set null" }),
+    reviewedByStaffId: integer("reviewed_by_staff_id").references(() => staff.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
+    reviewNote: text("review_note"),
+    approvedState: jsonb("approved_state"), // fresh snapshot taken at the moment of approval, independent of proposedState
+    executionResult: jsonb("execution_result"),
+    executedAt: timestamp("executed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("proposed_actions_status_idx").on(table.status),
+    index("proposed_actions_target_idx").on(table.targetType, table.targetId),
+  ],
+);
+
+/**
  * Shared document store for retrieval-augmented answers.
  * scope='global'  -> admin-uploaded reference corpus for every subscriber.
  * scope='client'  -> a client's own files; answers scoped to their documents.
@@ -951,6 +986,7 @@ export type AdminAssistantChat = typeof adminAssistantChats.$inferSelect;
 export type AdminAssistantMessage = typeof adminAssistantMessages.$inferSelect;
 export type AgentRun = typeof agentRuns.$inferSelect;
 export type AgentStep = typeof agentSteps.$inferSelect;
+export type ProposedAction = typeof proposedActions.$inferSelect;
 export type KnowledgeDocument = typeof knowledgeDocuments.$inferSelect;
 export type KnowledgeDocumentChunk = typeof knowledgeDocumentChunks.$inferSelect;
 export type AcademyLearner = typeof academyLearners.$inferSelect;

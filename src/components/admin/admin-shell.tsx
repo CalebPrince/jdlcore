@@ -23,6 +23,7 @@ import {
   UserCog,
   CreditCard,
   Sparkles,
+  ClipboardCheck,
 } from "lucide-react";
 import {
   Sheet,
@@ -49,6 +50,7 @@ const NAV: {
   { href: "/admin/reports", label: "Reports", icon: BarChart3 },
   { href: "/admin/inbox", label: "Inbox", icon: Inbox },
   { href: "/admin/assistant", label: "Assistant", icon: Sparkles },
+  { href: "/admin/actions", label: "Reviewed Actions", icon: ClipboardCheck },
   { href: "/admin/clients", label: "Clients", icon: Users, roles: ["administrator", "superadmin"] },
   { href: "/admin/staff", label: "Staff", icon: ShieldCheck, roles: ["administrator", "superadmin"] },
   { href: "/admin/inspectors", label: "Inspectors", icon: Users, roles: ["administrator", "superadmin"] },

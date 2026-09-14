@@ -45,7 +45,7 @@ async function tryAgentMode(
       goal: message,
       system: buildAdminAgentSystemPrompt(staff),
       tools: ADMIN_AGENT_TOOLS,
-      executeTool: (call) => executeAdminAgentTool(staff, call),
+      executeTool: (call, runId) => executeAdminAgentTool(staff, call, runId),
       limits: { maxSteps: 6, maxWallClockMs: 45_000, maxTotalTokens: 20_000 },
     });
     if (outcome.status === "failed") return null;

@@ -8,7 +8,7 @@ import { clients, inspectors, invoices, jobComments, jobUpdates, jobs } from "@/
 import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
-import { generateCoqAndInvoice } from "@/lib/coq";
+import { approveJobCore } from "@/lib/job-actions";
 import { notifyBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import type { FormState } from "./submissions";
@@ -147,37 +147,7 @@ export async function approveJob(_prev: FormState, formData: FormData): Promise<
   if (!staff) return initialFail("Unauthorized");
   const parsed = jobIdSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Invalid job.");
-  const { jobId } = parsed.data;
-
-  const job = await loadJob(jobId);
-  if (!job) return initialFail("Job not found.");
-  const actor: Actor = { type: "staff", id: staff.id, name: staff.name, role: staff.role as Actor["role"] };
-  if (!canTransition(job.status as JobStatus, "approved", actor)) {
-    return initialFail("This job isn't awaiting approval.");
-  }
-
-  const database = requireDb();
-  const now = new Date();
-  await database
-    .update(jobs)
-    .set({ status: "approved", approvedAt: now, approvedByStaffId: staff.id, updatedAt: now })
-    .where(eq(jobs.id, jobId));
-  for (const status of ["approved", "report_issued", "invoice_issued"] as const) {
-    await database.insert(jobUpdates).values({
-      jobId,
-      status,
-      note: status === "approved" ? `Approved by ${staff.name}.` : null,
-      actorType: status === "approved" ? "staff" : "system",
-      actorId: status === "approved" ? staff.id : null,
-      actorName: status === "approved" ? staff.name : "JDL Core",
-    });
-  }
-  await database.update(jobs).set({ status: "invoice_issued", updatedAt: new Date() }).where(eq(jobs.id, jobId));
-
-  await generateCoqAndInvoice(jobId, staff.id);
-
-  revalidateJob(jobId);
-  return { ok: true, message: "Job approved — Certificate of Quantity and invoice issued." };
+  return approveJobCore(parsed.data.jobId, staff);
 }
 
 const rejectSchema = z.object({

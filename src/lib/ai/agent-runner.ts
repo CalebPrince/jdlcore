@@ -43,7 +43,7 @@ export async function runBoundedAgent(input: {
   goal: string;
   system: string;
   tools: ToolDefinition[];
-  executeTool: (call: ToolCall) => Promise<EvidenceItem[] | { error: string }>;
+  executeTool: (call: ToolCall, runId: number) => Promise<EvidenceItem[] | Record<string, unknown>>;
   limits?: Partial<AgentRunLimits>;
 }): Promise<AgentRunOutcome> {
   const limits = { ...DEFAULT_LIMITS, ...input.limits };
@@ -113,7 +113,7 @@ export async function runBoundedAgent(input: {
 
       for (const call of step.toolCalls) {
         const outcome = await input
-          .executeTool(call)
+          .executeTool(call, runId)
           .catch((err): { error: string } => ({ error: err instanceof Error ? err.message : String(err) }));
 
         let resultText: string;

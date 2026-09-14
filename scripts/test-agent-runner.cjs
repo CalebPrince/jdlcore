@@ -224,6 +224,8 @@ async function testSettingsFlag() {
 
 async function testAgentToolsDispatcher() {
   const dispatchedCalls = [];
+  let jobIdForRef = null;
+  let proposeResult = { ok: true, proposalId: 9, message: 'Proposal #9 created' };
   const agentTools = compileTs('../src/lib/ai/agent-tools.ts', (id) => {
     if (id === 'server-only') return {};
     if (id === './admin-assistant-tools') {
@@ -234,6 +236,8 @@ async function testAgentToolsDispatcher() {
         searchReferenceDocuments: async (staff, query) => { dispatchedCalls.push(['documents', query]); return [{ kind: 'document', label: 'd' }]; },
       };
     }
+    if (id === '@/lib/job-actions') return { findJobIdByRef: async (ref) => { dispatchedCalls.push(['findJobIdByRef', ref]); return jobIdForRef; } };
+    if (id === '@/lib/reviewed-actions') return { proposeJobApproval: async (input) => { dispatchedCalls.push(['proposeJobApproval', input]); return proposeResult; } };
     return require(id);
   });
   const staff = { id: 1, role: 'operations' };
@@ -249,7 +253,27 @@ async function testAgentToolsDispatcher() {
 
   const unknown = await agentTools.executeAdminAgentTool(staff, { id: '4', name: 'delete_everything', arguments: {} });
   assert.ok('error' in unknown);
-  console.log('Agent-tools checks passed: each tool name dispatches to its scoped read function; unknown tools and invalid severities are rejected safely.');
+
+  // propose_job_approval resolves the human-visible jobRef to a numeric id, then delegates to the reviewed-actions pipeline — never mutates anything itself.
+  const missingRef = await agentTools.executeAdminAgentTool(staff, { id: '5', name: 'propose_job_approval', arguments: { reasoning: 'x' } });
+  assert.ok('error' in missingRef, 'jobRef is required');
+
+  jobIdForRef = null;
+  const unknownRef = await agentTools.executeAdminAgentTool(staff, { id: '6', name: 'propose_job_approval', arguments: { jobRef: 'JDL-2026-9999', reasoning: 'x' } });
+  assert.ok('error' in unknownRef, 'an unresolvable job reference must fail rather than propose against nothing');
+
+  jobIdForRef = 42;
+  dispatchedCalls.length = 0;
+  const proposed = await agentTools.executeAdminAgentTool(staff, { id: '7', name: 'propose_job_approval', arguments: { jobRef: 'jdl-2026-0042', reasoning: 'flags are clear' } }, 77);
+  assert.deepEqual(dispatchedCalls[0], ['findJobIdByRef', 'jdl-2026-0042']);
+  assert.deepEqual(dispatchedCalls[1], ['proposeJobApproval', { jobId: 42, agentRunId: 77, proposedByStaffId: 1, reasoning: 'flags are clear' }]);
+  assert.deepEqual(proposed, { proposalId: 9, message: 'Proposal #9 created' }, 'a successful proposal must never carry an "error" key, so the model cannot mistake it for a failure');
+
+  proposeResult = { ok: false, message: 'This job isn’t awaiting approval.' };
+  const refused = await agentTools.executeAdminAgentTool(staff, { id: '8', name: 'propose_job_approval', arguments: { jobRef: 'JDL-2026-0042', reasoning: 'x' } }, 77);
+  assert.deepEqual(refused, { error: 'This job isn’t awaiting approval.' });
+
+  console.log('Agent-tools checks passed: read tools dispatch correctly; propose_job_approval resolves refs and only ever forwards to the reviewed-actions pipeline, never executing anything itself.');
 }
 
 // ---------------------------------------------------------------------------
