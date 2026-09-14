@@ -15,6 +15,7 @@ import {
   AnalyticsGrantSheet,
   ConfirmSubmitButton,
   KnowledgeUploadForm,
+  NpaSyncButton,
 } from "@/components/admin/analytics-admin-forms";
 import {
   Card,
@@ -134,10 +135,16 @@ export default async function AdminAnalyticsPage() {
       <Card>
         <CardHeader>
           <CardTitle className="font-display">Knowledge base</CardTitle>
-          <CardDescription>Upload trusted industry material used to ground subscriber answers. PDF and text-based files up to 8 MB are supported.</CardDescription>
+          <CardDescription>Upload trusted industry material used to ground subscriber answers. PDF, Word (.docx), Excel (.xlsx), and text-based files up to 8 MB are supported.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-5">
           <KnowledgeUploadForm clients={clientOptions} />
+          <div className="rounded-xl border border-dashed p-3" style={{ borderColor: "var(--border)" }}>
+            <p className="m-0 mb-2 text-xs text-muted-foreground">
+              National Petroleum Authority documents (npa.gov.gh) sync automatically once a day. Use this to pull the current backlog in faster.
+            </p>
+            <NpaSyncButton />
+          </div>
           {knowledge.length > 0 && (
             <Table>
               <TableHeader><TableRow><TableHead>Document</TableHead><TableHead>Audience</TableHead><TableHead>Status</TableHead><TableHead>Added</TableHead><TableHead className="text-right">Action</TableHead></TableRow></TableHeader>

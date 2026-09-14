@@ -9,6 +9,7 @@ const STAFF_ROLES = ["administrator", "superadmin"] as const;
 import { requireDb } from "@/db";
 import { analyticsUsers, knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
 import { chunkDocument, extractDocumentText } from "@/lib/analytics-knowledge";
+import { syncNpaKnowledge, type NpaSyncResult } from "@/lib/analytics-npa-sync";
 import { issueSetupToken } from "@/lib/analytics-auth";
 import { isEmailConfigured, getEmailConfig, sendNotification } from "@/lib/email";
 
@@ -213,4 +214,24 @@ export async function deleteKnowledgeDocument(formData: FormData): Promise<void>
   if (!Number.isInteger(id) || id <= 0) return;
   await requireDb().delete(knowledgeDocuments).where(eq(knowledgeDocuments.id, id));
   revalidatePath("/admin/analytics");
+}
+
+export type NpaSyncState = { ok: boolean; message: string; result?: NpaSyncResult };
+
+/**
+ * Manual trigger for the same crawl the daily cron runs (see api/cron/npa-sync) — lets
+ * staff drain the historical NPA backlog on demand instead of waiting ~30 documents/day.
+ */
+export async function syncNpaKnowledgeNow(): Promise<NpaSyncState> {
+  if (!(await requireStaffRole([...STAFF_ROLES]))) return { ok: false, message: "Unauthorized" };
+  try {
+    const result = await syncNpaKnowledge({ maxDocuments: 30, maxMs: 45_000 });
+    revalidatePath("/admin/analytics");
+    const parts = [`Added ${result.added}`, `${result.remaining} left to sync`];
+    if (result.failed) parts.push(`${result.failed} failed`);
+    if (result.skippedUnsupported) parts.push(`${result.skippedUnsupported} unsupported file type`);
+    return { ok: true, message: parts.join(" · "), result };
+  } catch (error) {
+    return { ok: false, message: error instanceof Error ? error.message : "Sync failed." };
+  }
 }

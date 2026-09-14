@@ -1,6 +1,6 @@
 import "server-only";
 
-import { and, eq, or } from "drizzle-orm";
+import { and, eq, or, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
 
@@ -17,8 +17,28 @@ const TEXT_TYPES = new Set([
   "application/json",
 ]);
 
+const XLSX_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "application/vnd.ms-excel",
+]);
+
+const DOCX_TYPES = new Set([
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+]);
+
+function colLetter(n: number): string {
+  let s = "";
+  while (n > 0) {
+    const m = (n - 1) % 26;
+    s = String.fromCharCode(65 + m) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
 export async function extractDocumentText(file: File): Promise<string> {
-  const bytes = new Uint8Array(await file.arrayBuffer());
+  const arrayBuffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(arrayBuffer);
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: bytes });
@@ -28,10 +48,40 @@ export async function extractDocumentText(file: File): Promise<string> {
       await parser.destroy();
     }
   }
+  if (/\.xls$/i.test(file.name)) {
+    throw new Error("Old .xls files aren't supported — open it in Excel and Save As .xlsx.");
+  }
+  if (/\.doc$/i.test(file.name)) {
+    throw new Error("Old .doc files aren't supported — open it in Word and Save As .docx.");
+  }
+  if (DOCX_TYPES.has(file.type) || /\.docx$/i.test(file.name)) {
+    const mammoth = await import("mammoth");
+    const { value } = await mammoth.extractRawText({ buffer: Buffer.from(arrayBuffer) });
+    return value;
+  }
+  if (XLSX_TYPES.has(file.type) || /\.xlsx$/i.test(file.name)) {
+    const ExcelJS = (await import("exceljs")).default;
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(arrayBuffer);
+    const lines: string[] = [];
+    workbook.eachSheet((sheet) => {
+      lines.push(`Sheet "${sheet.name}"`);
+      sheet.eachRow((row, rowNumber) => {
+        const cells: string[] = [];
+        row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
+          const v = cell.text?.trim();
+          if (v) cells.push(`${colLetter(colNumber)}${rowNumber}: ${v}`);
+        });
+        if (cells.length) lines.push(cells.join(" | "));
+      });
+      lines.push("");
+    });
+    return lines.join("\n").trim();
+  }
   if (TEXT_TYPES.has(file.type) || /\.(txt|md|csv|json)$/i.test(file.name)) {
     return new TextDecoder().decode(bytes);
   }
-  throw new Error("Use a PDF, TXT, Markdown, CSV, or JSON file.");
+  throw new Error("Use a PDF, TXT, Markdown, CSV, XLSX, DOCX, or JSON file.");
 }
 
 export function chunkDocument(text: string, maxLength = 1400): string[] {
@@ -57,7 +107,17 @@ export function chunkDocument(text: string, maxLength = 1400): string[] {
 }
 
 export async function retrieveKnowledge(query: string, clientId: number | null, limit = 5): Promise<KnowledgeSource[]> {
+  const terms = [...new Set(query.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [])].slice(0, 12);
+  if (terms.length === 0) return [];
+
   const database = requireDb();
+  // Filter to candidate rows in SQL (indexed-scan-able, scales with corpus size) instead of
+  // pulling an arbitrary, unordered slice of the whole knowledge base into memory — the old
+  // `.limit(1000)` with no ORDER BY silently dropped content once the corpus grew past that.
+  const termFilter = sql.join(
+    terms.map((term) => sql`${knowledgeDocumentChunks.content} ILIKE ${`%${term}%`}`),
+    sql` OR `,
+  );
   const rows = await database
     .select({
       docId: knowledgeDocuments.id,
@@ -71,11 +131,10 @@ export async function retrieveKnowledge(query: string, clientId: number | null, 
       clientId
         ? or(eq(knowledgeDocuments.scope, "global"), and(eq(knowledgeDocuments.scope, "client"), eq(knowledgeDocuments.clientId, clientId)))
         : eq(knowledgeDocuments.scope, "global"),
+      sql`(${termFilter})`,
     ))
-    .limit(1000);
+    .limit(2000);
 
-  const terms = [...new Set(query.toLowerCase().match(/[a-z0-9]{3,}/g) ?? [])];
-  if (terms.length === 0) return [];
   return rows
     .map((row) => {
       const haystack = row.content.toLowerCase();

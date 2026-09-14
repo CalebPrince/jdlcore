@@ -4,9 +4,11 @@ import { useState } from "react";
 import { useActionState } from "react";
 import {
   grantAnalyticsAccess,
+  syncNpaKnowledgeNow,
   uploadKnowledgeDocument,
   type GrantState,
   type KnowledgeUploadState,
+  type NpaSyncState,
 } from "@/app/actions/analytics-admin";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -139,13 +141,43 @@ export function KnowledgeUploadForm({ clients }: { clients: { id: number; label:
       </div>
       <div className="flex flex-col gap-1.5">
         <Label htmlFor="knowledge-file">Document</Label>
-        <Input id="knowledge-file" name="file" type="file" accept=".pdf,.txt,.md,.csv,.json" required />
+        <Input id="knowledge-file" name="file" type="file" accept=".pdf,.txt,.md,.csv,.json,.xlsx,.docx" required />
       </div>
       <Button type="submit" disabled={pending} className="btn-gold">
         {pending ? "Indexing…" : "Upload & index"}
       </Button>
       {state.message && (
         <Alert variant={state.ok ? "default" : "destructive"} className="sm:col-span-2 lg:col-span-4">
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+      )}
+    </form>
+  );
+}
+
+const initialNpaSync: NpaSyncState = { ok: false, message: "" };
+
+/**
+ * Manually drains the NPA backlog (a daily cron also runs this automatically —
+ * see api/cron/npa-sync — but that's capped to ~30 docs/day so this lets staff
+ * push through the historical archive faster). Click repeatedly: each click
+ * processes one bounded batch and reports how many are left.
+ */
+export function NpaSyncButton() {
+  const [state, action, pending] = useActionState(async () => syncNpaKnowledgeNow(), initialNpaSync);
+  const remaining = state.result?.remaining ?? 0;
+  return (
+    <form action={action} className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <Button type="submit" disabled={pending} variant="outline" size="sm">
+          {pending ? "Syncing…" : "Sync NPA documents now"}
+        </Button>
+        {remaining > 0 && (
+          <span className="text-xs text-muted-foreground">{remaining} more to go — click again</span>
+        )}
+      </div>
+      {state.message && (
+        <Alert variant={state.ok ? "default" : "destructive"}>
           <AlertDescription>{state.message}</AlertDescription>
         </Alert>
       )}
