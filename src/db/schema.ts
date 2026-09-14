@@ -602,6 +602,44 @@ export const analyticsMessages = pgTable(
 );
 
 /**
+ * Conversation history for the Admin operations assistant (read-only evidence
+ * lookups over jobs, AI review flags, stock readings, and reference documents —
+ * see src/lib/ai/admin-assistant.ts). Scoped to the staff member who owns it,
+ * mirroring analyticsChats/analyticsMessages above.
+ */
+export const adminAssistantChats = pgTable(
+  "admin_assistant_chats",
+  {
+    id: serial("id").primaryKey(),
+    staffId: integer("staff_id")
+      .notNull()
+      .references(() => staff.id, { onDelete: "cascade" }),
+    title: text("title").notNull().default("New conversation"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("admin_assistant_chats_staff_idx").on(table.staffId)],
+);
+
+export const adminAssistantMessages = pgTable(
+  "admin_assistant_messages",
+  {
+    id: serial("id").primaryKey(),
+    chatId: integer("chat_id")
+      .notNull()
+      .references(() => adminAssistantChats.id, { onDelete: "cascade" }),
+    role: text("role").notNull(), // user | assistant
+    content: text("content").notNull(),
+    evidence: jsonb("evidence"), // [{kind, label, detail, link}] the assistant's answer was grounded in
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [index("admin_assistant_messages_chat_idx").on(table.chatId)],
+);
+
+/**
  * Shared document store for retrieval-augmented answers.
  * scope='global'  -> admin-uploaded reference corpus for every subscriber.
  * scope='client'  -> a client's own files; answers scoped to their documents.
@@ -863,6 +901,8 @@ export type EmailLog = typeof emailLog.$inferSelect;
 export type AnalyticsUser = typeof analyticsUsers.$inferSelect;
 export type AnalyticsChat = typeof analyticsChats.$inferSelect;
 export type AnalyticsMessage = typeof analyticsMessages.$inferSelect;
+export type AdminAssistantChat = typeof adminAssistantChats.$inferSelect;
+export type AdminAssistantMessage = typeof adminAssistantMessages.$inferSelect;
 export type KnowledgeDocument = typeof knowledgeDocuments.$inferSelect;
 export type KnowledgeDocumentChunk = typeof knowledgeDocumentChunks.$inferSelect;
 export type AcademyLearner = typeof academyLearners.$inferSelect;
