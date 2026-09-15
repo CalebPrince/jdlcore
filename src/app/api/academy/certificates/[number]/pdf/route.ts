@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type RGB } from "pdf-lib";
 import { getAcademyCertificate } from "@/lib/academy";
@@ -25,8 +27,18 @@ async function buildCertificatePdf(certificate:NonNullable<Awaited<ReturnType<ty
   page.drawRectangle({x:22,y:22,width:798,height:551,borderColor:NAVY,borderWidth:2});
   page.drawRectangle({x:31,y:31,width:780,height:533,borderColor:GOLD,borderWidth:0.8});
   page.drawRectangle({x:0,y:515,width:842,height:80,color:NAVY});
-  page.drawText("JDL CORE ACADEMY",{x:56,y:551,size:19,font:bold,color:rgb(1,1,1)});
-  page.drawText("FIELD COMPETENCE, DOCUMENTED",{x:56,y:533,size:7.5,font:regular,color:GOLD});
+
+  const logoBytes=await readFile(path.join(process.cwd(),"public","logo-academy.png"));
+  const logo=await pdf.embedPng(logoBytes);
+  const logoH=56;
+  const logoW=logoH*(logo.width/logo.height);
+  const chipPad=8;
+  const chipX=56,chipY=519,chipW=logoW+chipPad*2,chipH=logoH+chipPad*2;
+  page.drawRectangle({x:chipX,y:chipY,width:chipW,height:chipH,color:rgb(1,1,1)});
+  page.drawImage(logo,{x:chipX+chipPad,y:chipY+chipPad,width:logoW,height:logoH});
+  const textX=chipX+chipW+14;
+  page.drawText("JDL CORE ACADEMY",{x:textX,y:551,size:19,font:bold,color:rgb(1,1,1)});
+  page.drawText("FIELD COMPETENCE, DOCUMENTED",{x:textX,y:533,size:7.5,font:regular,color:GOLD});
   page.drawText("CERTIFICATE",{x:650,y:542,size:18,font:bold,color:GOLD});
   centered(page,"CERTIFICATE OF COMPLETION",450,15,bold,NAVY);
   centered(page,"This certifies that",415,11,regular,MUTED);

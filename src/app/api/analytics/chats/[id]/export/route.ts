@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { and, asc, eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
@@ -46,7 +48,7 @@ async function buildPdf(title: string, userName: string, company: string | null,
   const pdf = await PDFDocument.create();
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
-  let page = addPage(pdf, regular, bold);
+  let page = await addPage(pdf, regular, bold);
   let y = 735;
   y = drawWrapped(page, safeText(title), 48, y, 17, bold, rgb(0.03, 0.09, 0.15), 500, 22);
   page.drawText(`Prepared for ${safeText(userName)}${company ? ` — ${safeText(company)}` : ""}`, { x: 48, y: y - 4, size: 9, font: regular, color: rgb(0.35, 0.4, 0.46) });
@@ -56,7 +58,7 @@ async function buildPdf(title: string, userName: string, company: string | null,
     const contentLines = wrap(safeText(message.content), regular, 10, 500);
     const sources = sourceTitles(message.sources);
     const required = 30 + contentLines.length * 14 + (sources.length ? 25 : 0);
-    if (y - required < 55) { page = addPage(pdf, regular, bold); y = 740; }
+    if (y - required < 55) { page = await addPage(pdf, regular, bold); y = 740; }
     page.drawText(safeText(label), { x: 48, y, size: 8, font: bold, color: message.role === "assistant" ? rgb(0.76, 0.52, 0.05) : rgb(0.03, 0.09, 0.15) });
     y -= 18;
     for (const line of contentLines) { page.drawText(line, { x: 48, y, size: 10, font: regular, color: rgb(0.08, 0.12, 0.17) }); y -= 14; }
@@ -68,10 +70,15 @@ async function buildPdf(title: string, userName: string, company: string | null,
   return pdf.save();
 }
 
-function addPage(pdf: PDFDocument, regular: PDFFont, bold: PDFFont) {
+async function addPage(pdf: PDFDocument, regular: PDFFont, bold: PDFFont) {
   const page = pdf.addPage([595, 842]);
   page.drawRectangle({ x: 0, y: 790, width: 595, height: 52, color: rgb(0.03, 0.09, 0.15) });
-  page.drawText("JDL CORE ANALYTICS", { x: 48, y: 812, size: 13, font: bold, color: rgb(0.95, 0.75, 0.25) });
+  const logoBytes = await readFile(path.join(process.cwd(), "public", "logo-analytics.png"));
+  const logo = await pdf.embedPng(logoBytes);
+  const logoH = 36;
+  const logoW = logoH * (logo.width / logo.height);
+  page.drawImage(logo, { x: 48, y: 798, width: logoW, height: logoH });
+  page.drawText("JDL CORE ANALYTICS", { x: 48 + logoW + 10, y: 812, size: 13, font: bold, color: rgb(0.95, 0.75, 0.25) });
   page.drawText("SOURCE-GROUNDED INDUSTRY INTELLIGENCE", { x: 355, y: 813, size: 6, font: regular, color: rgb(1, 1, 1) });
   return page;
 }
