@@ -181,7 +181,7 @@ export async function createPlan(input: {
   name: string;
   amountCents: number;
   currency: string;
-  interval: "monthly";
+  interval: "monthly" | "annually";
 }): Promise<{ ok: true; planCode: string } | { ok: false; error: string }> {
   const config = await getPaystackConfig();
   if (!config.secretKey) return { ok: false, error: "Online payments aren't configured yet." };

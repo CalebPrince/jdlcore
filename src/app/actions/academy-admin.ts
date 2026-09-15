@@ -1,15 +1,31 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { academyCertificates, academyCourses, academyEnrollments, academyLearners, academyLessons, academyModules, academyQuizOptions, academyQuizQuestions } from "@/db/schema";
+import { academyCertificates, academyCourses, academyEnrollments, academyLearners, academyLessons, academyModules, academyQuizOptions, academyQuizQuestions, settings } from "@/db/schema";
 import { requireStaffRole } from "@/lib/staff-auth";
 import type { FormState } from "./submissions";
 
 async function requireAdmin() {
   if (!(await requireStaffRole(["administrator", "superadmin"]))) throw new Error("Unauthorized");
+}
+
+export async function updateAcademySubscriptionPrices(formData: FormData) {
+  await requireAdmin();
+  const parsed = z.object({ monthly: z.coerce.number().positive().max(1000000), yearly: z.coerce.number().positive().max(10000000) }).safeParse(Object.fromEntries(formData));
+  if (!parsed.success) throw new Error("Enter valid monthly and yearly prices.");
+  const database = requireDb();
+  const values = [
+    { key: "academy_monthly_price_cents", value: String(Math.round(parsed.data.monthly * 100)) },
+    { key: "academy_yearly_price_cents", value: String(Math.round(parsed.data.yearly * 100)) },
+    { key: "paystack_academy_plan_monthly", value: "" },
+    { key: "paystack_academy_plan_yearly", value: "" },
+  ];
+  await database.insert(settings).values(values).onConflictDoUpdate({ target: settings.key, set: { value: sql`excluded.value`, updatedAt: new Date() } });
+  revalidatePath("/admin/academy");
+  revalidatePath("/academy/subscribe");
 }
 
 const courseSchema = z.object({

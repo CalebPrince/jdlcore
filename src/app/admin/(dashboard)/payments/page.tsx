@@ -39,6 +39,8 @@ const STATUS_BADGE: Record<string, string> = {
 const KIND_LABEL: Record<string, string> = {
   invoice: "Invoice",
   analytics_subscription: "Analytics",
+  academy_subscription: "Academy",
+  academy_subscription: "Academy",
 };
 
 const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {

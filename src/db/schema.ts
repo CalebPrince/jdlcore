@@ -746,6 +746,12 @@ export const academyLearners = pgTable(
     role: text("role").notNull().default("Learner"),
     passwordHash: text("password_hash").notNull(),
     status: text("status").notNull().default("active"), // active | disabled
+    subscriptionPlan: text("subscription_plan"), // monthly | yearly
+    subscriptionStatus: text("subscription_status").notNull().default("none"), // none | active | past_due | cancelled
+    currentPeriodEnd: timestamp("current_period_end", { withTimezone: true }),
+    paystackCustomerCode: text("paystack_customer_code"),
+    paystackSubscriptionCode: text("paystack_subscription_code"),
+    paystackPlanCode: text("paystack_plan_code"),
     lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

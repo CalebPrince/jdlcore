@@ -8,6 +8,7 @@ import {
   handleSubscriptionCreate,
   handleSubscriptionDisable,
 } from "@/lib/analytics-billing";
+import { activateAcademyRenewal, finalizeAcademyCheckout } from "@/lib/academy-billing";
 
 type PaystackEvent = {
   event?: string;
@@ -56,6 +57,8 @@ export async function POST(req: Request) {
         const reference = data?.reference ?? "";
         if (reference.startsWith("jdl-inv-")) {
           await finalizePaystackPayment(reference);
+        } else if (reference.startsWith("jdl-academy-sub-")) {
+          await finalizeAcademyCheckout(reference);
         } else if (reference.startsWith("jdl-sub-")) {
           await finalizeAnalyticsCheckout(reference);
         } else if (data?.plan) {
@@ -65,6 +68,7 @@ export async function POST(req: Request) {
             currency: data.currency,
             reference: data.reference,
           });
+          await activateAcademyRenewal(data.customer?.customer_code);
         }
         break;
       }

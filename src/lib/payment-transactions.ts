@@ -1,9 +1,9 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { db, requireDb } from "@/db";
 import { paymentTransactions } from "@/db/schema";
 
-export type TransactionKind = "invoice" | "analytics_subscription";
+export type TransactionKind = "invoice" | "analytics_subscription" | "academy_subscription";
 export type TransactionStatus = "success" | "failed" | "mismatch";
 
 /** Records one Paystack charge outcome to the ledger. Never throws — logging must not break the payment flow it's observing. */
@@ -42,6 +42,15 @@ export async function recentPaymentTransactions(limit = 50) {
   } catch {
     return [];
   }
+}
+
+export async function academyPaymentsForEmail(email: string, limit = 20) {
+  if (!db) return [];
+  try {
+    return await db.select().from(paymentTransactions)
+      .where(and(eq(paymentTransactions.kind, "academy_subscription"), eq(paymentTransactions.payerEmail, email)))
+      .orderBy(desc(paymentTransactions.createdAt)).limit(limit);
+  } catch { return []; }
 }
 
 export async function paymentTransactionTotals(): Promise<{ successCents: number; successCount: number }> {

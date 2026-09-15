@@ -127,6 +127,7 @@ async function canAccessAcademyLesson(learnerId: number, lessonId: number) {
 
 export async function enrollInAcademyCourse(formData: FormData) {
   const learner = await requireAcademyLearnerAction();
+  if (learner.subscriptionStatus !== "active" || (learner.currentPeriodEnd && learner.currentPeriodEnd < new Date())) redirect("/academy/subscribe?required=1");
   const courseId = Number(formData.get("courseId"));
   if (!Number.isInteger(courseId)) throw new Error("Invalid course");
   const database = requireDb();
