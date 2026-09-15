@@ -222,13 +222,17 @@ export async function getSuggestedPrompts(clientId: number | null, limit = 4): P
       .limit(50);
 
     // Favor variety over a wall of near-duplicate daily price sheets — at most one
-    // "Petroleum Price Indicators"-style title makes it into the picked set.
+    // "Petroleum Price Indicators"-style title makes it into the picked set. Also skip
+    // exact-title repeats (NPA has re-uploaded the same document under separate URLs).
     let seenPriceIndicator = false;
+    const seenTitles = new Set<string>();
     const picked: string[] = [];
     for (const row of rows) {
+      if (seenTitles.has(row.title)) continue;
       const isPriceIndicator = /petroleum price indicators?/i.test(row.title);
       if (isPriceIndicator && seenPriceIndicator) continue;
       if (isPriceIndicator) seenPriceIndicator = true;
+      seenTitles.add(row.title);
       picked.push(row.title);
       if (picked.length >= limit) break;
     }
