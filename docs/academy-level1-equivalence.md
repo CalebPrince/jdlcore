@@ -8,16 +8,16 @@ Technical reference points for review: [API measurement standards catalogue](htt
 
 | Source chapter | Required JDL teaching and practice | Current Academy session | Status |
 | --- | --- | --- | --- |
-| Introduction | Independent inspection, custody transfer, nomination, standards, ethics, reporting, discrepancies | Independent inspection foundations | Review draft |
-| 1 Safety | SDS sections and application; task risk assessment; PPE by body part; filter and supplied-air respirators; benzene; H2S; confined space; static electricity; stop work | Safety planning; PPE | Review draft |
-| 2 Sampling | Equipment; all-levels, running and spot samples; upper/middle/lower positions; composites; tap and pipeline sampling; vapour-pressure sampling; sample handling; crude, fuel, gasoline and water-white chemicals; labels, seals, transport and custody | Representative sampling; sample custody | Review draft |
-| 3 Static tank gauging | Terms, instruments, reference height and datum, shore innage and outage, free water, floating roof critical zone, marine tank gauges, trim/list corrections, OBQ and ROB | Shore-tank gauging; marine-tank gauging | Review draft |
-| 4 Temperature | Glass and electronic thermometers, verification, immersion and stabilisation, depth selection, representative readings, averaging and recording | Temperature determination | Review draft |
-| 5 Pipeline fullness | Sources of voids, circulation, displacement, high-point checks, pigging, line pack, tolerances and evidence | Pipeline fullness | Review draft |
-| 6 Product versus chemical inspections | Quality and field tests, tank condition, compatibility, sampling, cargo pipelines, safety and transport | Chemical cargo inspection | Review draft |
-| 7 Wall wash | Test purpose, standards, solvent and equipment, safety, funnel and filter-paper methods, blanks, acceptance and limitations | Chemical cargo inspection | Review draft |
-| 8 Calculations | Symbols, units, rounding, raw and corrected data, shore/marine TOV and GOV, water, shell and roof corrections, trim/list, VCF, GSV, S&W, NSV, apparent mass, complete calculation sequence | Quantity calculation | Review draft |
-| Glossary and conversion tables | Plain-language definitions, unit conversions and worked checks | Quantity calculation | Review draft |
+| Introduction | Independent inspection, custody transfer, nomination, standards, ethics, reporting, discrepancies | Independent inspection foundations | Included in course |
+| 1 Safety | SDS sections and application; task risk assessment; PPE by body part; filter and supplied-air respirators; benzene; H2S; confined space; static electricity; stop work | Safety planning; PPE | Included in course |
+| 2 Sampling | Equipment; all-levels, running and spot samples; upper/middle/lower positions; composites; tap and pipeline sampling; vapour-pressure sampling; sample handling; crude, fuel, gasoline and water-white chemicals; labels, seals, transport and custody | Representative sampling; sample custody | Included in course |
+| 3 Static tank gauging | Terms, instruments, reference height and datum, shore innage and outage, free water, floating roof critical zone, marine tank gauges, trim/list corrections, OBQ and ROB | Shore-tank gauging; marine-tank gauging | Included in course |
+| 4 Temperature | Glass and electronic thermometers, verification, immersion and stabilisation, depth selection, representative readings, averaging and recording | Temperature determination | Included in course |
+| 5 Pipeline fullness | Sources of voids, circulation, displacement, high-point checks, pigging, line pack, tolerances and evidence | Pipeline fullness | Included in course |
+| 6 Product versus chemical inspections | Quality and field tests, tank condition, compatibility, sampling, cargo pipelines, safety and transport | Chemical cargo inspection | Included in course |
+| 7 Wall wash | Test purpose, standards, solvent and equipment, safety, funnel and filter-paper methods, blanks, acceptance and limitations | Chemical cargo inspection | Included in course |
+| 8 Calculations | Symbols, units, rounding, raw and corrected data, shore/marine TOV and GOV, water, shell and roof corrections, trim/list, VCF, GSV, S&W, NSV, apparent mass, complete calculation sequence | Quantity calculation | Included in course |
+| Glossary and conversion tables | Plain-language definitions, unit conversions and worked checks | Quantity calculation | Included in course |
 
 ## Acceptance criteria
 
@@ -27,4 +27,4 @@ Technical reference points for review: [API measurement standards catalogue](htt
 4. A technical reviewer checks the material for safety and calculation accuracy, and a JDL operations owner approves it as company training.
 5. The live learner page displays the expanded content and questions; the seed preserves existing progress, attempts and certificates.
 
-The current 12-session review draft now contains extended teaching, fictional cases, a glossary and conversion exercise, a worked shore-tank chain and a worked marine-tank chain based on explicitly fictional table outputs. All 60 questions are lesson-specific. The client can review it in `output/academy-level1-client-review.html`. This is a test draft for evaluation against the acceptance criteria, not an assertion that SGS procedures or JDL-approved methods have been reproduced. No JDL-approved operating methods or tank tables were supplied. The configured database was inaccessible from this workspace, so the draft has not been loaded into the live Academy.
+The 12-session course contains extended teaching, fictional cases, a glossary and conversion exercise, worked shore- and marine-tank chains based on explicitly fictional table outputs, and 60 lesson-specific questions. It is displayed as the normal Academy course. This document is an internal coverage checklist for the client's evaluation; the learner-facing content does not mention that process. No JDL-approved operating methods or tank tables were supplied. The configured database was inaccessible from this workspace, so the course has not yet been loaded there.

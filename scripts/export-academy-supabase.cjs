@@ -2,10 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { sessions } = require("./academy-level1-curriculum.cjs");
 
-const legacy = fs.readFileSync(path.join(__dirname, "academy-ogc-level1-supabase.sql"), "utf8");
-const boundary = legacy.indexOf("insert into academy_courses (slug, code, title, summary");
-if (boundary < 0) throw new Error("Cannot find Academy schema boundary");
-const schema = legacy.slice(legacy.indexOf("begin;"), boundary);
+const schema = fs.readFileSync(path.join(__dirname, "academy-supabase-schema.sql"), "utf8");
 const payload = sessions.map((session, position) => ({
   position, slug: session.slug, title: session.title, minutes: session.minutes,
   kind: position === sessions.length - 1 ? "assessment" : "quiz",
@@ -18,8 +15,8 @@ const payloadJson = JSON.stringify(payload);
 if (payloadJson.includes("$jdl_payload$")) throw new Error("Unexpected SQL delimiter in curriculum");
 const minutes = sessions.reduce((sum, session) => sum + session.minutes, 0);
 
-const sql = `-- JDL Core Academy Level 1: full client-review curriculum.
--- Paste this entire file into the Supabase SQL Editor for the TEST project.
+const sql = `-- JDL Core Academy Level 1 course.
+-- Paste this entire file into the Supabase SQL Editor for the intended Academy project.
 -- It creates missing Academy tables, updates this course in place, and leaves
 -- learner progress, quiz attempts, enrolments and certificates intact.
 -- Exercise tanks, vessels, table outputs and correction factors are fictional.
@@ -40,7 +37,7 @@ begin
     (slug, code, title, summary, level, status, accent, pass_percent, estimated_minutes, published_at)
   values
     ('ogc-level-1', 'JDL-OGC01', 'Oil, Gas & Chemicals Inspection — Level 1',
-     'Twelve JDL-authored client-review sessions covering safety, sampling, measurement, chemical inspection and quantity reporting.',
+     'Twelve JDL-authored sessions covering safety, sampling, measurement, chemical inspection and quantity reporting.',
      'Foundation', 'published', '#eeb02b', 80, ${minutes}, now())
   on conflict (slug) do update set
     code = excluded.code, title = excluded.title, summary = excluded.summary,
@@ -123,6 +120,6 @@ join academy_lessons l on l.module_id = m.id
 left join academy_quiz_questions q on q.lesson_id = l.id
 where c.slug = 'ogc-level-1';
 `;
-const output = path.join(__dirname, "academy-ogc-level1-client-review-supabase.sql");
+const output = path.join(__dirname, "academy-ogc-level1-supabase.sql");
 fs.writeFileSync(output, sql, "utf8");
 console.log(output);
