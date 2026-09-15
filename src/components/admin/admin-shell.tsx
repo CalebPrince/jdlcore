@@ -23,6 +23,7 @@ import {
   UserCog,
   CreditCard,
   Sparkles,
+  KeyRound,
 } from "lucide-react";
 import {
   Sheet,
@@ -60,8 +61,9 @@ const NAV: {
   { href: "/admin/settings", label: "Site Settings", icon: Settings2, roles: ["administrator", "superadmin"] },
   { href: "/admin/audit", label: "Audit Log", icon: History, roles: ["administrator", "superadmin"] },
   { href: "/admin/email", label: "Email", icon: Mail, roles: ["superadmin"] },
-  { href: "/admin/payments", label: "Payments", icon: CreditCard, roles: ["superadmin"] },
+  { href: "/admin/payments", label: "Payments", icon: CreditCard, roles: ["administrator", "superadmin"] },
   { href: "/admin/ai", label: "AI Settings", icon: Bot, roles: ["superadmin"] },
+  { href: "/admin/accounts/reset", label: "Reset Accounts", icon: KeyRound, roles: ["superadmin"] },
   { href: "/admin/account", label: "My Account", icon: UserCog },
 ];
 

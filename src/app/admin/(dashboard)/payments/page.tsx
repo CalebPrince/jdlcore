@@ -51,7 +51,7 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
 
 export default async function AdminPaymentsPage() {
   const current = await getStaff();
-  if (!current || current.role !== "superadmin") notFound();
+  if (!current || !["administrator", "superadmin"].includes(current.role)) notFound();
 
   const config = await getPaystackConfig();
   const mode: PaystackSettingsView["mode"] = config.secretKey?.startsWith("sk_live_")
