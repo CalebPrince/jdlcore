@@ -9,9 +9,9 @@ import { academyLearners, analyticsUsers, clients, inspectors, passwordResetToke
 import { sendNotification } from "@/lib/email";
 import { notify, type RecipientType } from "@/lib/notifications";
 import { hashPassword } from "@/lib/portal-auth";
+import type { AccountType } from "@/lib/account-directory";
 
 export type RecoveryState = { ok: boolean; message: string; loginHref?: string };
-type AccountType = "academy" | "analytics" | "portal" | "inspector" | "staff";
 
 function digest(token: string) { return createHash("sha256").update(token).digest("hex"); }
 async function origin() { const values = await headers(); const host = values.get("x-forwarded-host") ?? values.get("host") ?? "localhost:3000"; const protocol = values.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https"); return `${protocol}://${host}`; }

@@ -3,7 +3,7 @@ import { and, desc, eq, gte, lte, type SQL } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { auditLog } from "@/db/schema";
 
-export type AuditTargetType = "staff" | "inspector" | "client" | "service" | "tank" | "settings";
+export type AuditTargetType = "staff" | "inspector" | "client" | "service" | "tank" | "settings" | "account";
 
 /**
  * Records an account-management or settings change. Job status changes have
