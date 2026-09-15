@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
   // Cannot read properties of null) while identical local tests, run unbundled, never did.
   // mammoth is included defensively for the same class of issue.
   serverExternalPackages: ["exceljs", "pdf-parse", "pdfjs-dist", "mammoth"],
+  // pdfjs-dist loads its worker script from a runtime-constructed file path, which
+  // Vercel's build-output tracing can't statically detect — so the file silently gets
+  // left out of the deployed function bundle ("Cannot find module .../pdf.worker.mjs" in
+  // production only, since local dev has the full node_modules tree on disk). Force it in.
+  outputFileTracingIncludes: {
+    "/**": [
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs",
+      "./node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs",
+      "./node_modules/pdfjs-dist/build/pdf.worker.mjs",
+      "./node_modules/pdfjs-dist/build/pdf.worker.min.mjs",
+    ],
+  },
   // Server Actions default to a 1 MB body limit, well under the 4 MB file caps
   // enforced in code (receipts, uploads) — raise it so those checks are the ones
   // that actually fire, instead of Next hard-rejecting the request first.
