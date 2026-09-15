@@ -203,7 +203,13 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
       added += 1;
     } catch (error) {
       failed += 1;
-      const message = error instanceof Error ? error.message : "Ingestion failed.";
+      const baseMessage = error instanceof Error ? error.message : "Ingestion failed.";
+      // Temporary richer diagnostics — remove once the production-only PDF failure is
+      // root-caused (it doesn't reproduce locally, so the error text itself is the only
+      // window into what's actually happening on the deployed runtime).
+      const stack = error instanceof Error && error.stack ? error.stack.split("\n").slice(0, 3).join(" | ") : "";
+      const diag = `runtime=${process.env.NEXT_RUNTIME ?? "?"} node=${process.version} domMatrix=${typeof globalThis.DOMMatrix} type=${file.type} stack=${stack}`;
+      const message = `${baseMessage} [[${diag}]]`;
       await database.update(knowledgeDocuments).set({ status: "failed", error: message }).where(eq(knowledgeDocuments.id, documentId));
     }
   }
