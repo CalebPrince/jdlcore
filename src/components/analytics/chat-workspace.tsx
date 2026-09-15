@@ -14,7 +14,7 @@ export type ChatSummary = { id: number; title: string };
 export type ChatSource = { docId: number; title: string; quote: string };
 export type ChatMessage = { role: "user" | "assistant"; content: string; sources?: ChatSource[] };
 
-const SUGGESTIONS = [
+const FALLBACK_SUGGESTIONS = [
   "Explain how a quantity certification protects a lender.",
   "What should I check before accepting a cargo discharge?",
   "Draft a stock discrepancy report outline for my MD.",
@@ -26,6 +26,7 @@ export function ChatWorkspace({
   chats,
   activeChatId,
   initialMessages,
+  suggestions,
   initialUsedToday,
   dailyLimit,
   plan,
@@ -37,6 +38,8 @@ export function ChatWorkspace({
   chats: ChatSummary[];
   activeChatId: number | null;
   initialMessages: ChatMessage[];
+  /** Starter prompts grounded in the current knowledge base — see getSuggestedPrompts. */
+  suggestions?: string[];
   initialUsedToday: number;
   dailyLimit: number;
   plan?: string | null;
@@ -44,6 +47,7 @@ export function ChatWorkspace({
   monthlyLimit?: number | null;
   periodResetLabel?: string | null;
 }) {
+  const startPrompts = suggestions && suggestions.length > 0 ? suggestions : FALLBACK_SUGGESTIONS;
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [chatList, setChatList] = useState<ChatSummary[]>(chats);
   const [input, setInput] = useState("");
@@ -232,7 +236,7 @@ export function ChatWorkspace({
                   reconciliation — or your own inspection work.
                 </p>
                 <div className="mt-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-                  {SUGGESTIONS.map((s) => (
+                  {startPrompts.map((s) => (
                     <button
                       key={s}
                       type="button"

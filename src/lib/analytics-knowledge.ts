@@ -179,3 +179,67 @@ export async function retrieveKnowledge(query: string, clientId: number | null, 
     .slice(0, limit)
     .map(({ docId, title, content }) => ({ docId, title, quote: content }));
 }
+
+const EVERGREEN_PROMPTS = [
+  "Explain how a quantity certification protects a lender.",
+  "What should I check before accepting a cargo discharge?",
+  "Draft a stock discrepancy report outline for my MD.",
+  "How does collateral monitoring work for fuel depots?",
+];
+
+/** Turns a real, recently-ingested document title into a natural-sounding starter prompt. */
+function promptForTitle(title: string, index: number): string {
+  if (/petroleum price indicators?/i.test(title)) {
+    return "What's the latest NPA petroleum price indicator, and how has it moved recently?";
+  }
+  const templates = [
+    (t: string) => `What does "${t}" cover?`,
+    (t: string) => `Summarize "${t}" for me.`,
+    (t: string) => `Walk me through "${t}".`,
+  ];
+  return templates[index % templates.length](title);
+}
+
+/**
+ * Starter prompts shown before a chat begins. Grounded in whatever is actually in the
+ * knowledge base right now (falling back to fixed evergreen prompts when there's too
+ * little to draw from) so the suggestions stay current as documents are added, instead
+ * of being permanently hardcoded and disconnected from what the assistant can answer.
+ */
+export async function getSuggestedPrompts(clientId: number | null, limit = 4): Promise<string[]> {
+  try {
+    const database = requireDb();
+    const rows = await database
+      .select({ title: knowledgeDocuments.title })
+      .from(knowledgeDocuments)
+      .where(and(
+        eq(knowledgeDocuments.status, "ready"),
+        clientId
+          ? or(eq(knowledgeDocuments.scope, "global"), and(eq(knowledgeDocuments.scope, "client"), eq(knowledgeDocuments.clientId, clientId)))
+          : eq(knowledgeDocuments.scope, "global"),
+      ))
+      .orderBy(sql`coalesce(${knowledgeDocuments.sourceDate}, ${knowledgeDocuments.createdAt}) desc`)
+      .limit(50);
+
+    // Favor variety over a wall of near-duplicate daily price sheets — at most one
+    // "Petroleum Price Indicators"-style title makes it into the picked set.
+    let seenPriceIndicator = false;
+    const picked: string[] = [];
+    for (const row of rows) {
+      const isPriceIndicator = /petroleum price indicators?/i.test(row.title);
+      if (isPriceIndicator && seenPriceIndicator) continue;
+      if (isPriceIndicator) seenPriceIndicator = true;
+      picked.push(row.title);
+      if (picked.length >= limit) break;
+    }
+
+    const prompts = picked.map((title, i) => promptForTitle(title, i));
+    // Too few real documents to fill the grid meaningfully — round out with evergreen ones.
+    for (let i = 0; prompts.length < limit && i < EVERGREEN_PROMPTS.length; i++) {
+      if (!prompts.includes(EVERGREEN_PROMPTS[i])) prompts.push(EVERGREEN_PROMPTS[i]);
+    }
+    return prompts.slice(0, limit);
+  } catch {
+    return EVERGREEN_PROMPTS.slice(0, limit);
+  }
+}

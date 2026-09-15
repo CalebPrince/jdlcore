@@ -2,6 +2,7 @@ import { and, asc, desc, eq, gte, lt, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { analyticsChats, analyticsDailyUsage, analyticsMessages } from "@/db/schema";
 import { getAnalyticsUser } from "@/lib/analytics-auth";
+import { getSuggestedPrompts } from "@/lib/analytics-knowledge";
 import { ChatWorkspace } from "@/components/analytics/chat-workspace";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,7 @@ export default async function AnalyticsAppPage({
   let initialMessages: { role: "user" | "assistant"; content: string; sources?: { docId: number; title: string; quote: string }[] }[] = [];
   let usedToday = 0;
   let monthlyUsed = 0;
+  const suggestions = await getSuggestedPrompts(user.clientId ?? null);
 
   try {
     const database = requireDb();
@@ -87,6 +89,7 @@ export default async function AnalyticsAppPage({
       chats={chats}
       activeChatId={activeChatId}
       initialMessages={initialMessages}
+      suggestions={suggestions}
       initialUsedToday={usedToday}
       dailyLimit={user.dailyLimit}
       plan={user.plan}
