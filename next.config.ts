@@ -3,7 +3,12 @@ import type { NextConfig } from "next";
 const ROOT_HOST = "jdlcore.com";
 
 const nextConfig: NextConfig = {
-  serverExternalPackages: ["exceljs"],
+  // pdf-parse/pdfjs-dist self-polyfill Node globals (DOMMatrix) and spawn a worker thread
+  // from its own file path as side effects of being loaded — both break under webpack
+  // bundling, which is why PDF ingestion failed in production (DOMMatrix is not defined /
+  // Cannot read properties of null) while identical local tests, run unbundled, never did.
+  // mammoth is included defensively for the same class of issue.
+  serverExternalPackages: ["exceljs", "pdf-parse", "pdfjs-dist", "mammoth"],
   // Server Actions default to a 1 MB body limit, well under the 4 MB file caps
   // enforced in code (receipts, uploads) — raise it so those checks are the ones
   // that actually fire, instead of Next hard-rejecting the request first.

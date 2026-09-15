@@ -40,6 +40,13 @@ export async function extractDocumentText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+    // pdf-parse (via pdfjs-dist) reaches for the browser's DOMMatrix global for some PDFs
+    // (embedded fonts/transforms) — absent in a plain Node server runtime, throwing
+    // "DOMMatrix is not defined". Polyfill it once, process-wide, before parsing.
+    if (typeof globalThis.DOMMatrix === "undefined") {
+      const { default: DOMMatrixPolyfill } = await import("dommatrix");
+      globalThis.DOMMatrix = DOMMatrixPolyfill as unknown as typeof globalThis.DOMMatrix;
+    }
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: bytes });
     try {
