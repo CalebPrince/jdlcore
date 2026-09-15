@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, asc, eq, inArray } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { academyCertificates, academyCourses, academyEnrollments, academyLearners, academyLessonProgress, academyLessons, academyModules, academyQuizAttempts, academyQuizOptions, academyQuizQuestions } from "@/db/schema";
@@ -108,6 +108,23 @@ export async function requireAcademyLearnerAction() {
   return learner;
 }
 
+async function canAccessAcademyLesson(learnerId: number, lessonId: number) {
+  const database = requireDb();
+  const link = await database.select({ courseId: academyModules.courseId }).from(academyLessons)
+    .innerJoin(academyModules, eq(academyLessons.moduleId, academyModules.id))
+    .where(eq(academyLessons.id, lessonId)).limit(1);
+  if (!link[0]) return false;
+  const lessons = await database.select({ id: academyLessons.id }).from(academyLessons)
+    .innerJoin(academyModules, eq(academyLessons.moduleId, academyModules.id))
+    .where(and(eq(academyModules.courseId, link[0].courseId), eq(academyLessons.published, true)))
+    .orderBy(asc(academyModules.position), asc(academyLessons.position));
+  const index = lessons.findIndex((lesson) => lesson.id === lessonId);
+  if (index <= 0) return index === 0;
+  const previous = await database.select({ completed: academyLessonProgress.completed }).from(academyLessonProgress)
+    .where(and(eq(academyLessonProgress.learnerId, learnerId), eq(academyLessonProgress.lessonId, lessons[index - 1].id))).limit(1);
+  return Boolean(previous[0]?.completed);
+}
+
 export async function enrollInAcademyCourse(formData: FormData) {
   const learner = await requireAcademyLearnerAction();
   const courseId = Number(formData.get("courseId"));
@@ -129,6 +146,7 @@ export async function completeAcademyLesson(formData: FormData) {
   const lessonId = Number(formData.get("lessonId"));
   const returnTo = String(formData.get("returnTo") ?? "/academy/lms");
   if (!Number.isInteger(lessonId) || !returnTo.startsWith("/academy/")) throw new Error("Invalid lesson");
+  if (!(await canAccessAcademyLesson(learner.id, lessonId))) throw new Error("Complete the previous session first.");
   const database = requireDb();
   const lesson = await database.select({ kind: academyLessons.kind }).from(academyLessons).where(eq(academyLessons.id, lessonId)).limit(1);
   if (!lesson[0] || lesson[0].kind === "quiz" || lesson[0].kind === "assessment") throw new Error("Complete the scored assessment instead.");
@@ -146,6 +164,7 @@ export async function submitAcademyQuiz(_previous: FormState, formData: FormData
   const lessonId = Number(formData.get("lessonId"));
   const returnTo = String(formData.get("returnTo") ?? "/academy/lms");
   if (!Number.isInteger(lessonId) || !returnTo.startsWith("/academy/")) return { ok: false, message: "Invalid assessment." };
+  if (!(await canAccessAcademyLesson(learner.id, lessonId))) return { ok: false, message: "Complete the previous session first." };
   const database = requireDb();
   const lesson = await database.select({ id: academyLessons.id, moduleId: academyLessons.moduleId, kind: academyLessons.kind }).from(academyLessons).where(eq(academyLessons.id, lessonId)).limit(1);
   if (!lesson[0] || !["quiz", "assessment"].includes(lesson[0].kind)) return { ok: false, message: "This lesson is not a scored assessment." };

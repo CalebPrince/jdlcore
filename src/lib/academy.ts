@@ -104,7 +104,10 @@ export async function getCourseForLearner(learnerId: number, slug: string) {
   const progressRows = lessonIds.length ? await database.select().from(academyLessonProgress)
     .where(and(eq(academyLessonProgress.learnerId, learnerId), inArray(academyLessonProgress.lessonId, lessonIds))) : [];
   const progress = new Map(progressRows.map((item) => [item.lessonId, item]));
-  return { course, enrolled: true, modules: modules.map((module) => ({ ...module, lessons: lessons.filter((lesson) => lesson.moduleId === module.id).map((lesson) => ({ ...lesson, completed: progress.get(lesson.id)?.completed ?? false })) })) };
+  const orderedLessons = modules.flatMap((module) => lessons.filter((lesson) => lesson.moduleId === module.id));
+  const unlocked = new Map(orderedLessons.map((lesson, index) => [lesson.id, index === 0 || Boolean(progress.get(orderedLessons[index - 1].id)?.completed)]));
+  let sessionNumber = 0;
+  return { course, enrolled: true, modules: modules.map((module) => ({ ...module, lessons: lessons.filter((lesson) => lesson.moduleId === module.id).map((lesson) => ({ ...lesson, sessionNumber: ++sessionNumber, completed: progress.get(lesson.id)?.completed ?? false, locked: !unlocked.get(lesson.id) })) })) };
 }
 
 export async function listPublishedAcademyCourses() {
@@ -139,6 +142,17 @@ export async function getLessonForLearner(learnerId: number, courseSlug: string,
   const enrollment = await database.select({ id: academyEnrollments.id }).from(academyEnrollments)
     .where(and(eq(academyEnrollments.learnerId, learnerId), eq(academyEnrollments.courseId, result.course.id))).limit(1);
   if (!enrollment.length) return null;
+  const orderedLessons = await database.select({ id: academyLessons.id })
+    .from(academyLessons)
+    .innerJoin(academyModules, eq(academyLessons.moduleId, academyModules.id))
+    .where(and(eq(academyModules.courseId, result.course.id), eq(academyLessons.published, true)))
+    .orderBy(asc(academyModules.position), asc(academyLessons.position));
+  const lessonIndex = orderedLessons.findIndex((lesson) => lesson.id === result.lesson.id);
+  if (lessonIndex > 0) {
+    const previous = await database.select({ completed: academyLessonProgress.completed }).from(academyLessonProgress)
+      .where(and(eq(academyLessonProgress.learnerId, learnerId), eq(academyLessonProgress.lessonId, orderedLessons[lessonIndex - 1].id))).limit(1);
+    if (!previous[0]?.completed) return null;
+  }
   const progress = await database.select().from(academyLessonProgress)
     .where(and(eq(academyLessonProgress.learnerId, learnerId), eq(academyLessonProgress.lessonId, result.lesson.id))).limit(1);
   let questions: { id: number; prompt: string; position: number; options: { id: number; label: string; position: number }[] }[] = [];
