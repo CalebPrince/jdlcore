@@ -1,3 +1,5 @@
+-- Legacy bootstrap with one-line placeholder lessons. Do not rerun for content:
+-- npm run db:seed:academy uses academy-level1-curriculum.cjs instead.
 begin;
 
 create table if not exists academy_learners (
