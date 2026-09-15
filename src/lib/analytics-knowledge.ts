@@ -1,8 +1,10 @@
 import "server-only";
 
 import { and, eq, or, sql } from "drizzle-orm";
+import type { Cell } from "exceljs";
 import { requireDb } from "@/db";
 import { knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
+import { DOMMatrixPolyfill } from "@/lib/dommatrix-polyfill";
 
 export type KnowledgeSource = {
   docId: number;
@@ -36,17 +38,41 @@ function colLetter(n: number): string {
   return s;
 }
 
+/**
+ * exceljs's own `cell.text` getter can throw on certain merged-cell layouts (a "slave"
+ * cell in a merge whose master resolves to a null value crashes inside exceljs's own
+ * MergeValue.toString) — seen on real NPA spreadsheets with extensive merged headers.
+ * Fall back to a manual, defensive read rather than losing the whole document to one cell.
+ */
+function safeCellText(cell: Cell): string | undefined {
+  try {
+    return cell.text;
+  } catch {
+    try {
+      const v = cell.value;
+      if (v === null || v === undefined) return undefined;
+      if (v instanceof Date) return v.toISOString();
+      if (typeof v === "object") {
+        if ("result" in v && v.result !== null && v.result !== undefined) return String(v.result);
+        if ("text" in v && v.text !== null && v.text !== undefined) return String(v.text);
+        return undefined;
+      }
+      return String(v);
+    } catch {
+      return undefined;
+    }
+  }
+}
+
 export async function extractDocumentText(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
   const bytes = new Uint8Array(arrayBuffer);
   if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
     // pdf-parse (via pdfjs-dist) reaches for the browser's DOMMatrix global for some PDFs
     // (embedded fonts/transforms) — absent in a plain Node server runtime, throwing
-    // "DOMMatrix is not defined". Polyfill it once, process-wide, before parsing.
-    if (typeof globalThis.DOMMatrix === "undefined") {
-      const { default: DOMMatrixPolyfill } = await import("dommatrix");
-      globalThis.DOMMatrix = DOMMatrixPolyfill as unknown as typeof globalThis.DOMMatrix;
-    }
+    // "DOMMatrix is not defined". Assigned unconditionally (not just when missing) so it
+    // wins over anything pdf-parse's own internal, possibly-incomplete self-polyfill did.
+    globalThis.DOMMatrix = DOMMatrixPolyfill as unknown as typeof globalThis.DOMMatrix;
     const { PDFParse } = await import("pdf-parse");
     const parser = new PDFParse({ data: bytes });
     try {
@@ -76,7 +102,7 @@ export async function extractDocumentText(file: File): Promise<string> {
       sheet.eachRow((row, rowNumber) => {
         const cells: string[] = [];
         row.eachCell({ includeEmpty: false }, (cell, colNumber) => {
-          const v = cell.text?.trim();
+          const v = safeCellText(cell)?.trim();
           if (v) cells.push(`${colLetter(colNumber)}${rowNumber}: ${v}`);
         });
         if (cells.length) lines.push(cells.join(" | "));
