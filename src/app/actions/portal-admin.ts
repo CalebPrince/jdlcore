@@ -19,6 +19,7 @@ import {
   submissions,
 } from "@/db/schema";
 import { JOB_STATUSES, JOB_STATUS_META, makeInvoiceNumber, makeRef } from "@/lib/jobs";
+import { computeInvoiceTotal } from "@/lib/invoice-tax";
 import { getInvoiceSettings } from "@/lib/settings";
 import { isEmailConfigured, getEmailConfig, sendNotification, brandedEmailHtml } from "@/lib/email";
 import { notify, notifyBoth } from "@/lib/notifications";
@@ -329,6 +330,9 @@ export async function createInvoice(
   const parsed = invoiceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Enter a valid amount.");
   const f = parsed.data;
+  const subtotalCents = Math.round(f.amount * 100);
+  const breakdown = computeInvoiceTotal(subtotalCents, f.currency);
+  const amountCents = breakdown?.totalCents ?? subtotalCents;
   let invoiceNumber = "";
   try {
     const database = requireDb();
@@ -337,7 +341,11 @@ export async function createInvoice(
       .values({
         number: `PENDING-${Date.now()}`,
         jobId: f.jobId,
-        amountCents: Math.round(f.amount * 100),
+        amountCents,
+        subtotalCents: breakdown?.subtotalCents ?? null,
+        nhilCents: breakdown?.nhilCents ?? null,
+        getfundCents: breakdown?.getfundCents ?? null,
+        vatCents: breakdown?.vatCents ?? null,
         currency: f.currency,
         dueDate: f.dueDate ? new Date(f.dueDate) : null,
         status: "sent",
@@ -356,7 +364,7 @@ export async function createInvoice(
 
   const recipient = await clientEmailForJob(f.jobId);
   if (recipient) {
-    const amountStr = `${f.currency} ${f.amount.toLocaleString("en-GH", { minimumFractionDigits: 2 })}`;
+    const amountStr = `${f.currency} ${(amountCents / 100).toLocaleString("en-GH", { minimumFractionDigits: 2 })}`;
     await notifyBoth({
       recipientType: "client",
       recipientId: recipient.clientId,

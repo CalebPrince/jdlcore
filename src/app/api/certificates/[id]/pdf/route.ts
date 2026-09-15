@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
@@ -103,16 +105,20 @@ async function buildCoqPdf(
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const M = 56;
 
-  page.drawRectangle({ x: 0, y: 762, width: 595, height: 80, color: NAVY });
-  page.drawText("JDL CORE", { x: M, y: 800, size: 22, font: bold, color: rgb(1, 1, 1) });
+  const logoBytes = await readFile(path.join(process.cwd(), "public", "logo-inspection.png"));
+  const logo = await pdf.embedPng(logoBytes);
+  const logoH = 40;
+  const logoW = logoH * (logo.width / logo.height);
+  page.drawImage(logo, { x: M, y: 780, width: logoW, height: logoH });
   page.drawText(reportSettings.headerTagline, {
-    x: M,
-    y: 784,
+    x: M + logoW + 16,
+    y: 798,
     size: 7.5,
     font: regular,
-    color: rgb(0.65, 0.72, 0.78),
+    color: MUTED,
   });
-  page.drawText("CERTIFICATE OF QUANTITY", { x: 330, y: 796, size: 15, font: bold, color: GOLD });
+  page.drawText("CERTIFICATE OF QUANTITY", { x: 330, y: 796, size: 15, font: bold, color: NAVY });
+  page.drawLine({ start: { x: 0, y: 758 }, end: { x: 595, y: 758 }, thickness: 2, color: GOLD });
 
   let y = 716;
   const label = (text: string, x: number) =>

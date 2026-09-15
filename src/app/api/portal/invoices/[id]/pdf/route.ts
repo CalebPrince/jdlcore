@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { NextResponse } from "next/server";
 import { and, eq } from "drizzle-orm";
 import { PDFDocument, StandardFonts, rgb, degrees } from "pdf-lib";
@@ -83,16 +85,20 @@ async function buildInvoicePdf(
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const M = 56;
 
-  page.drawRectangle({ x: 0, y: 762, width: 595, height: 80, color: NAVY });
-  page.drawText("JDL CORE", { x: M, y: 800, size: 22, font: bold, color: rgb(1, 1, 1) });
+  const logoBytes = await readFile(path.join(process.cwd(), "public", "logo-inspection.png"));
+  const logo = await pdf.embedPng(logoBytes);
+  const logoH = 40;
+  const logoW = logoH * (logo.width / logo.height);
+  page.drawImage(logo, { x: M, y: 780, width: logoW, height: logoH });
   page.drawText(reportSettings.headerTagline, {
-    x: M,
-    y: 784,
+    x: M + logoW + 16,
+    y: 798,
     size: 7.5,
     font: regular,
-    color: rgb(0.65, 0.72, 0.78),
+    color: MUTED,
   });
-  page.drawText("INVOICE", { x: 448, y: 796, size: 20, font: bold, color: GOLD });
+  page.drawText("INVOICE", { x: 448, y: 796, size: 20, font: bold, color: NAVY });
+  page.drawLine({ start: { x: 0, y: 758 }, end: { x: 595, y: 758 }, thickness: 2, color: GOLD });
 
   let y = 716;
   const label = (text: string, x: number) =>
@@ -124,6 +130,9 @@ async function buildInvoicePdf(
     page.drawText(`Due: ${formatDate(invoice.dueDate)}`, { x: 380, y, size: 9, font: regular, color: MUTED });
   }
 
+  const money = (cents: number) => `${invoice.currency} ${(cents / 100).toLocaleString("en-GH", { minimumFractionDigits: 2 })}`;
+  const hasBreakdown = invoice.subtotalCents != null && invoice.nhilCents != null && invoice.getfundCents != null && invoice.vatCents != null;
+
   // Items table
   y -= 44;
   page.drawRectangle({ x: M, y: y - 6, width: 595 - M * 2, height: 26, color: rgb(0.949, 0.937, 0.906) });
@@ -132,16 +141,24 @@ async function buildInvoicePdf(
 
   y -= 34;
   page.drawText(job.service, { x: M + 12, y, size: 10.5, font: regular, color: INK });
-  const amount = (invoice.amountCents / 100).toLocaleString("en-GH", {
-    minimumFractionDigits: 2,
-  });
-  page.drawText(`${invoice.currency} ${amount}`, {
+  page.drawText(money(hasBreakdown ? invoice.subtotalCents! : invoice.amountCents), {
     x: 452,
     y,
     size: 10.5,
     font: regular,
     color: INK,
   });
+
+  if (hasBreakdown) {
+    const levyRow = (levyLabel: string, cents: number) => {
+      y -= 20;
+      page.drawText(levyLabel, { x: M + 12, y, size: 9.5, font: regular, color: MUTED });
+      page.drawText(money(cents), { x: 452, y, size: 9.5, font: regular, color: MUTED });
+    };
+    levyRow("NHIL (2.5%)", invoice.nhilCents!);
+    levyRow("GETFund (2.5%)", invoice.getfundCents!);
+    levyRow("VAT (15%)", invoice.vatCents!);
+  }
 
   y -= 18;
   page.drawLine({
@@ -152,7 +169,7 @@ async function buildInvoicePdf(
   });
   y -= 24;
   page.drawText("TOTAL DUE", { x: 356, y, size: 10, font: bold, color: NAVY });
-  page.drawText(`${invoice.currency} ${amount}`, {
+  page.drawText(money(invoice.amountCents), {
     x: 452,
     y,
     size: 13,

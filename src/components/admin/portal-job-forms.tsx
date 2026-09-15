@@ -92,8 +92,9 @@ export function CreateInvoiceForm({
       <input type="hidden" name="jobId" value={jobId} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`ia-${jobId}`}>Amount</Label>
+          <Label htmlFor={`ia-${jobId}`}>Amount (before tax)</Label>
           <Input id={`ia-${jobId}`} name="amount" type="number" step="0.01" min="0.01" required placeholder="12500.00" />
+          <p className="m-0 text-[11px] text-muted-foreground">GHS invoices add NHIL, GETFund &amp; VAT automatically.</p>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label>Currency</Label>

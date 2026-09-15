@@ -456,7 +456,14 @@ export const invoices = pgTable(
     jobId: integer("job_id")
       .notNull()
       .references(() => jobs.id, { onDelete: "cascade" }),
-    amountCents: integer("amount_cents").notNull(),
+    amountCents: integer("amount_cents").notNull(), // grand total actually due (subtotal + levies, when present)
+    // Tax breakdown — null on invoices issued before this existed, or non-GHS invoices
+    // (NHIL/GETFund/VAT are Ghana-domestic levies, not applied to USD invoices). See
+    // src/lib/invoice-tax.ts.
+    subtotalCents: integer("subtotal_cents"),
+    nhilCents: integer("nhil_cents"),
+    getfundCents: integer("getfund_cents"),
+    vatCents: integer("vat_cents"),
     currency: text("currency").notNull().default("GHS"),
     dueDate: timestamp("due_date", { withTimezone: true }),
     // pending | payment_submitted | payment_verified | paid | payment_rejected

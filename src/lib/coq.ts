@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { certificates, clients, invoices, jobs, services } from "@/db/schema";
 import { makeCoqNumber, makeInvoiceNumber } from "@/lib/jobs";
+import { computeInvoiceTotal } from "@/lib/invoice-tax";
 import { notify } from "@/lib/notifications";
 import { sendNotification } from "@/lib/email";
 import { getInvoiceSettings, getReportSettings } from "@/lib/settings";
@@ -51,12 +52,20 @@ export async function generateCoqAndInvoice(
   const dueDate = new Date();
   dueDate.setDate(dueDate.getDate() + (Number(invoiceSettings.termsDays) || 14));
 
+  const subtotalCents = defaultPriceCents ?? 0;
+  // Only compute a tax breakdown when there's a real price — a zeroed "confirm later"
+  // invoice shouldn't render an all-zero NHIL/GETFund/VAT table.
+  const breakdown = defaultPriceCents ? computeInvoiceTotal(subtotalCents, invoiceSettings.defaultCurrency) : null;
   const [inv] = await database
     .insert(invoices)
     .values({
       number: `PENDING-${Date.now()}`,
       jobId,
-      amountCents: defaultPriceCents ?? 0,
+      amountCents: breakdown?.totalCents ?? subtotalCents,
+      subtotalCents: breakdown?.subtotalCents ?? null,
+      nhilCents: breakdown?.nhilCents ?? null,
+      getfundCents: breakdown?.getfundCents ?? null,
+      vatCents: breakdown?.vatCents ?? null,
       currency: invoiceSettings.defaultCurrency,
       dueDate,
       status: "pending",
