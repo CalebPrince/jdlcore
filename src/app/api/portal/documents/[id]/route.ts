@@ -6,6 +6,15 @@ import { getPortalClient } from "@/lib/portal-auth";
 
 export const dynamic = "force-dynamic";
 
+const EXT_BY_MIME: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+  "application/msword": "doc",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "docx",
+};
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -37,10 +46,14 @@ export async function GET(
     ? doc.fileData.split(",")[1]
     : doc.fileData;
   const bytes = Buffer.from(base64, "base64");
+  const mimeType = doc.mimeType ?? "application/octet-stream";
+  const ext = EXT_BY_MIME[mimeType];
+  const safeTitle = doc.title.replace(/[^a-z0-9 ._-]/gi, "_");
+  const filename = ext && !safeTitle.toLowerCase().endsWith(`.${ext}`) ? `${safeTitle}.${ext}` : safeTitle;
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
-      "content-type": doc.mimeType ?? "application/octet-stream",
-      "content-disposition": `attachment; filename="${doc.title.replace(/[^a-z0-9 ._-]/gi, "_")}"`,
+      "content-type": mimeType,
+      "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "private, no-store",
     },
   });
