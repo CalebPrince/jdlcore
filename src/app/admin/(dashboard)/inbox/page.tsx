@@ -28,6 +28,7 @@ const TYPE_LABELS: Record<string, string> = {
   chat_handoff: "Chat handoff",
   waitlist_analytics: "Analytics waitlist",
   waitlist_academy: "Academy waitlist",
+  waitlist_mobile_app: "Mobile app waitlist",
 };
 
 const FILTERS = [
@@ -37,6 +38,7 @@ const FILTERS = [
   { value: "chat_handoff", label: "Chat handoffs" },
   { value: "waitlist_analytics", label: "Analytics waitlist" },
   { value: "waitlist_academy", label: "Academy waitlist" },
+  { value: "waitlist_mobile_app", label: "Mobile app waitlist" },
 ];
 
 export default async function AdminInboxPage({

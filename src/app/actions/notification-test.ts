@@ -34,7 +34,7 @@ const TEST_ITEMS: { category: string; label: string }[] = [
   { category: "Staff & Operations", label: "New quote request submitted from the website" },
   { category: "Staff & Operations", label: "New contact form message" },
   { category: "Staff & Operations", label: "New live chat handoff request" },
-  { category: "Staff & Operations", label: "New Analytics or Academy waitlist signup" },
+  { category: "Staff & Operations", label: "New Analytics, Academy, or Mobile App waitlist signup" },
   { category: "Staff & Operations", label: "Client submits a new service request from the portal" },
   { category: "Staff & Operations", label: "Client submits a payment receipt (needs verification)" },
   { category: "Staff & Operations", label: "Client pays an invoice online via Paystack (auto-verified)" },

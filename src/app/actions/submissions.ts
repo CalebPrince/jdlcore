@@ -96,8 +96,14 @@ const waitlistSchema = z.object({
   email: z.string().trim().email("Please enter a valid email address."),
 });
 
+const WAITLIST_DIVISION_LABEL = {
+  analytics: "Analytics",
+  academy: "Academy",
+  mobile_app: "Mobile App",
+} as const;
+
 export async function submitWaitlist(
-  division: "analytics" | "academy",
+  division: "analytics" | "academy" | "mobile_app",
   _prev: FormState,
   formData: FormData
 ): Promise<FormState> {
@@ -115,7 +121,7 @@ export async function submitWaitlist(
       });
     await notifyStaffOfSubmission(
       `waitlist_${division}`,
-      `New ${division === "analytics" ? "Analytics" : "Academy"} waitlist signup`,
+      `New ${WAITLIST_DIVISION_LABEL[division]} waitlist signup`,
       parsed.data.email,
     );
     return {

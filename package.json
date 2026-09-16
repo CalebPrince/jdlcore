@@ -20,6 +20,8 @@
     "db:migrate:admin-assistant": "node scripts/migrate-admin-assistant.cjs"
   },
   "dependencies": {
+    "@iconify-icons/logos": "^2.0.1",
+    "@iconify/react": "^6.0.2",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -38,6 +40,7 @@
     "radix-ui": "^1.6.7",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
+    "react-icons": "^5.7.0",
     "recharts": "^3.8.0",
     "server-only": "^0.0.1",
     "shadcn": "^4.19.0",

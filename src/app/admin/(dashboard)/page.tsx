@@ -6,6 +6,7 @@ import {
   MessagesSquare,
   BellRing,
   GraduationCap,
+  Smartphone,
   LayoutList,
   AlertTriangle,
   CheckCircle2,
@@ -35,6 +36,7 @@ const TYPE_META: Record<
   chat_handoff: { label: "Chat handoffs", icon: MessagesSquare },
   waitlist_analytics: { label: "Analytics waitlist", icon: BellRing },
   waitlist_academy: { label: "Academy waitlist", icon: GraduationCap },
+  waitlist_mobile_app: { label: "Mobile app waitlist", icon: Smartphone },
 };
 
 const timeFmt = new Intl.DateTimeFormat("en-GB", {

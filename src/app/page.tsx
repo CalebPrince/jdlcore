@@ -2,14 +2,38 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { SiApple } from "react-icons/si";
+import { Icon } from "@iconify/react";
+import googlePlayIcon from "@iconify-icons/logos/google-play-icon";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ChatWidget } from "@/components/chat-widget";
 import { Reveal } from "@/components/reveal";
 import { OverviewMockup, AnalyticsChatMockup, AcademyMockup } from "@/components/mockups";
 import { ContactForm } from "@/components/forms/contact-form";
+import { WaitlistForm } from "@/components/forms/waitlist-form";
 import { WhatsAppIcon } from "@/components/whatsapp-icon";
 import { getContactSettings, whatsappLink } from "@/lib/settings";
+import { submitWaitlist } from "@/app/actions/submissions";
+
+const submitMobileAppWaitlist = submitWaitlist.bind(null, "mobile_app");
+
+function ComingSoonBadge({ icon, store }: { icon: React.ReactNode; store: string }) {
+  return (
+    <div
+      className="flex w-[196px] cursor-default select-none items-center gap-3 rounded-[var(--radius-sm)] px-4 py-2.5"
+      style={{ background: "var(--navy-950)" }}
+    >
+      <span className="text-[1.7rem] leading-none text-paper">{icon}</span>
+      <span className="flex flex-col leading-tight">
+        <span className="text-[0.6rem] uppercase tracking-[0.07em] text-white/55">
+          Coming soon on
+        </span>
+        <span className="font-display text-[0.98rem] font-bold text-paper">{store}</span>
+      </span>
+    </div>
+  );
+}
 
 export const metadata: Metadata = {
   title: "JDL Core | Independent Oil & Gas Inspection, Analytics & Training",
@@ -407,6 +431,38 @@ export default async function HomePage() {
             <Reveal className="grid gap-5 sm:grid-cols-2 max-lg:max-w-[560px] max-lg:mx-auto">
               <AnalyticsChatMockup />
               <AcademyMockup />
+            </Reveal>
+          </div>
+        </section>
+
+        {/* ============ MOBILE APP ============ */}
+        <section className="py-21">
+          <div className="wrap">
+            <Reveal className="mx-auto max-w-[620px] text-center">
+              <p className="eyebrow mx-auto">Mobile App</p>
+              <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
+                Take JDL Core Anywhere
+              </h2>
+              <p className="text-ink-soft">
+                Track inspection jobs, review reports and invoices, and get
+                instant notifications from the client portal — right from your
+                phone.
+              </p>
+
+              <div className="mt-7 flex flex-wrap items-center justify-center gap-3.5">
+                <ComingSoonBadge icon={<SiApple aria-hidden="true" />} store="App Store" />
+                <ComingSoonBadge
+                  icon={<Icon icon={googlePlayIcon} aria-hidden="true" height="1em" />}
+                  store="Google Play"
+                />
+              </div>
+
+              <div className="mt-8 flex flex-col items-center gap-3">
+                <p className="m-0 text-[0.85rem] font-semibold text-navy-800">
+                  Get notified when the app launches
+                </p>
+                <WaitlistForm action={submitMobileAppWaitlist} />
+              </div>
             </Reveal>
           </div>
         </section>
