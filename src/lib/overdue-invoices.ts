@@ -4,6 +4,7 @@ import { requireDb } from "@/db";
 import { clients, invoices, jobs } from "@/db/schema";
 import { notifyBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
+import { getPaystackConfig, isPaystackReady } from "@/lib/paystack";
 
 /**
  * No cron/queue infra in this project — call this from a jobs-list loader to
@@ -37,6 +38,11 @@ export async function flagOverdueInvoices(): Promise<void> {
         ),
       );
 
+    if (overdue.length === 0) return;
+    const payOnline = isPaystackReady(await getPaystackConfig())
+      ? "You can also pay this invoice online instantly by card or mobile money from the portal."
+      : null;
+
     for (const inv of overdue) {
       await database.update(invoices).set({ overdueNotifiedAt: new Date() }).where(eq(invoices.id, inv.id));
       const title = `Payment overdue — ${inv.number}`;
@@ -54,7 +60,7 @@ export async function flagOverdueInvoices(): Promise<void> {
         emailHtml: brandedEmailHtml({
           label: "JDL CORE CLIENT PORTAL",
           heading: title,
-          bodyLines: [body],
+          bodyLines: [body, payOnline].filter((l): l is string => Boolean(l)),
           ctaUrl: "https://jdlcore.com/portal",
           ctaLabel: "Open the portal",
           footer: `Job reference: ${inv.ref}`,

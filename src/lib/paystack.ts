@@ -47,6 +47,15 @@ export function isPaystackConfigured(c: PaystackConfig): boolean {
   return Boolean(c.secretKey);
 }
 
+/** Whether clients should actually be offered online payment right now — credentials
+ * present AND the admin "Online payments" toggle is on. Use this (not
+ * isPaystackConfigured alone) for any client-facing gate; isPaystackConfigured alone
+ * is still correct for admin-side checks like "Test Connection" that should work even
+ * while temporarily disabled. */
+export function isPaystackReady(c: PaystackConfig): boolean {
+  return isPaystackConfigured(c) && c.enabled;
+}
+
 export async function savePaystackConfig(values: {
   secretKey?: string | null;
   clearSecretKey?: boolean;

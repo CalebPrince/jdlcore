@@ -29,7 +29,6 @@ export type FinalizeResult =
 export async function finalizePaystackPayment(reference: string): Promise<FinalizeResult> {
   const verified = await verifyTransaction(reference);
   if (!verified.ok) return { outcome: "error", reason: verified.error };
-  if (verified.status !== "success") return { outcome: "not_success", reason: verified.rawStatus };
 
   const database = requireDb();
   const rows = await database
@@ -42,6 +41,44 @@ export async function finalizePaystackPayment(reference: string): Promise<Finali
   const row = rows[0];
   if (!row) return { outcome: "not_found" };
   const { invoice, job, client } = row;
+
+  if (verified.status !== "success") {
+    if (invoice.status !== "paid") {
+      await notifyBoth({
+        recipientType: "client",
+        recipientId: client.id,
+        email: client.email,
+        jobId: job.id,
+        type: "payment_failed",
+        title: `Payment attempt unsuccessful — ${job.ref}`,
+        body: `Your online payment attempt for invoice ${invoice.number} didn't go through (${verified.rawStatus}). You can try again or pay by bank transfer instead.`,
+        link: `/portal/jobs/${job.id}`,
+        emailSubject: `[${job.ref}] Payment attempt unsuccessful - JDL Core`,
+        emailHtml: brandedEmailHtml({
+          label: "JDL CORE CLIENT PORTAL",
+          heading: "Your payment didn't go through",
+          bodyLines: [
+            `Your online payment attempt for invoice ${invoice.number} was unsuccessful (${verified.rawStatus}).`,
+            "No charge was made. You can try again from the portal, or pay by bank transfer instead.",
+          ],
+          ctaUrl: "https://jdlcore.com/portal",
+          ctaLabel: "Open the portal",
+          footer: `Job reference: ${job.ref}`,
+        }),
+      });
+      await logPaymentTransaction({
+        kind: "invoice",
+        status: "failed",
+        reference,
+        amountCents: invoice.amountCents,
+        currency: invoice.currency,
+        description: `Invoice ${invoice.number} — ${client.name} (${verified.rawStatus})`,
+        payerEmail: client.email,
+        invoiceId: invoice.id,
+      });
+    }
+    return { outcome: "not_success", reason: verified.rawStatus };
+  }
 
   if (invoice.status === "paid") return { outcome: "already_paid", invoiceId: invoice.id, jobId: job.id };
 
@@ -67,6 +104,28 @@ export async function finalizePaystackPayment(reference: string): Promise<Finali
         ],
         ctaUrl: `https://jdlcore.com/admin/jobs/${job.id}`,
         ctaLabel: "Open Job",
+      }),
+    });
+    await notifyBoth({
+      recipientType: "client",
+      recipientId: client.id,
+      email: client.email,
+      jobId: job.id,
+      type: "payment_amount_mismatch",
+      title: `Payment received — under review — ${job.ref}`,
+      body: `We received your payment for invoice ${invoice.number}, but the amount needs a quick manual check before it's marked paid. Our team is on it.`,
+      link: `/portal/jobs/${job.id}`,
+      emailSubject: `[${job.ref}] Payment received - under review - JDL Core`,
+      emailHtml: brandedEmailHtml({
+        label: "JDL CORE CLIENT PORTAL",
+        heading: "Your payment is under review",
+        bodyLines: [
+          `We received your online payment for invoice ${invoice.number}, but the amount doesn't automatically match — our team will review and confirm shortly.`,
+          "No action is needed from you right now.",
+        ],
+        ctaUrl: "https://jdlcore.com/portal",
+        ctaLabel: "Open the portal",
+        footer: `Job reference: ${job.ref}`,
       }),
     });
     await logPaymentTransaction({

@@ -25,7 +25,13 @@ import { isEmailConfigured, getEmailConfig, sendNotification, brandedEmailHtml }
 import { notify, notifyBoth } from "@/lib/notifications";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { logAudit } from "@/lib/audit";
+import { getPaystackConfig, isPaystackReady } from "@/lib/paystack";
 import type { FormState } from "./submissions";
+
+async function payOnlineLine(): Promise<string> {
+  const ready = isPaystackReady(await getPaystackConfig());
+  return ready ? "You can also pay this invoice online instantly by card or mobile money from the portal." : "";
+}
 
 export type ConvertState = FormState & {
   jobId?: number;
@@ -381,6 +387,7 @@ export async function createInvoice(
           `Amount due: <strong>${amountStr}</strong>`,
           f.dueDate ? `Payment is due by ${f.dueDate}.` : "",
           "Download the PDF invoice from the portal.",
+          await payOnlineLine(),
         ].filter(Boolean),
         recipient.ref,
       ),
@@ -433,7 +440,8 @@ export async function sendInvoiceReminder(
           ? `Due date: ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(new Date(row.invoice.dueDate))}.`
           : "Please arrange payment at your earliest convenience.",
         "You can download the invoice PDF from the client portal.",
-      ],
+        await payOnlineLine(),
+      ].filter(Boolean),
       row.ref,
     ),
   });

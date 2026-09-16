@@ -19,7 +19,7 @@ import { DocumentPreviewDialog } from "@/components/portal/document-preview-dial
 import { PortalPaystackButton } from "@/components/portal/portal-paystack-button";
 import { PortalComments } from "@/components/portal/portal-comments";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { isPaystackConfigured, getPaystackConfig } from "@/lib/paystack";
+import { isPaystackReady, getPaystackConfig } from "@/lib/paystack";
 
 export const dynamic = "force-dynamic";
 
@@ -93,7 +93,7 @@ export default async function PortalJobDetailPage({
 
   const meta =
     JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
-  const paystackReady = isPaystackConfigured(await getPaystackConfig());
+  const paystackReady = isPaystackReady(await getPaystackConfig());
 
   return (
     <div className="flex flex-col gap-6">

@@ -14,10 +14,10 @@ import {
   verifyPassword,
 } from "@/lib/portal-auth";
 import { makeRef } from "@/lib/jobs";
-import { notifyStaffBoth } from "@/lib/notifications";
+import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
-import { getPaystackConfig, initializeTransaction, isPaystackConfigured } from "@/lib/paystack";
+import { getPaystackConfig, initializeTransaction, isPaystackReady } from "@/lib/paystack";
 import type { FormState } from "./submissions";
 
 async function siteOrigin(): Promise<string> {
@@ -233,6 +233,29 @@ export async function markPaymentSubmitted(_prev: FormState, formData: FormData)
     `${client.name} submitted a payment receipt for invoice ${row.invoice.number}. It needs verification.`,
   );
 
+  await notifyBoth({
+    recipientType: "client",
+    recipientId: client.id,
+    email: client.email,
+    jobId: f.jobId,
+    type: "payment_receipt_submitted",
+    title: `Receipt received — ${row.job.ref}`,
+    body: `We've received your payment receipt for invoice ${row.invoice.number} and it's now under review.`,
+    link: `/portal/jobs/${f.jobId}`,
+    emailSubject: `[${row.job.ref}] Payment receipt received - JDL Core`,
+    emailHtml: brandedEmailHtml({
+      label: "JDL CORE CLIENT PORTAL",
+      heading: `We've received your payment receipt`,
+      bodyLines: [
+        `Thank you — we've received your payment receipt for invoice ${row.invoice.number}.`,
+        "Our team will verify it and update the invoice status shortly.",
+      ],
+      ctaUrl: "https://jdlcore.com/portal",
+      ctaLabel: "Open the portal",
+      footer: `Job reference: ${row.job.ref}`,
+    }),
+  });
+
   revalidatePath(`/portal/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);
   return { ok: true, message: "Payment receipt submitted — Operations will verify it shortly." };
@@ -267,7 +290,7 @@ export async function payInvoiceOnline(_prev: FormState, formData: FormData): Pr
   if (row.invoice.status === "paid") return { ok: false, message: "This invoice is already paid." };
 
   const config = await getPaystackConfig();
-  if (!isPaystackConfigured(config)) {
+  if (!isPaystackReady(config)) {
     return { ok: false, message: "Online payments aren't set up yet — please pay by bank transfer below." };
   }
 
