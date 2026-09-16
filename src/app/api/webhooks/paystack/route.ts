@@ -8,7 +8,7 @@ import {
   handleSubscriptionCreate,
   handleSubscriptionDisable,
 } from "@/lib/analytics-billing";
-import { activateAcademyRenewal, finalizeAcademyCheckout } from "@/lib/academy-billing";
+import { activateAcademyRenewal, finalizeAcademyCheckout, handleAcademyInvoicePaymentFailed } from "@/lib/academy-billing";
 
 type PaystackEvent = {
   event?: string;
@@ -85,6 +85,12 @@ export async function POST(req: Request) {
         break;
       case "invoice.payment_failed":
         await handleInvoicePaymentFailed({
+          customer: data?.customer,
+          amount: data?.amount,
+          currency: data?.currency,
+          id: data?.id,
+        });
+        await handleAcademyInvoicePaymentFailed({
           customer: data?.customer,
           amount: data?.amount,
           currency: data?.currency,

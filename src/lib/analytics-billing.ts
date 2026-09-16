@@ -356,11 +356,26 @@ export async function handleChargeSuccessRenewal(data: {
     analyticsUserId: user.id,
   });
 
-  if (user.subscriptionStatus === "active") return;
-
   const now = new Date();
   const periodEnd = new Date(now);
   periodEnd.setMonth(periodEnd.getMonth() + 1);
+
+  await sendNotification({
+    to: user.email,
+    subject: "Your JDL Core Analytics subscription renewed",
+    html: brandedEmailHtml({
+      label: "JDL CORE ANALYTICS",
+      heading: "Your subscription renewed",
+      bodyLines: [
+        `Your ${user.plan ?? "Analytics"} subscription has renewed — next renewal ${periodEnd.toDateString()}.`,
+        "No action needed.",
+      ],
+      ctaUrl: "https://analytics.jdlcore.com/analytics/app",
+      ctaLabel: "Open Analytics",
+    }),
+  });
+
+  if (user.subscriptionStatus === "active") return;
 
   await database
     .update(analyticsUsers)
