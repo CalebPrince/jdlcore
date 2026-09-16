@@ -348,7 +348,7 @@ export async function createInvoice(
         vatCents: breakdown?.vatCents ?? null,
         currency: f.currency,
         dueDate: f.dueDate ? new Date(f.dueDate) : null,
-        status: "sent",
+        status: "pending",
       })
       .returning({ id: invoices.id });
     const invoiceSettings = await getInvoiceSettings();
