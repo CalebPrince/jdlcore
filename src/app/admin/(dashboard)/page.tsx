@@ -10,6 +10,9 @@ import {
   LayoutList,
   AlertTriangle,
   CheckCircle2,
+  CreditCard,
+  CircleX,
+  ScanSearch,
 } from "lucide-react";
 import { requireDb } from "@/db";
 import { submissions } from "@/db/schema";
@@ -24,6 +27,8 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { paymentTransactionTotals } from "@/lib/payment-transactions";
+import { formatMoney } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
 
@@ -86,6 +91,9 @@ export default async function AdminDashboardPage() {
 
   const byType = new Map(stats?.counts.map((c) => [c.type, c.count]) ?? []);
   const total = stats?.counts.reduce((sum, c) => sum + c.count, 0) ?? 0;
+  const paymentTotals = await paymentTransactionTotals();
+  const unsuccessfulCount = paymentTotals.failedCount + paymentTotals.canceledCount;
+  const unsuccessfulCents = paymentTotals.failedCents + paymentTotals.canceledCents;
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -97,6 +105,21 @@ export default async function AdminDashboardPage() {
           Everything happening across jdlcore.com at a glance.
         </p>
       </div>
+
+      <section className="rounded-2xl border border-navy-950/10 bg-navy-950 p-5 text-white sm:p-6">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[.16em] text-gold-400">Live payments</p>
+            <h2 className="mt-1 font-display text-xl font-bold">Paystack pulse</h2>
+          </div>
+          <Link href="/admin/payments" className="text-sm font-semibold text-gold-400 hover:text-gold-300">Open payments →</Link>
+        </div>
+        <div className="mt-5 grid gap-px overflow-hidden rounded-xl bg-white/10 sm:grid-cols-3">
+          <DashboardPaymentMetric icon={CreditCard} label="Collected" amount={paymentTotals.successCents} count={paymentTotals.successCount} />
+          <DashboardPaymentMetric icon={CircleX} label="Declined or canceled" amount={unsuccessfulCents} count={unsuccessfulCount} />
+          <DashboardPaymentMetric icon={ScanSearch} label="Needs review" amount={paymentTotals.mismatchCents} count={paymentTotals.mismatchCount} />
+        </div>
+      </section>
 
       {board.length > 0 && (
         <section className="flex flex-col gap-3">
@@ -222,6 +245,15 @@ export default async function AdminDashboardPage() {
           )}
         </Badge>
       </div>
+    </div>
+  );
+}
+
+function DashboardPaymentMetric({ icon: Icon, label, amount, count }: { icon: React.ElementType; label: string; amount: number; count: number }) {
+  return (
+    <div className="flex items-start justify-between gap-3 bg-navy-950 p-4 sm:p-5">
+      <div><p className="text-xs font-semibold text-white/60">{label}</p><p className="mt-1 font-display text-xl font-bold tabular-nums text-white">{formatMoney(amount, "GHS")}</p><p className="mt-1 text-xs text-white/45">{count} {count === 1 ? "transaction" : "transactions"}</p></div>
+      <Icon className="h-5 w-5 text-gold-400" />
     </div>
   );
 }

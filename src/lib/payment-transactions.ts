@@ -1,10 +1,34 @@
 import "server-only";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { db, requireDb } from "@/db";
 import { paymentTransactions } from "@/db/schema";
 
 export type TransactionKind = "invoice" | "analytics_subscription" | "academy_subscription";
-export type TransactionStatus = "success" | "failed" | "mismatch";
+export type TransactionStatus = "success" | "failed" | "canceled" | "mismatch";
+
+export type PaymentTransactionSummary = {
+  successCents: number;
+  successCount: number;
+  failedCents: number;
+  failedCount: number;
+  canceledCents: number;
+  canceledCount: number;
+  mismatchCents: number;
+  mismatchCount: number;
+  totalCount: number;
+};
+
+const EMPTY_SUMMARY: PaymentTransactionSummary = {
+  successCents: 0,
+  successCount: 0,
+  failedCents: 0,
+  failedCount: 0,
+  canceledCents: 0,
+  canceledCount: 0,
+  mismatchCents: 0,
+  mismatchCount: 0,
+  totalCount: 0,
+};
 
 /** Records one Paystack charge outcome to the ledger. Never throws — logging must not break the payment flow it's observing. */
 export async function logPaymentTransaction(input: {
@@ -53,15 +77,37 @@ export async function academyPaymentsForEmail(email: string, limit = 20) {
   } catch { return []; }
 }
 
-export async function paymentTransactionTotals(): Promise<{ successCents: number; successCount: number }> {
-  if (!db) return { successCents: 0, successCount: 0 };
+export async function paymentTransactionTotals(): Promise<PaymentTransactionSummary> {
+  if (!db) return { ...EMPTY_SUMMARY };
   try {
     const rows = await db
-      .select({ amountCents: paymentTransactions.amountCents })
+      .select({
+        status: paymentTransactions.status,
+        amountCents: sql<number>`coalesce(sum(${paymentTransactions.amountCents}), 0)::int`,
+        count: sql<number>`count(*)::int`,
+      })
       .from(paymentTransactions)
-      .where(eq(paymentTransactions.status, "success"));
-    return { successCents: rows.reduce((sum, r) => sum + r.amountCents, 0), successCount: rows.length };
+      .groupBy(paymentTransactions.status);
+
+    const summary = { ...EMPTY_SUMMARY };
+    for (const row of rows) {
+      summary.totalCount += row.count;
+      if (row.status === "success") {
+        summary.successCents = row.amountCents;
+        summary.successCount = row.count;
+      } else if (row.status === "failed") {
+        summary.failedCents = row.amountCents;
+        summary.failedCount = row.count;
+      } else if (row.status === "canceled" || row.status === "cancelled") {
+        summary.canceledCents += row.amountCents;
+        summary.canceledCount += row.count;
+      } else if (row.status === "mismatch") {
+        summary.mismatchCents = row.amountCents;
+        summary.mismatchCount = row.count;
+      }
+    }
+    return summary;
   } catch {
-    return { successCents: 0, successCount: 0 };
+    return { ...EMPTY_SUMMARY };
   }
 }

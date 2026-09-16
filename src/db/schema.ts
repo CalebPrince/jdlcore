@@ -517,7 +517,7 @@ export const paymentTransactions = pgTable(
   {
     id: serial("id").primaryKey(),
     kind: text("kind").notNull(), // invoice | analytics_subscription
-    status: text("status").notNull(), // success | failed | mismatch
+    status: text("status").notNull(), // success | failed | canceled | mismatch
     reference: text("reference").notNull(),
     amountCents: integer("amount_cents").notNull(),
     currency: text("currency").notNull(),

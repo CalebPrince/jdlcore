@@ -43,6 +43,11 @@ export async function finalizePaystackPayment(reference: string): Promise<Finali
   const { invoice, job, client } = row;
 
   if (verified.status !== "success") {
+    const transactionStatus = ["abandoned", "canceled", "cancelled"].includes(
+      verified.rawStatus.toLowerCase(),
+    )
+      ? "canceled"
+      : "failed";
     if (invoice.status !== "paid") {
       await notifyBoth({
         recipientType: "client",
@@ -68,7 +73,7 @@ export async function finalizePaystackPayment(reference: string): Promise<Finali
       });
       await logPaymentTransaction({
         kind: "invoice",
-        status: "failed",
+        status: transactionStatus,
         reference,
         amountCents: invoice.amountCents,
         currency: invoice.currency,
