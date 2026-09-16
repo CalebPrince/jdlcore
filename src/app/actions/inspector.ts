@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { clients, inspectors, jobCompletionData, jobUpdates, jobs, stockReadings } from "@/db/schema";
+import { clients, documents, inspectors, jobCompletionData, jobUpdates, jobs, stockReadings } from "@/db/schema";
 import {
   createInspectorSession,
   destroyInspectorSession,
@@ -17,7 +17,7 @@ import { canTransition, type Actor } from "@/lib/job-workflow";
 import type { JobStatus } from "@/lib/jobs";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
-import { reviewCompletionData } from "@/lib/ai/document-review";
+import { reviewCompletionData, reviewUploadedFile } from "@/lib/ai/document-review";
 import { parseDecimal3, parseDecimalN } from "@/lib/decimal";
 import type { FormState } from "./submissions";
 
@@ -448,6 +448,91 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
   revalidatePath(`/inspector/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);
   return { ok: true, message: "Stock reading logged." };
+}
+
+/* ---------------- Documents ---------------- */
+
+const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
+
+const inspectorDocSchema = z.object({
+  jobId: z.coerce.number().int().positive(),
+  kind: z.enum(["report", "other"]),
+  title: z.string().trim().min(1).max(200),
+});
+
+export async function addInspectorDocument(_prev: FormState, formData: FormData): Promise<FormState> {
+  const inspector = await getInspector();
+  if (!inspector) return initialFail("Unauthorized");
+  const parsed = inspectorDocSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail(parsed.error.issues[0]?.message ?? "Provide a title and a file.");
+  const f = parsed.data;
+  const job = await loadOwnJob(f.jobId, inspector.id);
+  if (!job) return initialFail("Job not found.");
+
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) return initialFail("Attach a file.");
+  if (file.size > MAX_UPLOAD_BYTES) return initialFail("File is larger than 4 MB.");
+
+  const buf = Buffer.from(await file.arrayBuffer());
+  const mimeType = file.type || "application/octet-stream";
+  const fileData = `data:${mimeType};base64,${buf.toString("base64")}`;
+
+  const database = requireDb();
+  let insertedId: number | null = null;
+  try {
+    const inserted = await database
+      .insert(documents)
+      .values({ jobId: f.jobId, kind: f.kind, title: f.title, fileData, mimeType })
+      .returning({ id: documents.id });
+    insertedId = inserted[0]?.id ?? null;
+  } catch (err) {
+    console.error("addInspectorDocument:", err);
+    return initialFail("Could not save document.");
+  }
+
+  if (insertedId) {
+    await reviewUploadedFile({
+      jobId: f.jobId,
+      jobRef: job.ref,
+      targetType: "document",
+      targetId: insertedId,
+      fileDataUrl: fileData,
+      context: `Document type: ${f.kind}. Title: "${f.title}". Uploaded by inspector ${inspector.name}.`,
+    });
+  }
+
+  const recipient = await database
+    .select({ email: clients.email, ref: jobs.ref, clientId: jobs.clientId })
+    .from(jobs)
+    .innerJoin(clients, eq(jobs.clientId, clients.id))
+    .where(eq(jobs.id, job.id))
+    .limit(1);
+  if (recipient[0]) {
+    const title = `New document available on job ${recipient[0].ref}`;
+    const body = `${f.title} has been added to your job.`;
+    await notifyBoth({
+      recipientType: "client",
+      recipientId: recipient[0].clientId,
+      email: recipient[0].email,
+      jobId: job.id,
+      type: "document_added",
+      title,
+      body,
+      link: `/portal/jobs/${job.id}`,
+      emailSubject: title,
+      emailHtml: brandedEmailHtml({
+        label: "JDL CORE CLIENT PORTAL",
+        heading: title,
+        bodyLines: [body, "Sign in to the portal to download it."],
+        ctaUrl: "https://jdlcore.com/portal",
+        ctaLabel: "Open the portal",
+        footer: `Job reference: ${recipient[0].ref}`,
+      }),
+    });
+  }
+
+  revalidateJob(f.jobId);
+  return { ok: true, message: "Document uploaded." };
 }
 
 /* ---------------- Submit / amend ---------------- */

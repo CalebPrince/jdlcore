@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef } from "react";
 import {
   acceptAssignment,
+  addInspectorDocument,
   addStockReading,
   amendAndResubmit,
   declineAssignment,
@@ -289,6 +290,47 @@ export function StockReadingForm({ jobId, tanks }: { jobId: number; tanks: { id:
 
       <Button type="submit" disabled={pending || tanks.length === 0} variant="outline" className="self-start">
         {pending ? "Logging…" : "Log Stock Reading"}
+      </Button>
+      <Feedback state={state} />
+    </form>
+  );
+}
+
+export function UploadDocumentForm({ jobId }: { jobId: number }) {
+  const [state, action, pending] = useActionState(addInspectorDocument, initial);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  useEffect(() => {
+    if (state.ok) formRef.current?.reset();
+  }, [state]);
+
+  return (
+    <form ref={formRef} action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="jobId" value={jobId} />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`ud-kind-${jobId}`}>Type</Label>
+          <Select name="kind" required defaultValue="report">
+            <SelectTrigger id={`ud-kind-${jobId}`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="report">Inspection Report</SelectItem>
+              <SelectItem value="other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`ud-title-${jobId}`}>Title</Label>
+          <Input id={`ud-title-${jobId}`} name="title" required placeholder="Field Report — Tank Farm B" />
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor={`ud-file-${jobId}`}>File (max 4 MB)</Label>
+          <Input id={`ud-file-${jobId}`} name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required />
+        </div>
+      </div>
+      <Button type="submit" disabled={pending} variant="outline" className="self-start">
+        {pending ? "Uploading…" : "Upload Document"}
       </Button>
       <Feedback state={state} />
     </form>

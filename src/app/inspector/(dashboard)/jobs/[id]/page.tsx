@@ -13,6 +13,7 @@ import {
   ProgressUpdateForm,
   StockReadingForm,
   SubmitForApprovalForm,
+  UploadDocumentForm,
 } from "@/components/inspector/inspector-job-forms";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -152,6 +153,17 @@ export default async function InspectorJobDetailPage({
                   : undefined
               }
             />
+          </CardContent>
+        </Card>
+      )}
+
+      {["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">Upload Document</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <UploadDocumentForm jobId={job.id} />
           </CardContent>
         </Card>
       )}
