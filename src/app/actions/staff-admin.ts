@@ -11,6 +11,8 @@ import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email
 import { notify } from "@/lib/notifications";
 import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
+import { inviteInspector } from "./inspector-authadmin";
+import { createPortalClient } from "./portal-admin";
 
 const ADMIN_ROLES = ["administrator", "superadmin"] as const;
 
@@ -111,6 +113,19 @@ export async function inviteStaff(_prev: InviteState, formData: FormData): Promi
     setupLink: link,
     emailed,
   };
+}
+
+/**
+ * Single entry point for the "Create Account" form: the account type is
+ * carried in the `role` field, and each type has its own underlying table,
+ * auth flow, and permission check (delegated to below) — "inspector" and
+ * "client" are never valid values in the staff.role column.
+ */
+export async function createAccount(_prev: InviteState, formData: FormData): Promise<InviteState> {
+  const accountType = String(formData.get("role") ?? "");
+  if (accountType === "inspector") return inviteInspector(_prev, formData);
+  if (accountType === "client") return createPortalClient(_prev, formData);
+  return inviteStaff(_prev, formData);
 }
 
 const toggleSchema = z.object({
