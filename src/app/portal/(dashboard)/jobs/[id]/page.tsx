@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { ArrowLeft, Download, Eye, ReceiptText } from "lucide-react";
+import { ArrowLeft, Download, ReceiptText } from "lucide-react";
 import { requireDb } from "@/db";
 import { certificates, documents, invoices, jobComments, jobUpdates, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
@@ -15,6 +15,7 @@ import {
   type JobStatus,
 } from "@/lib/jobs";
 import { PortalPaymentForm } from "@/components/portal/portal-payment-form";
+import { DocumentPreviewDialog } from "@/components/portal/document-preview-dialog";
 import { PortalPaystackButton } from "@/components/portal/portal-paystack-button";
 import { PortalComments } from "@/components/portal/portal-comments";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -167,16 +168,10 @@ export default async function PortalJobDetailPage({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <a
+                  <DocumentPreviewDialog
                     href={`/api/certificates/${coq[0].id}/pdf?preview=1`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.82rem] font-semibold text-navy-800 transition-colors hover:bg-navy-50"
-                    style={{ borderColor: "var(--border)" }}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Preview
-                  </a>
+                    title="Certificate of Quantity"
+                  />
                   <a
                     href={`/api/certificates/${coq[0].id}/pdf`}
                     className="btn-gold px-[1.1em] py-[0.55em] text-[0.82rem]"
@@ -202,16 +197,10 @@ export default async function PortalJobDetailPage({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <a
+                  <DocumentPreviewDialog
                     href={`/api/portal/documents/${d.id}?preview=1`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.82rem] font-semibold text-navy-800 transition-colors hover:bg-navy-50"
-                    style={{ borderColor: "var(--border)" }}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Preview
-                  </a>
+                    title={d.title}
+                  />
                   <a
                     href={`/api/portal/documents/${d.id}`}
                     className="btn-gold px-[1.1em] py-[0.55em] text-[0.82rem]"
@@ -260,16 +249,11 @@ export default async function PortalJobDetailPage({
                   >
                     {(INVOICE_STATUS_META[invStatus] ?? INVOICE_STATUS_META.pending).label}
                   </span>
-                  <a
+                  <DocumentPreviewDialog
                     href={`/api/portal/invoices/${inv.id}/pdf?preview=1`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
-                    style={{ borderColor: "var(--border)" }}
-                  >
-                    <Eye className="h-3.5 w-3.5" />
-                    Preview
-                  </a>
+                    title={`Invoice ${inv.number}`}
+                    triggerClassName="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                  />
                   <a
                     href={`/api/portal/invoices/${inv.id}/pdf`}
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
