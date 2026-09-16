@@ -7,6 +7,13 @@ import { getStaff } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
+const EXT_BY_MIME: Record<string, string> = {
+  "application/pdf": "pdf",
+  "image/png": "png",
+  "image/jpeg": "jpg",
+  "image/jpg": "jpg",
+};
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -38,10 +45,13 @@ export async function GET(
     ? invoice.receiptFileData!.split(",")[1]
     : invoice.receiptFileData!;
   const bytes = Buffer.from(base64, "base64");
+  const mimeType = invoice.receiptMimeType ?? "application/octet-stream";
+  const ext = EXT_BY_MIME[mimeType];
+  const filename = `${invoice.number}-receipt${ext ? `.${ext}` : ""}`;
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
-      "content-type": invoice.receiptMimeType ?? "application/octet-stream",
-      "content-disposition": `attachment; filename="${invoice.number}-receipt"`,
+      "content-type": mimeType,
+      "content-disposition": `attachment; filename="${filename}"`,
       "cache-control": "private, no-store",
     },
   });
