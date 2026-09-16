@@ -61,8 +61,9 @@ export function NotificationBell({
   function handleMarkAllRead() {
     setItems((prev) => prev.map((n) => ({ ...n, read: true })));
     setUnreadCount(0);
-    startTransition(() => {
-      markAllNotificationsRead();
+    startTransition(async () => {
+      await markAllNotificationsRead();
+      router.refresh();
     });
   }
 
