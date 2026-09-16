@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { finalizeAnalyticsCheckout } from "@/lib/analytics-billing";
+import { applyAnalyticsSessionCookie } from "@/lib/analytics-auth";
 
 /**
  * Where Paystack redirects the browser back to after a subscription checkout attempt.
@@ -16,8 +17,13 @@ export async function GET(req: Request) {
 
   switch (result.outcome) {
     case "activated":
-    case "already_active":
-      return NextResponse.redirect(new URL("/analytics/app?welcome=1", req.url));
+    case "already_active": {
+      // cookies() from next/headers doesn't reliably persist when this handler also
+      // returns its own NextResponse — set the session cookie directly on it instead.
+      const response = NextResponse.redirect(new URL("/analytics/app?welcome=1", req.url));
+      applyAnalyticsSessionCookie(response, result.userId);
+      return response;
+    }
     case "mismatch":
       return NextResponse.redirect(new URL("/analytics/subscribe?error=review", req.url));
     default:

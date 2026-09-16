@@ -4,7 +4,6 @@ import { db, requireDb } from "@/db";
 import { analyticsUsers, settings } from "@/db/schema";
 import { getAnalyticsPlan, isSelfServePlanId, type AnalyticsPlanId } from "@/lib/analytics-plans";
 import { createPlan, verifyTransaction } from "@/lib/paystack";
-import { createAnalyticsSession } from "@/lib/analytics-auth";
 import { sendNotification, brandedEmailHtml } from "@/lib/email";
 import { notifyStaffBoth } from "@/lib/notifications";
 import { logPaymentTransaction } from "@/lib/payment-transactions";
@@ -154,8 +153,6 @@ export async function finalizeAnalyticsCheckout(reference: string): Promise<Chec
       lastLoginAt: now,
     })
     .where(eq(analyticsUsers.id, user.id));
-
-  await createAnalyticsSession(user.id);
 
   await sendNotification({
     to: user.email,

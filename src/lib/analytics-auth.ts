@@ -1,11 +1,12 @@
 import "server-only";
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 import { eq, and, gt } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { analyticsUsers } from "@/db/schema";
 
-const COOKIE_NAME = "jdl_analytics";
+export const ANALYTICS_SESSION_COOKIE = "jdl_analytics";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14; // two weeks
 const SETUP_TOKEN_TTL_MS = 1000 * 60 * 60 * 24 * 7; // seven days
 
@@ -17,27 +18,47 @@ function sign(payload: string): string {
   return createHmac("sha256", secret()).update(payload).digest("hex");
 }
 
-export async function createAnalyticsSession(userId: number): Promise<void> {
-  const expires = Date.now() + SESSION_TTL_MS;
-  const payload = `${userId}.${expires}`;
-  const store = await cookies();
-  store.set(COOKIE_NAME, `${payload}.${sign(payload)}`, {
-    httpOnly: true,
-    sameSite: "lax",
+function sessionCookieOptions() {
+  return {
+    httpOnly: true as const,
+    sameSite: "lax" as const,
     secure: process.env.NODE_ENV === "production",
     maxAge: SESSION_TTL_MS / 1000,
     path: "/",
-  });
+  };
+}
+
+function sessionCookieValue(userId: number): string {
+  const expires = Date.now() + SESSION_TTL_MS;
+  const payload = `${userId}.${expires}`;
+  return `${payload}.${sign(payload)}`;
+}
+
+/**
+ * Sets the session cookie via the ambient cookies() jar — works in Server Actions
+ * and Server Components, but NOT reliably in a Route Handler that also returns its
+ * own NextResponse (e.g. a redirect): Next.js does not merge cookies() mutations
+ * into an explicitly-constructed response in that case. Route Handlers building a
+ * redirect must use applyAnalyticsSessionCookie(response, userId) instead.
+ */
+export async function createAnalyticsSession(userId: number): Promise<void> {
+  const store = await cookies();
+  store.set(ANALYTICS_SESSION_COOKIE, sessionCookieValue(userId), sessionCookieOptions());
+}
+
+/** Sets the session cookie directly on a Route Handler's own NextResponse (see note above). */
+export function applyAnalyticsSessionCookie(response: NextResponse, userId: number): void {
+  response.cookies.set(ANALYTICS_SESSION_COOKIE, sessionCookieValue(userId), sessionCookieOptions());
 }
 
 export async function destroyAnalyticsSession(): Promise<void> {
   const store = await cookies();
-  store.delete(COOKIE_NAME);
+  store.delete(ANALYTICS_SESSION_COOKIE);
 }
 
 async function sessionUserId(): Promise<number | null> {
   const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
+  const token = store.get(ANALYTICS_SESSION_COOKIE)?.value;
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
