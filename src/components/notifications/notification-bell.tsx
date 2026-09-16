@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Bell } from "lucide-react";
 import { markAllNotificationsRead, markNotificationRead } from "@/app/actions/notifications";
 import {
@@ -40,13 +40,22 @@ export function NotificationBell({
   const [unreadCount, setUnreadCount] = useState(initialUnreadCount);
   const [items, setItems] = useState(initialNotifications);
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
-  function handleItemClick(id: number) {
-    setItems((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    setUnreadCount((c) => Math.max(0, c - (items.find((n) => n.id === id)?.read ? 0 : 1)));
-    startTransition(() => {
-      markNotificationRead(id);
-    });
+  // Navigation is deferred until the mark-read call resolves — firing them
+  // together lets Next.js's own client-side navigation abort the in-flight
+  // server action request (observed as a silent net::ERR_ABORTED that left
+  // the notification unread in the database despite the UI showing it read).
+  async function handleItemClick(n: BellNotification) {
+    const wasUnread = !n.read;
+    setItems((prev) => prev.map((item) => (item.id === n.id ? { ...item, read: true } : item)));
+    if (wasUnread) setUnreadCount((c) => Math.max(0, c - 1));
+    try {
+      await markNotificationRead(n.id);
+    } catch {
+      // Best-effort — the click still navigates even if the mark-read failed.
+    }
+    if (n.link) router.push(n.link);
   }
 
   function handleMarkAllRead() {
@@ -114,15 +123,11 @@ export function NotificationBell({
                   </span>
                 </div>
               );
-              return n.link ? (
-                <Link key={n.id} href={n.link} onClick={() => handleItemClick(n.id)} className="block">
-                  {content}
-                </Link>
-              ) : (
+              return (
                 <button
                   key={n.id}
                   type="button"
-                  onClick={() => handleItemClick(n.id)}
+                  onClick={() => handleItemClick(n)}
                   className="block w-full"
                 >
                   {content}
