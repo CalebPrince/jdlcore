@@ -18,7 +18,7 @@ The application combines public marketing sites with secure workspaces for staff
 - Next.js 15 App Router, React 19, and TypeScript
 - Tailwind CSS v4
 - shadcn/ui and Radix UI primitives
-- Lucide icons
+- Lucide icons, with `react-icons` (Simple Icons) and `@iconify/react` for accurate third-party brand marks (Apple, Google Play)
 - Drizzle ORM with Supabase Postgres
 - Space Grotesk for display typography and IBM Plex Sans for body text through `next/font`
 - Next.js Server Actions for authenticated workflows and forms
@@ -109,6 +109,7 @@ The public UI includes:
 - Inspection Services marketing site
 - Analytics marketing and beta access pages
 - Academy marketing site and public course catalogue
+- Mobile app promo section on the group landing page (App Store / Google Play "coming soon" badges plus an email waitlist signup)
 - Contact and lead-generation forms
 - Shared translucent navigation, mobile drawers, and structured footers
 
@@ -126,7 +127,7 @@ Admin, Client Portal, Inspector Portal, Analytics, and Academy authentication sc
 
 The backend UI uses a shared workspace language while preserving the navigation model appropriate to each product:
 
-- Admin Command Center with responsive sidebar navigation
+- Admin Command Center with responsive sidebar navigation, including a single Create Account form that issues staff, inspector, or client logins depending on the selected role
 - Client Portal with job tracking, service requests, reports, documents, invoices, and comments
 - Inspector Portal with assignment, fieldwork, and submission workflows
 - Analytics chat workspace with citations, exports, conversation history, and paired mobile drawers
