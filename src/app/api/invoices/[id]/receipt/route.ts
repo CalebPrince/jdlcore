@@ -12,6 +12,7 @@ const EXT_BY_MIME: Record<string, string> = {
   "image/png": "png",
   "image/jpeg": "jpg",
   "image/jpg": "jpg",
+  "text/plain": "txt",
 };
 
 export async function GET(
