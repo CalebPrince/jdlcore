@@ -16,9 +16,10 @@ const INK = rgb(0.102, 0.153, 0.2);
 const MUTED = rgb(0.42, 0.47, 0.52);
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const preview = new URL(req.url).searchParams.get("preview") === "1";
   const { id: rawId } = await params;
   const invoiceId = Number(rawId);
   if (!Number.isInteger(invoiceId) || invoiceId <= 0) {
@@ -62,7 +63,7 @@ export async function GET(
     status: 200,
     headers: {
       "content-type": "application/pdf",
-      "content-disposition": `attachment; filename="${invoice.number}.pdf"`,
+      "content-disposition": `${preview ? "inline" : "attachment"}; filename="${invoice.number}.pdf"`,
       "cache-control": "no-store",
     },
   });

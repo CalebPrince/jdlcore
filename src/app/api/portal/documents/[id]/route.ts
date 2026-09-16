@@ -16,9 +16,10 @@ const EXT_BY_MIME: Record<string, string> = {
 };
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
+  const preview = new URL(req.url).searchParams.get("preview") === "1";
   const client = await getPortalClient();
   if (!client) return new NextResponse("Unauthorized", { status: 401 });
 
@@ -50,10 +51,11 @@ export async function GET(
   const ext = EXT_BY_MIME[mimeType];
   const safeTitle = doc.title.replace(/[^a-z0-9 ._-]/gi, "_");
   const filename = ext && !safeTitle.toLowerCase().endsWith(`.${ext}`) ? `${safeTitle}.${ext}` : safeTitle;
+  const disposition = preview ? "inline" : "attachment";
   return new NextResponse(new Uint8Array(bytes), {
     headers: {
       "content-type": mimeType,
-      "content-disposition": `attachment; filename="${filename}"`,
+      "content-disposition": `${disposition}; filename="${filename}"`,
       "cache-control": "private, no-store",
     },
   });

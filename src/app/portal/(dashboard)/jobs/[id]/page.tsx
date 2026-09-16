@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
-import { ArrowLeft, Download, ReceiptText } from "lucide-react";
+import { ArrowLeft, Download, Eye, ReceiptText } from "lucide-react";
 import { requireDb } from "@/db";
 import { certificates, documents, invoices, jobComments, jobUpdates, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
@@ -166,13 +166,25 @@ export default async function PortalJobDetailPage({
                     {coq[0].coqNumber} · {dateFmt.format(new Date(coq[0].issuedAt))}
                   </p>
                 </div>
-                <a
-                  href={`/api/certificates/${coq[0].id}/pdf`}
-                  className="btn-gold shrink-0 px-[1.1em] py-[0.55em] text-[0.82rem]"
-                >
-                  <Download className="mr-1.5 inline h-3.5 w-3.5" />
-                  Download
-                </a>
+                <div className="flex shrink-0 items-center gap-2">
+                  <a
+                    href={`/api/certificates/${coq[0].id}/pdf?preview=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.82rem] font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </a>
+                  <a
+                    href={`/api/certificates/${coq[0].id}/pdf`}
+                    className="btn-gold px-[1.1em] py-[0.55em] text-[0.82rem]"
+                  >
+                    <Download className="mr-1.5 inline h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
               </li>
             )}
             {docs.map((d) => (
@@ -189,13 +201,25 @@ export default async function PortalJobDetailPage({
                     {dateFmt.format(new Date(d.createdAt))}
                   </p>
                 </div>
-                <a
-                  href={`/api/portal/documents/${d.id}`}
-                  className="btn-gold shrink-0 px-[1.1em] py-[0.55em] text-[0.82rem]"
-                >
-                  <Download className="mr-1.5 inline h-3.5 w-3.5" />
-                  Download
-                </a>
+                <div className="flex shrink-0 items-center gap-2">
+                  <a
+                    href={`/api/portal/documents/${d.id}?preview=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.82rem] font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </a>
+                  <a
+                    href={`/api/portal/documents/${d.id}`}
+                    className="btn-gold px-[1.1em] py-[0.55em] text-[0.82rem]"
+                  >
+                    <Download className="mr-1.5 inline h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
               </li>
             ))}
           </ul>
@@ -236,6 +260,16 @@ export default async function PortalJobDetailPage({
                   >
                     {(INVOICE_STATUS_META[invStatus] ?? INVOICE_STATUS_META.pending).label}
                   </span>
+                  <a
+                    href={`/api/portal/invoices/${inv.id}/pdf?preview=1`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                    style={{ borderColor: "var(--border)" }}
+                  >
+                    <Eye className="h-3.5 w-3.5" />
+                    Preview
+                  </a>
                   <a
                     href={`/api/portal/invoices/${inv.id}/pdf`}
                     className="inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
