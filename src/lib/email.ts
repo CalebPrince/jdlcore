@@ -135,7 +135,7 @@ async function logEmail(row: {
   try {
     await database.insert(emailLog).values(row);
   } catch {
-    // The html/attempts columns come from scripts/2026-09-21-automation.sql; if that hasn't
+    // The html/attempts columns come from migrations/0004_automation_events_email_retry.sql; if that hasn't
     // been applied yet, still record the send the way it always was.
     try {
       await database.insert(emailLog).values({

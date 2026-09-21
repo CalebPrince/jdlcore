@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "eslint .",
     "db:push": "drizzle-kit push",
+    "db:migrate": "node scripts/migrate.cjs",
     "db:migrate:academy": "node scripts/migrate-academy.cjs",
     "db:seed:academy": "node scripts/seed-academy.cjs",
     "db:migrate:analytics": "node scripts/migrate-analytics.cjs",

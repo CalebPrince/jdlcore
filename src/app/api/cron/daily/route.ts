@@ -6,6 +6,7 @@ import { runOpsDigest } from "@/lib/automation/ops-digest";
 import { runAutoClose } from "@/lib/automation/auto-close";
 import { runPaystackReconcile } from "@/lib/automation/paystack-reconcile";
 import { runSubscriptionSweep } from "@/lib/automation/subscription-sweep";
+import { runSchemaCheck } from "@/lib/automation/schema-check";
 import { retryFailedEmails } from "@/lib/email";
 
 export const maxDuration = 60;
@@ -24,6 +25,7 @@ export async function GET(req: Request) {
   // auto-close below all see the corrected state; retry failed emails last so it also
   // picks up anything the earlier tasks just failed to send.
   const tasks = [
+    await runTask("schema-check", runSchemaCheck),
     await runTask("paystack-reconcile", runPaystackReconcile),
     await runTask("subscription-sweep", runSubscriptionSweep),
     await runTask("invoice-reminders", runInvoiceReminders),

@@ -1,4 +1,4 @@
--- Scheduled-automation support. Run in the Supabase SQL Editor. Safe to re-run.
+-- Scheduled-automation support. Safe to re-run.
 --
 -- automation_events: idempotency ledger so cron reminders/alerts/nudges are only ever
 -- sent once per (kind, ref). Without this table the daily cron reports an error for the
@@ -18,3 +18,5 @@ CREATE UNIQUE INDEX IF NOT EXISTS automation_events_kind_ref_idx
 -- Until this runs, emails behave exactly as before (logged, not retried).
 ALTER TABLE email_log ADD COLUMN IF NOT EXISTS html text;
 ALTER TABLE email_log ADD COLUMN IF NOT EXISTS attempts integer NOT NULL DEFAULT 1;
+
+INSERT INTO schema_migrations (name) VALUES ('0004_automation_events_email_retry') ON CONFLICT (name) DO NOTHING;

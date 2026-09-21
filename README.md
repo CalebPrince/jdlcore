@@ -85,10 +85,11 @@ Before relying on automated inspection review, distinguish invalid or failed AI 
 
 ## Scheduled automations
 
-Two Vercel crons (see `vercel.json`) run behind `CRON_SECRET` (`Authorization: Bearer`). Run `scripts/2026-09-21-automation.sql` in the Supabase SQL Editor once; without it the tasks that need `automation_events` report an error in the cron response and email retry stays off, and nothing else is affected.
+Two Vercel crons (see `vercel.json`) run behind `CRON_SECRET` (`Authorization: Bearer`). Database changes are tracked by the migration ledger (see [migrations/README.md](migrations/README.md)); apply `0001` to `0004` in the Supabase SQL Editor. Until `0004` is applied the tasks that need `automation_events` report an error in the cron response and email retry stays off, and the daily `schema-check` task emails administrators whenever the database is behind the code.
 
 - `/api/cron/npa-sync` (06:00): NPA knowledge crawl, then a health check that alerts staff on failed documents, unlistable sources, or a week with nothing new.
 - `/api/cron/daily` (07:00): each task is isolated and idempotent (`src/lib/automation/`), and the JSON response lists every task's outcome.
+  - `schema-check`: compares the migration ledger to the migrations this code requires and alerts administrators if the database is behind.
   - `paystack-reconcile`: re-checks online payments started in the last 7 days that never finalized (missed webhook) with Paystack; only Paystack-confirmed successes are finalized, mismatches still go to staff.
   - `subscription-sweep`: refreshes a stale billing period from Paystack, or alerts staff when a subscription has really ended. It never suspends anyone.
   - `invoice-reminders`: due-soon (3 days), 7 and 14 days overdue; the 14-day step also alerts Operations.

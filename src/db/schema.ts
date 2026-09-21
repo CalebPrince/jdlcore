@@ -505,7 +505,7 @@ export const emailLog = pgTable(
     status: text("status").notNull(), // sent | failed | skipped
     error: text("error"),
     // Body of a failed send, kept so the daily cron can retry it; cleared once sent or
-    // once it can no longer be retried. Added by scripts/2026-09-21-automation.sql.
+    // once it can no longer be retried. Added by migrations/0004_automation_events_email_retry.sql.
     html: text("html"),
     attempts: integer("attempts").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
@@ -538,6 +538,18 @@ export const paymentTransactions = pgTable(
     index("payment_transactions_kind_idx").on(table.kind),
   ],
 );
+
+/**
+ * The migration ledger (migrations/0001_schema_migrations.sql). Declared here only so
+ * `drizzle-kit push` knows the table is intentional; rows are written by the migration files
+ * themselves and by scripts/migrate.cjs.
+ */
+export const schemaMigrations = pgTable("schema_migrations", {
+  name: text("name").primaryKey(),
+  checksum: text("checksum"),
+  appliedAt: timestamp("applied_at", { withTimezone: true }).notNull().defaultNow(),
+  appliedBy: text("applied_by").notNull().default("manual"),
+});
 
 /**
  * Idempotency ledger for scheduled automations (reminders, alerts, nudges). A cron run

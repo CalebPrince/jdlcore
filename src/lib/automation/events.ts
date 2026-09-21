@@ -5,7 +5,7 @@ import { automationEvents } from "@/db/schema";
 /**
  * Claims a (kind, ref) pair. Returns true only for the caller that actually inserted the
  * row, so "send the reminder" can be gated on it and re-runs never double-notify. Throws
- * if the automation_events table is missing (scripts/2026-09-21-automation.sql), which
+ * if the automation_events table is missing (migrations/0004_automation_events_email_retry.sql), which
  * the cron runner reports per task instead of silently skipping.
  */
 export async function claimEvent(kind: string, ref: string): Promise<boolean> {
