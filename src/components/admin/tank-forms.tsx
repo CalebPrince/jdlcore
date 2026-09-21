@@ -87,6 +87,12 @@ export function CreateTankForm({
             <Label htmlFor="tk-minstop">Min pumpable stop (MT)</Label>
             <Input id="tk-minstop" name="minPumpableStop" type="number" step="0.001" min="0" placeholder="200" />
           </div>
+          <div className="flex items-center gap-2 sm:col-span-3 lg:col-span-6">
+            <input id="tk-roof" name="hasFloatingRoof" type="checkbox" className="size-4 accent-[#c98e12]" />
+            <Label htmlFor="tk-roof" className="font-normal">
+              Has a floating roof (its calibration table will need a roof-correction column)
+            </Label>
+          </div>
           <div className="sm:col-span-3 lg:col-span-6">
             <Button type="submit" disabled={pending} className="btn-gold">
               {pending ? "Saving…" : "Add Tank"}

@@ -231,6 +231,63 @@ export const jobCompletionData = pgTable(
   (table) => [index("job_completion_job_idx").on(table.jobId)],
 );
 
+/**
+ * One row per job — the initial-vs-final tank reading pair behind a product outturn calculation.
+ * Only the raw inputs plus TGV/Water Volume/Roof Volume are stored (they depend on a calibration
+ * table that could itself change later, so they're retained at save time); GOV, GSV, mass, US BBL,
+ * air buoyancy correction and the outturn itself are pure downstream math, computed live from these
+ * by src/lib/outturn.ts wherever shown, never persisted. Saving this also writes the resulting
+ * outturn quantities into jobCompletionData's gov/gsv/metricTonnesAir/metricTonnesVacuum, which is
+ * what the client-facing report and the existing approval checks actually read.
+ */
+export const jobOutturns = pgTable(
+  "job_outturns",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .unique()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    movementType: text("movement_type").notNull(), // receipt | delivery
+    isCrudeOil: boolean("is_crude_oil").notNull().default(false),
+    densityUnit: text("density_unit").notNull().default("kg_m3"), // kg_m3 | g_cm3
+
+    initialTankId: integer("initial_tank_id")
+      .notNull()
+      .references(() => tanks.id, { onDelete: "restrict" }),
+    initialDipMm: numeric("initial_dip_mm", { precision: 10, scale: 2 }),
+    initialWaterDipMm: numeric("initial_water_dip_mm", { precision: 10, scale: 2 }),
+    initialTemperatureC: numeric("initial_temperature_c", { precision: 6, scale: 2 }),
+    initialDensityAt20: numeric("initial_density_at_20", { precision: 8, scale: 4 }),
+    initialVcf: numeric("initial_vcf", { precision: 8, scale: 5 }),
+    initialTgvL: numeric("initial_tgv_l", { precision: 14, scale: 3 }),
+    initialWaterVolumeL: numeric("initial_water_volume_l", { precision: 14, scale: 3 }),
+    initialRoofVolumeL: numeric("initial_roof_volume_l", { precision: 14, scale: 3 }),
+    initialSwPercent: numeric("initial_sw_percent", { precision: 6, scale: 3 }),
+    // Only set when the inspector overrides the computed air buoyancy correction.
+    initialAirBuoyancyOverrideMt: numeric("initial_air_buoyancy_override_mt", { precision: 14, scale: 3 }),
+
+    finalTankId: integer("final_tank_id")
+      .notNull()
+      .references(() => tanks.id, { onDelete: "restrict" }),
+    finalDipMm: numeric("final_dip_mm", { precision: 10, scale: 2 }),
+    finalWaterDipMm: numeric("final_water_dip_mm", { precision: 10, scale: 2 }),
+    finalTemperatureC: numeric("final_temperature_c", { precision: 6, scale: 2 }),
+    finalDensityAt20: numeric("final_density_at_20", { precision: 8, scale: 4 }),
+    finalVcf: numeric("final_vcf", { precision: 8, scale: 5 }),
+    finalTgvL: numeric("final_tgv_l", { precision: 14, scale: 3 }),
+    finalWaterVolumeL: numeric("final_water_volume_l", { precision: 14, scale: 3 }),
+    finalRoofVolumeL: numeric("final_roof_volume_l", { precision: 14, scale: 3 }),
+    finalSwPercent: numeric("final_sw_percent", { precision: 6, scale: 3 }),
+    finalAirBuoyancyOverrideMt: numeric("final_air_buoyancy_override_mt", { precision: 14, scale: 3 }),
+
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("job_outturns_job_idx").on(table.jobId)],
+);
+
 /** Static tank reference data for a client's site/depot (section 14). */
 export const tanks = pgTable(
   "tanks",
@@ -247,10 +304,35 @@ export const tanks = pgTable(
     capacityUnit: text("capacity_unit").notNull().default("MT"),
     maxGaugeHeightMm: numeric("max_gauge_height_mm", { precision: 14, scale: 3 }),
     minPumpableStop: numeric("min_pumpable_stop", { precision: 14, scale: 3 }),
+    hasFloatingRoof: boolean("has_floating_roof").notNull().default(false),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("tanks_client_idx").on(table.clientId)],
+);
+
+/**
+ * A tank's calibration/strapping table: measured volume (and, for a floating-roof tank, the roof
+ * displacement correction) at a given dip. The outturn calculator interpolates between the two
+ * points bracketing a reading's actual dip rather than estimating from tank geometry.
+ */
+export const tankCalibrationPoints = pgTable(
+  "tank_calibration_points",
+  {
+    id: serial("id").primaryKey(),
+    tankId: integer("tank_id")
+      .notNull()
+      .references(() => tanks.id, { onDelete: "cascade" }),
+    dipMm: numeric("dip_mm", { precision: 10, scale: 2 }).notNull(),
+    volumeLitres: numeric("volume_litres", { precision: 14, scale: 3 }).notNull(),
+    // Only meaningful (and normally only entered) for a tank with hasFloatingRoof = true.
+    roofCorrectionLitres: numeric("roof_correction_litres", { precision: 14, scale: 3 }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("tank_calibration_points_tank_dip_idx").on(table.tankId, table.dipMm),
+    uniqueIndex("tank_calibration_points_tank_dip_unique").on(table.tankId, table.dipMm),
+  ],
 );
 
 /** Recurring per-tank readings an inspector logs through a Stock Monitoring job. */

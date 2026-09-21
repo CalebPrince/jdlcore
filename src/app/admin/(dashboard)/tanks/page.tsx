@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, desc } from "drizzle-orm";
 import { requireDb } from "@/db";
@@ -76,9 +77,13 @@ export default async function AdminTanksPage() {
                       {t.minPumpableStop ? ` · min-stop ${Number(t.minPumpableStop).toLocaleString()}` : ""}
                     </p>
                   </div>
+                  {t.hasFloatingRoof && <Badge variant="outline">Floating roof</Badge>}
                   <Badge variant={t.active ? "secondary" : "outline"}>
                     {t.active ? "Active" : "Inactive"}
                   </Badge>
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={`/admin/tanks/${t.id}/calibration`}>Calibration table</Link>
+                  </Button>
                   <form action={toggleTankActive}>
                     <input type="hidden" name="id" value={t.id} />
                     <input type="hidden" name="active" value={t.active ? "false" : "true"} />

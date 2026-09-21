@@ -11,9 +11,11 @@ import {
   inspectorAssignmentProfiles,
   inspectors,
   jobCompletionData,
+  jobOutturns,
   jobUpdates,
   jobs,
   stockReadings,
+  tanks,
 } from "@/db/schema";
 import {
   createInspectorSession,
@@ -30,6 +32,8 @@ import { reviewCompletionData, reviewUploadedFile } from "@/lib/ai/document-revi
 import { maybeAutoAssign } from "@/lib/automation/auto-assign";
 import { recordApprovalCheck } from "@/lib/approval-checks";
 import { parseDecimal3, parseDecimalN } from "@/lib/decimal";
+import { lookupVolumeForDip } from "@/lib/tank-calibration";
+import { calculateOutturn, calculateReading, type MovementType, type ReadingInput } from "@/lib/outturn";
 import type { FormState } from "./submissions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
@@ -370,6 +374,237 @@ export async function saveCompletionData(_prev: FormState, formData: FormData): 
 
   revalidateJob(f.jobId);
   return { ok: true, message: "Completion data saved." };
+}
+
+/* ---------------- Product outturn ---------------- */
+
+const outturnSchema = z.object({
+  jobId: z.coerce.number().int().positive(),
+  movementType: z.enum(["receipt", "delivery"]),
+  isCrudeOil: z.string().optional(),
+  densityUnit: z.enum(["kg_m3", "g_cm3"]).default("kg_m3"),
+
+  initialTankId: z.coerce.number().int().positive(),
+  initialDipMm: z.string().optional(),
+  initialWaterDipMm: z.string().optional(),
+  initialTemperatureC: z.string().optional(),
+  initialDensityAt20: z.string().optional(),
+  initialVcf: z.string().optional(),
+  initialManualTgvL: z.string().optional(),
+  initialManualWaterVolumeL: z.string().optional(),
+  initialManualRoofVolumeL: z.string().optional(),
+  initialSwPercent: z.string().optional(),
+  initialAirBuoyancyOverrideMt: z.string().optional(),
+
+  finalTankId: z.coerce.number().int().positive(),
+  finalDipMm: z.string().optional(),
+  finalWaterDipMm: z.string().optional(),
+  finalTemperatureC: z.string().optional(),
+  finalDensityAt20: z.string().optional(),
+  finalVcf: z.string().optional(),
+  finalManualTgvL: z.string().optional(),
+  finalManualWaterVolumeL: z.string().optional(),
+  finalManualRoofVolumeL: z.string().optional(),
+  finalSwPercent: z.string().optional(),
+  finalAirBuoyancyOverrideMt: z.string().optional(),
+});
+
+const round3 = (n: number): string => n.toFixed(3);
+
+/** Numeric value of a successfully-parsed DecimalParse, or null (blank/unparseable — caller already collected the error). */
+const numOf = (p: { ok: boolean; value?: string | null }): number | null =>
+  p.ok && "value" in p && p.value !== null && p.value !== undefined ? Number(p.value) : null;
+
+type Side = "initial" | "final";
+
+/** Resolves TGV/water volume/roof volume for one side (calibration lookup, falling back to a manual override), and parses the rest of that side's raw fields. Returns field-prefixed errors, never throws. */
+async function prepareSide(
+  side: Side,
+  f: z.infer<typeof outturnSchema>,
+  tankId: number,
+  densityUnit: "kg_m3" | "g_cm3",
+  isCrudeOil: boolean,
+): Promise<{ input: ReadingInput; errors: string[] }> {
+  const label = side === "initial" ? "Initial" : "Final";
+  const errors: string[] = [];
+  const get = (name: string) => (f as unknown as Record<string, string | undefined>)[`${side}${name}`];
+
+  const dip = parseDecimalN(get("DipMm"), 2);
+  if (!dip.ok) errors.push(`${label} dip: ${dip.message}`);
+  const waterDip = parseDecimalN(get("WaterDipMm"), 2);
+  if (!waterDip.ok) errors.push(`${label} water dip: ${waterDip.message}`);
+  const temperatureC = parseDecimalN(get("TemperatureC"), 2);
+  if (!temperatureC.ok) errors.push(`${label} temperature: ${temperatureC.message}`);
+  const densityAt20 = parseDecimalN(get("DensityAt20"), 4);
+  if (!densityAt20.ok) errors.push(`${label} density: ${densityAt20.message}`);
+  const vcf = parseDecimalN(get("Vcf"), 5);
+  if (!vcf.ok) errors.push(`${label} VCF: ${vcf.message}`);
+  const swPercent = isCrudeOil ? parseDecimalN(get("SwPercent"), 3) : { ok: true as const, value: null };
+  if (!swPercent.ok) errors.push(`${label} S&W: ${swPercent.message}`);
+  const airBuoyancyOverride = parseDecimal3(get("AirBuoyancyOverrideMt"));
+  if (!airBuoyancyOverride.ok) errors.push(`${label} air buoyancy override: ${airBuoyancyOverride.message}`);
+  const manualTgv = parseDecimal3(get("ManualTgvL"));
+  if (!manualTgv.ok) errors.push(`${label} manual TGV: ${manualTgv.message}`);
+  const manualWaterVolume = parseDecimal3(get("ManualWaterVolumeL"));
+  if (!manualWaterVolume.ok) errors.push(`${label} manual water volume: ${manualWaterVolume.message}`);
+  const manualRoofVolume = parseDecimal3(get("ManualRoofVolumeL"));
+  if (!manualRoofVolume.ok) errors.push(`${label} manual roof volume: ${manualRoofVolume.message}`);
+
+  if (errors.length > 0) {
+    return { input: {} as ReadingInput, errors };
+  }
+
+  const dipNum = numOf(dip);
+  const waterDipNum = numOf(waterDip);
+
+  let tgvL = numOf(manualTgv);
+  let roofVolumeL = numOf(manualRoofVolume);
+  let waterVolumeL = numOf(manualWaterVolume);
+
+  if (dipNum !== null && (tgvL === null || roofVolumeL === null)) {
+    const looked = await lookupVolumeForDip(tankId, dipNum);
+    if (tgvL === null) tgvL = looked?.tgvL ?? null;
+    if (roofVolumeL === null) roofVolumeL = looked?.roofVolumeL ?? null;
+  }
+  if (waterVolumeL === null) {
+    if (waterDipNum === 0) waterVolumeL = 0;
+    else if (waterDipNum !== null) waterVolumeL = (await lookupVolumeForDip(tankId, waterDipNum))?.tgvL ?? null;
+    else waterVolumeL = 0; // no water dip entered at all -> assume no free water
+  }
+  if (roofVolumeL === null) roofVolumeL = 0; // no floating roof / no roof data at this dip -> 0 (spec section 4.3)
+
+  if (tgvL === null) {
+    errors.push(`${label}: no calibration data covers this dip — enter TGV directly, or calibrate the tank first.`);
+  }
+  if (waterVolumeL === null) {
+    errors.push(`${label}: no calibration data covers the water dip — enter water volume directly.`);
+  }
+
+  return {
+    input: {
+      tankId,
+      dipMm: dipNum,
+      waterDipMm: waterDipNum,
+      tgvL,
+      waterVolumeL,
+      roofVolumeL,
+      temperatureC: numOf(temperatureC),
+      densityAt20: numOf(densityAt20),
+      densityUnit,
+      vcf: numOf(vcf),
+      swPercent: numOf(swPercent),
+      airBuoyancyOverrideMt: numOf(airBuoyancyOverride),
+    },
+    errors,
+  };
+}
+
+export async function saveOutturnData(_prev: FormState, formData: FormData): Promise<FormState> {
+  const inspector = await getInspector();
+  if (!inspector) return initialFail("Unauthorized");
+  const parsed = outturnSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail("Check the fields entered.");
+  const f = parsed.data;
+  const job = await loadOwnJob(f.jobId, inspector.id);
+  if (!job) return initialFail("Job not found.");
+  if (!["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status)) {
+    return initialFail("This job isn't open for outturn data right now.");
+  }
+
+  const validTanks = await requireDb().select({ id: tanks.id }).from(tanks).where(eq(tanks.clientId, job.clientId));
+  const validTankIds = new Set(validTanks.map((t) => t.id));
+  if (!validTankIds.has(f.initialTankId)) return initialFail("Initial tank: pick a tank that belongs to this client.");
+  if (!validTankIds.has(f.finalTankId)) return initialFail("Final tank: pick a tank that belongs to this client.");
+
+  const isCrudeOil = f.isCrudeOil === "on";
+  const [initialPrep, finalPrep] = await Promise.all([
+    prepareSide("initial", f, f.initialTankId, f.densityUnit, isCrudeOil),
+    prepareSide("final", f, f.finalTankId, f.densityUnit, isCrudeOil),
+  ]);
+  const prepErrors = [...initialPrep.errors, ...finalPrep.errors];
+  if (prepErrors.length > 0) return initialFail(prepErrors[0]);
+
+  const initialEval = calculateReading(initialPrep.input, "Initial");
+  const finalEval = calculateReading(finalPrep.input, "Final");
+  const blocking = [...initialEval.blockingErrors, ...finalEval.blockingErrors];
+  if (blocking.length > 0 || !initialEval.result || !finalEval.result) {
+    return initialFail(blocking[0] ?? "Couldn't calculate the outturn.");
+  }
+
+  const tankCapacityRows = await requireDb()
+    .select({ id: tanks.id, capacity: tanks.capacity, capacityUnit: tanks.capacityUnit })
+    .from(tanks)
+    .where(eq(tanks.id, f.initialTankId))
+    .limit(1);
+  const capacityL =
+    tankCapacityRows[0]?.capacity && tankCapacityRows[0].capacityUnit === "L" ? Number(tankCapacityRows[0].capacity) : null;
+
+  const outturn = calculateOutturn(
+    { ...initialPrep.input, result: initialEval.result },
+    { ...finalPrep.input, result: finalEval.result },
+    f.movementType as MovementType,
+    capacityL,
+  );
+
+  const database = requireDb();
+  const existingOutturn = await database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, f.jobId)).limit(1);
+  const toStrN = (n: number | null, scale: number) => (n === null ? null : n.toFixed(scale));
+  const outturnValues = {
+    movementType: f.movementType,
+    isCrudeOil,
+    densityUnit: f.densityUnit,
+    initialTankId: f.initialTankId,
+    initialDipMm: toStrN(initialPrep.input.dipMm, 2),
+    initialWaterDipMm: toStrN(initialPrep.input.waterDipMm, 2),
+    initialTemperatureC: toStrN(initialPrep.input.temperatureC, 2),
+    initialDensityAt20: toStrN(initialPrep.input.densityAt20, 4),
+    initialVcf: toStrN(initialPrep.input.vcf, 5),
+    initialTgvL: toStrN(initialPrep.input.tgvL, 3),
+    initialWaterVolumeL: toStrN(initialPrep.input.waterVolumeL, 3),
+    initialRoofVolumeL: toStrN(initialPrep.input.roofVolumeL, 3),
+    initialSwPercent: toStrN(initialPrep.input.swPercent, 3),
+    initialAirBuoyancyOverrideMt: toStrN(initialPrep.input.airBuoyancyOverrideMt, 3),
+    finalTankId: f.finalTankId,
+    finalDipMm: toStrN(finalPrep.input.dipMm, 2),
+    finalWaterDipMm: toStrN(finalPrep.input.waterDipMm, 2),
+    finalTemperatureC: toStrN(finalPrep.input.temperatureC, 2),
+    finalDensityAt20: toStrN(finalPrep.input.densityAt20, 4),
+    finalVcf: toStrN(finalPrep.input.vcf, 5),
+    finalTgvL: toStrN(finalPrep.input.tgvL, 3),
+    finalWaterVolumeL: toStrN(finalPrep.input.waterVolumeL, 3),
+    finalRoofVolumeL: toStrN(finalPrep.input.roofVolumeL, 3),
+    finalSwPercent: toStrN(finalPrep.input.swPercent, 3),
+    finalAirBuoyancyOverrideMt: toStrN(finalPrep.input.airBuoyancyOverrideMt, 3),
+    updatedAt: new Date(),
+  };
+  if (existingOutturn[0]) {
+    await database.update(jobOutturns).set(outturnValues).where(eq(jobOutturns.id, existingOutturn[0].id));
+  } else {
+    await database.insert(jobOutturns).values({ jobId: f.jobId, ...outturnValues });
+  }
+
+  // Feed the existing report fields: the client PDF, approval checks and admin job view all read
+  // these straight off jobCompletionData, unchanged.
+  const completionValues = {
+    gov: round3(outturn.result.govOutturnL),
+    gsv: round3(outturn.result.volumeOutturnL),
+    metricTonnesAir: round3(outturn.result.mtAirOutturn),
+    metricTonnesVacuum: round3(outturn.result.mtVacOutturn),
+    updatedAt: new Date(),
+  };
+  const existingCompletion = await database.select({ id: jobCompletionData.id }).from(jobCompletionData).where(eq(jobCompletionData.jobId, f.jobId)).limit(1);
+  if (existingCompletion[0]) {
+    await database.update(jobCompletionData).set(completionValues).where(eq(jobCompletionData.id, existingCompletion[0].id));
+  } else {
+    await database.insert(jobCompletionData).values({ jobId: f.jobId, ...completionValues });
+  }
+
+  revalidateJob(f.jobId);
+  const warnings = [...initialEval.warnings, ...finalEval.warnings, ...outturn.warnings];
+  return {
+    ok: true,
+    message: warnings.length > 0 ? `Outturn saved, with ${warnings.length} warning(s) — see the trail below.` : "Outturn saved.",
+  };
 }
 
 /* ---------------- Stock readings (section 14, stock monitoring jobs only) ---------------- */

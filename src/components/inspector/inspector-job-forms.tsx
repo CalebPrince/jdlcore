@@ -97,20 +97,25 @@ export function ProgressUpdateForm({ jobId }: { jobId: number }) {
 export function CompletionDataForm({
   jobId,
   defaultValues,
+  computedFigures,
 }: {
   jobId: number;
   defaultValues?: {
     dateTimeStarted?: string | null;
     dateTimeCompleted?: string | null;
     service?: string | null;
+    inspectorComments?: string | null;
+  };
+  /** Read-only, computed by the Product Outturn category above — nothing here overrides it. */
+  computedFigures?: {
     gov?: string | null;
     gsv?: string | null;
     metricTonnesAir?: string | null;
     metricTonnesVacuum?: string | null;
-    inspectorComments?: string | null;
   };
 }) {
   const [state, action, pending] = useActionState(saveCompletionData, initial);
+  const hasFigures = computedFigures && Object.values(computedFigures).some((v) => v != null);
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="jobId" value={jobId} />
@@ -133,46 +138,6 @@ export function CompletionDataForm({
             defaultValue={defaultValues?.dateTimeCompleted ?? undefined}
           />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`cd-gov-${jobId}`}>Gross Observed Volume (GOV)</Label>
-          <Input
-            id={`cd-gov-${jobId}`}
-            name="gov"
-            inputMode="decimal"
-            placeholder="0.000"
-            defaultValue={defaultValues?.gov ?? undefined}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`cd-gsv-${jobId}`}>Gross Standard Volume (GSV)</Label>
-          <Input
-            id={`cd-gsv-${jobId}`}
-            name="gsv"
-            inputMode="decimal"
-            placeholder="0.000"
-            defaultValue={defaultValues?.gsv ?? undefined}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`cd-mta-${jobId}`}>Metric Tonnes in Air</Label>
-          <Input
-            id={`cd-mta-${jobId}`}
-            name="metricTonnesAir"
-            inputMode="decimal"
-            placeholder="0.000"
-            defaultValue={defaultValues?.metricTonnesAir ?? undefined}
-          />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor={`cd-mtv-${jobId}`}>Metric Tonnes in Vacuum</Label>
-          <Input
-            id={`cd-mtv-${jobId}`}
-            name="metricTonnesVacuum"
-            inputMode="decimal"
-            placeholder="0.000"
-            defaultValue={defaultValues?.metricTonnesVacuum ?? undefined}
-          />
-        </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor={`cd-comments-${jobId}`}>Inspector Comments</Label>
           <Textarea
@@ -183,6 +148,17 @@ export function CompletionDataForm({
           />
         </div>
       </div>
+      {hasFigures ? (
+        <p className="m-0 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+          GOV {computedFigures?.gov ?? "—"} · GSV {computedFigures?.gsv ?? "—"} · Metric Tonnes Air{" "}
+          {computedFigures?.metricTonnesAir ?? "—"} · Metric Tonnes Vacuum {computedFigures?.metricTonnesVacuum ?? "—"} — from
+          the Product Outturn above.
+        </p>
+      ) : (
+        <p className="m-0 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+          GOV/GSV/Metric Tonnes figures come from the Product Outturn category above — fill that in to calculate them.
+        </p>
+      )}
       <Button type="submit" disabled={pending} variant="outline" className="self-start">
         {pending ? "Saving…" : "Save Completion Data"}
       </Button>

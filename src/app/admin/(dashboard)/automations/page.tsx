@@ -11,7 +11,7 @@ export const dynamic = "force-dynamic";
 const STATE_STYLE: Record<AutomationCard["state"], string> = {
   on: "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]",
   always: "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]",
-  shadow: "bg-[rgba(201,142,18,0.14)] text-gold-700",
+  shadow: "bg-[rgba(201,142,18,0.14)] text-gold-600",
   off: "bg-ink-faint/10 text-ink-soft",
 };
 
@@ -83,7 +83,7 @@ function AutomationItem({ card }: { card: AutomationCard }) {
           </p>
           {card.where && (
             <p className="m-0 mt-2">
-              <Link href={card.where.href} className="font-medium text-gold-700 hover:underline">
+              <Link href={card.where.href} className="font-medium text-gold-600 hover:underline">
                 {card.switch ? "Change this in" : "See"} {card.where.label} &rarr;
               </Link>
             </p>
@@ -220,7 +220,7 @@ export default async function AutomationsPage() {
                   <ul className="m-0 list-none divide-y p-0" style={{ borderColor: "var(--border)" }}>
                     {data.activity.map((a) => (
                       <li key={a.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-5 py-3 text-sm">
-                        <Link href={`/admin/jobs/${a.jobId}`} className="font-display font-bold tracking-wide text-gold-700 hover:underline">
+                        <Link href={`/admin/jobs/${a.jobId}`} className="font-display font-bold tracking-wide text-gold-600 hover:underline">
                           {a.ref}
                         </Link>
                         <span className="min-w-0 flex-1 text-muted-foreground">{a.text}</span>

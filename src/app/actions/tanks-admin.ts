@@ -21,6 +21,7 @@ const createSchema = z.object({
   capacityUnit: z.string().trim().max(20).optional(),
   maxGaugeHeightMm: z.string().optional(),
   minPumpableStop: z.string().optional(),
+  hasFloatingRoof: z.string().optional(),
 });
 
 const cleanNumeric = (v: string | undefined): string | null => (v && v.trim() !== "" ? v.trim() : null);
@@ -44,6 +45,7 @@ export async function createTank(_prev: FormState, formData: FormData): Promise<
       capacityUnit: f.capacityUnit || "MT",
       maxGaugeHeightMm: cleanNumeric(f.maxGaugeHeightMm),
       minPumpableStop: cleanNumeric(f.minPumpableStop),
+      hasFloatingRoof: f.hasFloatingRoof === "on",
     })
     .returning({ id: tanks.id });
 
@@ -72,5 +74,23 @@ export async function toggleTankActive(formData: FormData): Promise<void> {
     targetType: "tank",
     targetId: id,
     summary: `Marked tank #${id} as ${active ? "active" : "inactive"}.`,
+  });
+}
+
+export async function toggleFloatingRoof(formData: FormData): Promise<void> {
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return;
+  const id = Number(formData.get("id"));
+  const hasFloatingRoof = formData.get("hasFloatingRoof") === "true";
+  if (!id) return;
+  await requireDb().update(tanks).set({ hasFloatingRoof }).where(eq(tanks.id, id));
+  revalidatePath("/admin/tanks");
+  revalidatePath(`/admin/tanks/${id}/calibration`);
+  await logAudit({
+    actor: current,
+    action: hasFloatingRoof ? "tank.floating_roof_enabled" : "tank.floating_roof_disabled",
+    targetType: "tank",
+    targetId: id,
+    summary: `Marked tank #${id} as ${hasFloatingRoof ? "having a floating roof" : "not having a floating roof"}.`,
   });
 }

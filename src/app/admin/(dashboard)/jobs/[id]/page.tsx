@@ -11,12 +11,15 @@ import {
   invoices,
   jobComments,
   jobCompletionData,
+  jobOutturns,
   jobUpdates,
   jobs,
   stockReadings,
   tanks,
 } from "@/db/schema";
 import { getStaff } from "@/lib/staff-auth";
+import { buildOutturnTrail } from "@/lib/outturn-trail";
+import { OutturnTrailDisplay } from "@/components/inspector/outturn-trail-display";
 import {
   Card,
   CardContent,
@@ -110,6 +113,7 @@ export default async function AdminJobDetailPage({
     ? await database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
     : [];
   const completion = await database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1);
+  const outturnRows = await database.select().from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
   const tankList = await database.select().from(tanks).where(eq(tanks.clientId, job.clientId));
   const readings = await database
     .select()
@@ -154,6 +158,8 @@ export default async function AdminJobDetailPage({
   const isAdmin = staff.role === "administrator" || staff.role === "superadmin";
   const cd = completion[0];
   const tankById = new Map(tankList.map((t) => [t.id, t]));
+  const outturnRow = outturnRows[0];
+  const outturnTrail = outturnRow ? buildOutturnTrail(outturnRow) : null;
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -251,6 +257,17 @@ export default async function AdminJobDetailPage({
             </CardHeader>
             <CardContent>
               <CloseJobButton jobId={job.id} />
+            </CardContent>
+          </Card>
+        )}
+
+        {outturnTrail && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Product Outturn</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <OutturnTrailDisplay trail={outturnTrail} />
             </CardContent>
           </Card>
         )}
