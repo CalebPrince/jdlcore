@@ -22,12 +22,9 @@ export type ApprovalStatsView = {
 export function AutomationSettingsForm({
   defaults,
   stats,
-  setupNeeded,
 }: {
   defaults: AutomationSettings;
   stats: ApprovalStatsView | null;
-  /** True when migration 0005 hasn't been applied, so the new tables don't exist yet. */
-  setupNeeded: boolean;
 }) {
   const [state, action, pending] = useActionState(updateAutomationSettings, initial);
   const allowed = new Set(defaults.approvalServiceTypes.split(",").filter(Boolean));
@@ -41,12 +38,6 @@ export function AutomationSettingsForm({
         </CardDescription>
       </CardHeader>
       <CardContent>
-        {setupNeeded && (
-          <p className="mb-4 rounded-lg border border-[rgba(201,142,18,0.4)] bg-[rgba(201,142,18,0.08)] p-3 text-sm">
-            These features need database migration <code>0005_auto_assignment_and_approval</code>. Apply it in the
-            Supabase SQL Editor first (see the migrations folder), or they will stay inactive.
-          </p>
-        )}
         <form action={action} className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           <div className="flex flex-col gap-3 sm:col-span-2">
             <h3 className="m-0 text-sm font-semibold text-navy-950">Inspector assignment</h3>
@@ -70,7 +61,7 @@ export function AutomationSettingsForm({
               <Label htmlFor="reassignHours">Move to the next inspector if not accepted within (hours)</Label>
               <Input id="reassignHours" name="reassignHours" type="number" min={1} max={168} defaultValue={defaults.reassignHours} required />
               <p className="text-xs text-muted-foreground">
-                Checked once a day, so it happens at the first daily run after this many hours.
+                Checked once a day, so it can take a little longer than this.
               </p>
             </div>
           </div>
@@ -99,7 +90,7 @@ export function AutomationSettingsForm({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="approvalHoldHours">Wait before approving (hours)</Label>
                 <Input id="approvalHoldHours" name="approvalHoldHours" type="number" min={0} max={168} defaultValue={defaults.approvalHoldHours} required />
-                <p className="text-xs text-muted-foreground">Gives your team time to look first. Runs at the next daily run after this.</p>
+                <p className="text-xs text-muted-foreground">Gives your team time to look first. Approval is checked once a day, so it can take a little longer than this.</p>
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="approvalMinCleanJobs">Inspector needs this many clean jobs in a row</Label>

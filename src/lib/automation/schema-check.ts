@@ -1,9 +1,6 @@
 import "server-only";
 import { requireDb } from "@/db";
 import { schemaMigrations } from "@/db/schema";
-import { brandedEmailHtml } from "@/lib/email";
-import { notifyStaffBoth } from "@/lib/notifications";
-import { claimEvent } from "./events";
 
 /**
  * Every migration this version of the code depends on, oldest first. Add the new file's name
@@ -17,8 +14,6 @@ export const REQUIRED_MIGRATIONS = [
   "0005_auto_assignment_and_approval",
 ] as const;
 
-const isoDay = () => new Date().toISOString().slice(0, 10);
-
 function isMissingTable(err: unknown): boolean {
   const parts: string[] = [];
   for (let e: unknown = err; e && parts.length < 4; e = (e as { cause?: unknown }).cause) {
@@ -29,8 +24,10 @@ function isMissingTable(err: unknown): boolean {
 
 /**
  * Catches the classic "deployed the code before running the SQL" mistake. Compares the ledger to
- * REQUIRED_MIGRATIONS and, when the database is behind (or the ledger was never installed), tells
- * administrators once a day until it's fixed. Read-only; it never applies anything itself.
+ * REQUIRED_MIGRATIONS and, when the database is behind (or the ledger was never installed), FAILS
+ * this task. That is deliberately developer-only: it shows as a failed task in the cron response
+ * and logs, and is never sent to the business's staff or shown in the admin screens. Read-only; it
+ * never applies anything itself.
  */
 export async function runSchemaCheck() {
   let applied: Set<string>;
@@ -47,36 +44,9 @@ export async function runSchemaCheck() {
   const missing = REQUIRED_MIGRATIONS.filter((name) => !applied.has(name));
   if (missing.length === 0) return { behind: false, missing: [] as string[] };
 
-  // If the dedupe table itself is what's missing, still alert: that is exactly this situation.
-  let first = true;
-  try {
-    first = await claimEvent("schema_behind", isoDay());
-  } catch {
-    first = true;
-  }
-  if (first) {
-    const title = ledgerInstalled
-      ? `Database is behind the code: ${missing.length} migration${missing.length === 1 ? "" : "s"} not applied`
-      : "Migration ledger not installed";
-    await notifyStaffBoth({
-      roles: ["administrator", "superadmin"],
-      type: "schema_behind",
-      title,
-      body: missing.join(", "),
-      link: "/admin/settings",
-      emailSubject: title,
-      emailHtml: brandedEmailHtml({
-        label: "JDL CORE ADMIN",
-        heading: title,
-        bodyLines: [
-          ledgerInstalled
-            ? "The deployed version expects database changes that haven't been applied, so some features may fail or be skipped."
-            : "The database has no schema_migrations table yet, so applied migrations can't be verified.",
-          `Not recorded: <strong>${missing.join(", ")}</strong>`,
-          "Paste the missing files from the /migrations folder into the Supabase SQL Editor, in order. They are safe to re-run.",
-        ],
-      }),
-    });
-  }
-  return { behind: true, missing: [...missing] };
+  const message = ledgerInstalled
+    ? `Database is behind the code. Not applied: ${missing.join(", ")}`
+    : `Migration ledger not installed. Apply migrations/0001 first, then: ${missing.join(", ")}`;
+  console.error(`[schema-check] ${message}`);
+  throw new Error(message);
 }

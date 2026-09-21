@@ -46,7 +46,7 @@ export default async function AdminInspectorsPage() {
   } catch {
     dbError = true;
   }
-  // Assignment profiles come from migration 0005; if it isn't applied yet, the page still works.
+  // If profiles can't be read, the rest of the page still works.
   const profiles = new Map<number, AssignmentProfileView>();
   let profilesUnavailable = false;
   if (!dbError) {
@@ -137,7 +137,7 @@ export default async function AdminInspectorsPage() {
                     </summary>
                     {profilesUnavailable ? (
                       <p className="mt-2 text-xs text-muted-foreground">
-                        Needs database migration 0005 before assignment profiles can be saved.
+                        Assignment profiles are unavailable right now. Please try again shortly.
                       </p>
                     ) : (
                       <InspectorAssignmentForm inspectorId={i.id} profile={profiles.get(i.id) ?? EMPTY_PROFILE} />

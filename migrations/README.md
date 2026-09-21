@@ -14,7 +14,7 @@ Plain SQL files, applied in number order, each recorded in the `schema_migration
 
 The very first time, run `0001_schema_migrations.sql` first (it creates the ledger). `0002` to `0004` were applied to production before the ledger existed; run them once more (harmless) so they get recorded.
 
-If you deploy code that needs a migration you haven't applied, the daily cron emails administrators ("Database is behind the code") until you do.
+If you deploy code that needs a migration you haven't applied, the daily cron run reports a failed `schema-check` task (visible in the Vercel cron log, never shown to staff) until you do.
 
 ## Using the runner (any database you can reach from your machine)
 

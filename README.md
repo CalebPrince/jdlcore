@@ -91,7 +91,7 @@ Idempotency lives in the `automation_events` table (migration `0004`): a run "cl
 
 - `/api/cron/npa-sync` (06:00): NPA knowledge crawl, then a health check that alerts staff on failed documents, unlistable sources, or a week with nothing new.
 - `/api/cron/daily` (07:00): each task is isolated and idempotent (`src/lib/automation/`), and the JSON response lists every task's outcome. To run it by hand, send the secret in the `Authorization` header; note that this sends real emails.
-  - `schema-check`: compares the migration ledger to the migrations this code requires and alerts administrators if the database is behind.
+  - `schema-check`: compares the migration ledger to the migrations this code requires and fails the run (developer-only: it appears in the cron log, not to staff) if the database is behind.
   - `paystack-reconcile`: re-checks online payments started in the last 7 days that never finalized (missed webhook) with Paystack; only Paystack-confirmed successes are finalized, mismatches still go to staff.
   - `subscription-sweep`: refreshes a stale billing period from Paystack, or alerts staff when a subscription has really ended. It never suspends anyone.
   - `auto-assign`: (when switched on) retries jobs still waiting for an inspector and moves a job to the next eligible inspector if the first hasn't accepted within the configured hours.
@@ -137,7 +137,7 @@ npm run db:migrate -- up --yes     # apply pending migrations
 npm run db:migrate -- check        # lint the migrations folder (no database needed)
 ```
 
-`DATABASE_URL` is often the live database, so `up` does nothing without `--yes`. The daily `schema-check` task emails administrators if the deployed code needs a migration the database does not have, so apply migrations before (or right after) deploying code that needs them. See [migrations/README.md](migrations/README.md) for how to add one.
+`DATABASE_URL` is often the live database, so `up` does nothing without `--yes`. The daily `schema-check` task fails, and shows in the cron log, if the deployed code needs a migration the database does not have, so apply migrations before (or right after) deploying code that needs them. See [migrations/README.md](migrations/README.md) for how to add one.
 
 ## Apple-inspired UI system
 

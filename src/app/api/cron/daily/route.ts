@@ -37,5 +37,8 @@ export async function GET(req: Request) {
     await runTask("auto-close", runAutoClose),
     await runTask("email-retry", () => retryFailedEmails()),
   ];
-  return NextResponse.json({ ok: tasks.every((t) => t.ok), tasks });
+  // A failed task makes the whole run report as failed (HTTP 500), so it shows up in Vercel's cron
+  // history and logs, which is where problems for the developer belong, not in the admin screens.
+  const ok = tasks.every((t) => t.ok);
+  return NextResponse.json({ ok, tasks }, { status: ok ? 200 : 500 });
 }

@@ -264,7 +264,7 @@ export async function saveInspectorAssignmentProfile(_prev: FormState, formData:
   } catch {
     return {
       ok: false,
-      message: "Could not save. If this keeps happening, migration 0005 may not have been applied yet.",
+      message: "Could not save the assignment profile. Please try again.",
     };
   }
   revalidatePath("/admin/inspectors");

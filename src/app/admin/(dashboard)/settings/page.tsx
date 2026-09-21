@@ -12,8 +12,6 @@ import { ContactSettingsForm } from "@/components/admin/contact-settings-form";
 import { InvoiceSettingsForm } from "@/components/admin/invoice-settings-form";
 import { AutomationSettingsForm } from "@/components/admin/automation-settings-form";
 import { approvalStats, type ApprovalStats } from "@/lib/approval-checks";
-import { requireDb } from "@/db";
-import { inspectorAssignmentProfiles } from "@/db/schema";
 import { ReportSettingsForm } from "@/components/admin/report-settings-form";
 import { AnalyticsPlansForm } from "@/components/admin/analytics-plans-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,14 +30,12 @@ export default async function AdminSettingsPage() {
   ]);
   const defaults: Record<string, string> = { ...DEFAULT_SETTINGS, ...contactSettings };
   const automationSettings = await getAutomationSettings();
-  // The new tables come from migration 0005; if it hasn't been applied yet, say so instead of failing.
+  // Shadow-mode results are a nice-to-have; if they can't be read, just leave that panel out.
   let stats: ApprovalStats | null = null;
-  let setupNeeded = false;
   try {
-    await requireDb().select({ id: inspectorAssignmentProfiles.inspectorId }).from(inspectorAssignmentProfiles).limit(1);
     stats = await approvalStats();
   } catch {
-    setupNeeded = true;
+    stats = null;
   }
 
   return (
@@ -56,7 +52,7 @@ export default async function AdminSettingsPage() {
       </div>
       <ContactSettingsForm defaults={defaults} />
       <InvoiceSettingsForm defaults={invoiceSettings} />
-      <AutomationSettingsForm defaults={automationSettings} stats={stats} setupNeeded={setupNeeded} />
+      <AutomationSettingsForm defaults={automationSettings} stats={stats} />
       <ReportSettingsForm defaults={reportSettings} />
       <Card>
         <CardHeader>
