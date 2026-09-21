@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, inArray, ne, sql } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, ne, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
 import {
   aiReviews,
@@ -198,7 +198,8 @@ export async function approvalStats(days = 60): Promise<ApprovalStats> {
   const rows = await requireDb()
     .select({ verdict: jobApprovalChecks.verdict, decision: jobApprovalChecks.humanDecision })
     .from(jobApprovalChecks)
-    .where(and(inArray(jobApprovalChecks.humanDecision, ["approved", "rejected"]), sql`${jobApprovalChecks.decidedAt} >= ${since}`));
+    // gte() (not a raw sql fragment): the production driver cannot bind a Date inside a raw fragment.
+    .where(and(inArray(jobApprovalChecks.humanDecision, ["approved", "rejected"]), gte(jobApprovalChecks.decidedAt, since)));
   return {
     decided: rows.length,
     agreedPass: rows.filter((r) => r.verdict === "pass" && r.decision === "approved").length,
