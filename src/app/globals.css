@@ -18,6 +18,7 @@
   --gold-300: #f6cf6e;
   --gold-500: #eeb02b;
   --gold-600: #c98e12;
+  --gold-700: #966b0d;
   --paper: #f8f7f3;
   --paper-deep: #eee9dc;
   --ink: #101c2b;
@@ -74,6 +75,7 @@
   --color-gold-300: var(--gold-300);
   --color-gold-500: var(--gold-500);
   --color-gold-600: var(--gold-600);
+  --color-gold-700: var(--gold-700);
   --color-paper: var(--paper);
   --color-paper-deep: var(--paper-deep);
   --color-ink: var(--ink);
