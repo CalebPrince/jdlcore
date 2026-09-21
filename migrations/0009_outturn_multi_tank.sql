@@ -1,7 +1,8 @@
 -- Splits job_outturns into a job-level header (movement type, crude flag, density unit, notes -- one
 -- per job) plus a new job_outturn_tanks table (one row per tank in that job's outturn), so a single
--- outturn can span several tanks, matching the client's report layout. Safe to re-run. No production
--- data loss risk: job_outturns has had no real rows yet (the feature shipped in 0008 minutes earlier).
+-- outturn can span several tanks, matching the client's report layout. Safe to re-run.
+-- destructive-ok: the columns dropped below are being moved to job_outturn_tanks by design, and
+-- job_outturns has had no real rows yet (the feature shipped in 0008 minutes before this migration).
 
 ALTER TABLE job_outturns DROP CONSTRAINT IF EXISTS job_outturns_initial_tank_id_fkey;
 ALTER TABLE job_outturns DROP CONSTRAINT IF EXISTS job_outturns_final_tank_id_fkey;
