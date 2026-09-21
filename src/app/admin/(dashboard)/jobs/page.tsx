@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CreateJobForm } from "@/components/admin/create-job-form";
+import { listServiceOptions } from "@/lib/assignment";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { getStaff } from "@/lib/staff-auth";
 import { flagOverdueInvoices } from "@/lib/overdue-invoices";
@@ -54,6 +55,8 @@ export default async function AdminJobsPage({
     dbError = true;
   }
 
+  const serviceOptions = await listServiceOptions();
+
   const active = BUCKETS.find((b) => b.key === bucket) ?? BUCKETS[0];
   const filtered =
     active.statuses.length === 0
@@ -70,7 +73,7 @@ export default async function AdminJobsPage({
       </div>
 
       {staff?.role !== "operations" && (
-        <CreateJobForm clients={clientList.map((c) => ({ id: c.id, name: c.name, company: c.company }))} />
+        <CreateJobForm clients={clientList.map((c) => ({ id: c.id, name: c.name, company: c.company }))} services={serviceOptions} />
       )}
 
       <div className="flex flex-wrap gap-2">

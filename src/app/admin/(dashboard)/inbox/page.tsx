@@ -21,6 +21,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { ConvertQuoteSheet } from "@/components/admin/convert-quote-sheet";
+import { listServiceOptions } from "@/lib/assignment";
+import { matchServiceKey } from "@/lib/service-match";
 
 const TYPE_LABELS: Record<string, string> = {
   quote: "Quote request",
@@ -55,14 +57,13 @@ export default async function AdminInboxPage({
   let rows: Awaited<ReturnType<typeof loadRows>> = [];
   let clientOptions: Awaited<ReturnType<typeof loadClients>> = [];
   let error: string | null = null;
+  let serviceOptions: Awaited<ReturnType<typeof listServiceOptions>> = [];
   try {
     rows = await loadRows(activeType);
     clientOptions = await loadClients();
-  } catch (err) {
-    error =
-      err instanceof Error && err.message.includes("DATABASE_URL")
-        ? "Database not connected yet — add your Supabase DATABASE_URL to .env and run `npm run db:push`."
-        : "Could not reach the database.";
+    serviceOptions = await listServiceOptions();
+  } catch {
+    error = "The inbox is temporarily unavailable. Please try again shortly.";
   }
 
   return (
@@ -180,6 +181,8 @@ export default async function AdminInboxPage({
                               message: r.message,
                             }}
                             clients={clientOptions}
+                            services={serviceOptions}
+                            defaultServiceType={matchServiceKey(r.service, serviceOptions)}
                           />
                         ))}
                     </TableCell>

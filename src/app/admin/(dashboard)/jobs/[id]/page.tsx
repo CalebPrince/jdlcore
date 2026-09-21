@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, desc, eq, sql } from "drizzle-orm";
-import { ArrowLeft, Check, FileUp, X } from "lucide-react";
+import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
   certificates,
@@ -32,12 +32,14 @@ import {
 import {
   AssignInspectorForm,
   ApproveRejectPanel,
+  EditJobDetailsForm,
   CloseJobButton,
   OverrideStatusForm,
   PaymentActionPanel,
 } from "@/components/admin/workflow-forms";
 import { AdminJobComments } from "@/components/admin/admin-job-comments";
 import { AiReviewBanner } from "@/components/admin/ai-review-banner";
+import { ApprovalChecklist } from "@/components/admin/approval-checklist";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { loadJobReviews } from "@/lib/ai/document-review";
 import {
@@ -53,6 +55,7 @@ import {
 } from "@/lib/jobs";
 import { getInvoiceSettings } from "@/lib/settings";
 import { rankInspectorsForJob } from "@/lib/inspector-suggestions";
+import { listServiceOptions } from "@/lib/assignment";
 import { evaluateApproval, type ApprovalEvaluation } from "@/lib/approval-checks";
 import { getAutomationSettings } from "@/lib/settings";
 
@@ -102,6 +105,7 @@ export default async function AdminJobDetailPage({
   const docs = await database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt));
   const bills = await database.select().from(invoices).where(eq(invoices.jobId, jobId)).orderBy(desc(invoices.issuedAt));
   const activeInspectors = await rankInspectorsForJob(job.clientId, job.assignedInspectorId);
+  const serviceOptions = await listServiceOptions();
   const assignedInspector = job.assignedInspectorId
     ? await database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
     : [];
@@ -207,6 +211,24 @@ export default async function AdminJobDetailPage({
           </Card>
         )}
 
+        {job.status !== "closed" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="font-display">Job Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <EditJobDetailsForm
+                jobId={job.id}
+                title={job.service}
+                serviceType={job.serviceType}
+                location={job.location}
+                tankOrDepot={job.tankOrDepot}
+                services={serviceOptions}
+              />
+            </CardContent>
+          </Card>
+        )}
+
         {canApproveReject && (
           <Card>
             <CardHeader>
@@ -215,33 +237,7 @@ export default async function AdminJobDetailPage({
             <CardContent className="flex flex-col gap-3">
               <AiReviewBanner reviews={completionReviews} />
               {approvalEval && (
-                <div className="rounded-xl border p-3" style={{ borderColor: "var(--border)" }}>
-                  <p className="m-0 text-sm font-semibold text-navy-950">
-                    Automatic checks: {approvalEval.verdict === "pass" ? "all passed" : `${approvalEval.checks.filter((c) => !c.ok).length} need a person`}
-                  </p>
-                  <ul className="m-0 mt-2 flex list-none flex-col gap-1.5 p-0">
-                    {approvalEval.checks.map((c) => (
-                      <li key={c.key} className="flex items-start gap-2 text-xs">
-                        {c.ok ? (
-                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1f7a4d]" aria-label="Passed" />
-                        ) : (
-                          <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" aria-label="Needs attention" />
-                        )}
-                        <span>
-                          <span className="font-medium">{c.label}.</span>{" "}
-                          <span className="text-muted-foreground">{c.detail}</span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="m-0 mt-2 text-xs text-muted-foreground">
-                    {approvalMode === "auto" && approvalEval.verdict === "pass"
-                      ? "If nobody acts first, this job will be approved automatically after the waiting period."
-                      : approvalMode === "shadow"
-                        ? "Shadow mode: these checks are recorded for comparison only. You decide."
-                        : "A person needs to review this one."}
-                  </p>
-                </div>
+                <ApprovalChecklist verdict={approvalEval.verdict} checks={approvalEval.checks} mode={approvalMode} />
               )}
               <ApproveRejectPanel jobId={job.id} />
             </CardContent>

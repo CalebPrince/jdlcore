@@ -2,10 +2,11 @@ import Link from "next/link";
 import { desc, eq } from "drizzle-orm";
 import { FileText } from "lucide-react";
 import { requireDb } from "@/db";
-import { jobs } from "@/db/schema";
+import { inspectorAssignmentProfiles, jobs } from "@/db/schema";
 import { getInspector } from "@/lib/inspector-auth";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { Card, CardContent } from "@/components/ui/card";
+import { AvailabilityCard } from "@/components/inspector/availability-card";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,11 @@ const BUCKETS: { key: string; label: string; statuses: JobStatus[] }[] = [
   },
 ];
 
+/** True when the ISO date-time is still ahead of now (kept out of the component body: Date.now() is impure). */
+function isInFuture(iso: string | null): boolean {
+  return !!iso && new Date(iso).getTime() > Date.now();
+}
+
 export default async function InspectorDashboardPage() {
   const inspector = await getInspector();
   if (!inspector) return null;
@@ -36,6 +42,17 @@ export default async function InspectorDashboardPage() {
     jobList = await loadJobs(inspector.id);
   } catch {
     /* render empty state */
+  }
+  let awayUntil: string | null = null;
+  try {
+    const rows = await requireDb()
+      .select({ until: inspectorAssignmentProfiles.unavailableUntil })
+      .from(inspectorAssignmentProfiles)
+      .where(eq(inspectorAssignmentProfiles.inspectorId, inspector.id))
+      .limit(1);
+    awayUntil = rows[0]?.until ? rows[0].until.toISOString() : null;
+  } catch {
+    /* availability just shows as "available" if it can't be read */
   }
 
   return (
@@ -48,6 +65,8 @@ export default async function InspectorDashboardPage() {
           Your assigned inspections, organized by where they stand.
         </p>
       </div>
+
+      <AvailabilityCard awayUntil={awayUntil} isAway={isInFuture(awayUntil)} />
 
       {BUCKETS.map((bucket) => {
         const bucketJobs = jobList.filter((j) => bucket.statuses.includes(j.status as JobStatus));

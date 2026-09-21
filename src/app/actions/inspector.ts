@@ -5,7 +5,16 @@ import { revalidatePath } from "next/cache";
 import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { clients, documents, inspectors, jobCompletionData, jobUpdates, jobs, stockReadings } from "@/db/schema";
+import {
+  clients,
+  documents,
+  inspectorAssignmentProfiles,
+  inspectors,
+  jobCompletionData,
+  jobUpdates,
+  jobs,
+  stockReadings,
+} from "@/db/schema";
 import {
   createInspectorSession,
   destroyInspectorSession,
@@ -670,4 +679,51 @@ export async function amendAndResubmit(_prev: FormState, formData: FormData): Pr
 
   revalidateJob(job.id);
   return { ok: true, message: "Resubmitted to Operations." };
+}
+
+/* ---------------- Availability (used by automatic assignment) ---------------- */
+
+const availabilitySchema = z.object({
+  awayUntil: z.string().optional(),
+  back: z.string().optional(),
+});
+
+/**
+ * Lets an inspector mark themselves away until a date (leave, travel), or available again, so
+ * automatic assignment doesn't give them new jobs meanwhile. Only touches their own availability;
+ * everything else in their assignment profile stays with the administrators.
+ */
+export async function setMyAvailability(_prev: FormState, formData: FormData): Promise<FormState> {
+  const inspector = await getInspector();
+  if (!inspector) return initialFail("Unauthorized");
+  const parsed = availabilitySchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail("Check the date entered.");
+
+  let until: Date | null = null;
+  if (!parsed.data.back) {
+    if (!parsed.data.awayUntil) return initialFail("Pick the date you will be back.");
+    until = new Date(`${parsed.data.awayUntil}T00:00:00.000Z`);
+    if (Number.isNaN(until.getTime())) return initialFail("That date isn't valid.");
+    if (until.getTime() <= Date.now()) return initialFail("Pick a date in the future, or choose \"I'm available now\".");
+  }
+
+  try {
+    await requireDb()
+      .insert(inspectorAssignmentProfiles)
+      .values({ inspectorId: inspector.id, unavailableUntil: until })
+      .onConflictDoUpdate({
+        target: inspectorAssignmentProfiles.inspectorId,
+        set: { unavailableUntil: until, updatedAt: new Date() },
+      });
+  } catch (err) {
+    console.error("setMyAvailability:", err);
+    return initialFail("Could not save. Please try again.");
+  }
+  revalidatePath("/inspector");
+  return {
+    ok: true,
+    message: until
+      ? `Marked as away until ${new Intl.DateTimeFormat("en-GB", { dateStyle: "medium", timeZone: "UTC" }).format(until)}.`
+      : "You're available for new assignments.",
+  };
 }

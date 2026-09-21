@@ -18,6 +18,7 @@ import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { maybeAutoAssign } from "@/lib/automation/auto-assign";
+import { listServiceOptions } from "@/lib/assignment";
 import { getPaystackConfig, initializeTransaction, isPaystackReady } from "@/lib/paystack";
 import type { FormState } from "./submissions";
 
@@ -111,6 +112,9 @@ export async function requestService(_prev: FormState, formData: FormData): Prom
   const parsed = requestSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Pick a service and try again." };
   const f = parsed.data;
+  if (!(await listServiceOptions()).some((o) => o.key === f.serviceType)) {
+    return { ok: false, message: "Pick a service and try again." };
+  }
 
   const database = requireDb();
   let jobId: number;

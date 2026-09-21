@@ -1,11 +1,14 @@
 import "server-only";
 import { and, eq, inArray, isNotNull, or, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { clients, inspectorAssignmentProfiles, inspectors, jobUpdates, jobs, services } from "@/db/schema";
-import { SERVICE_TYPE_LABEL } from "@/lib/jobs";
+import { clients, inspectorAssignmentProfiles, inspectors, jobUpdates, jobs } from "@/db/schema";
 import { brandedEmailHtml } from "@/lib/email";
 import { notifyBoth } from "@/lib/notifications";
 import { chooseInspector, type PickResult } from "@/lib/assignment-rules";
+import { matchServiceKey } from "@/lib/service-match";
+import { listServiceOptions } from "@/lib/service-options";
+
+export { listServiceOptions, type ServiceOption } from "@/lib/service-options";
 
 export const OPEN_JOB_STATUSES = ["assigned", "inspector_accepted", "in_progress", "rejected_amendment"];
 
@@ -176,19 +179,10 @@ export async function pickInspectorForJob(job: JobRow, excludeInspectorIds: numb
 }
 
 /**
- * Maps a free-text service name (from a quote form or the admin "create job" form) to the service
- * key that auto-assignment and auto-invoicing match on. Accepts a key ("stock_monitoring"), a label
- * from the services table, or one of the built-in labels, ignoring case. Returns null when unsure,
- * in which case the job simply isn't auto-assigned.
+ * Maps a free-text service name (from the quote form, or older data) to the service key that
+ * auto-assignment and auto-invoicing match on. Tolerant of the small naming differences between
+ * the public forms and the services table (see service-match.ts). Returns null when unsure.
  */
 export async function resolveServiceType(text: string | null | undefined): Promise<string | null> {
-  const wanted = (text ?? "").trim().toLowerCase();
-  if (!wanted) return null;
-  const rows = await requireDb().select({ key: services.key, label: services.label }).from(services);
-  const hit = rows.find((s) => s.key.toLowerCase() === wanted || s.label.toLowerCase() === wanted);
-  if (hit) return hit.key;
-  const builtIn = (Object.entries(SERVICE_TYPE_LABEL) as [string, string][]).find(
-    ([key, label]) => key === wanted || label.toLowerCase() === wanted,
-  );
-  return builtIn ? builtIn[0] : null;
+  return matchServiceKey(text, await listServiceOptions());
 }

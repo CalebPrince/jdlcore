@@ -27,8 +27,10 @@ const initial: FormState = { ok: false, message: "" };
 
 export function CreateJobForm({
   clients,
+  services,
 }: {
   clients: { id: number; name: string; company: string | null }[];
+  services: { key: string; label: string }[];
 }) {
   const [state, action, pending] = useActionState(createJob, initial);
 
@@ -49,7 +51,22 @@ export function CreateJobForm({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="j-service">Service</Label>
-            <Input id="j-service" name="service" required placeholder="Stock Monitoring" />
+            <Select name="serviceType" required>
+              <SelectTrigger id="j-service" className="w-full">
+                <SelectValue placeholder="Select service" />
+              </SelectTrigger>
+              <SelectContent>
+                {services.map((s) => (
+                  <SelectItem key={s.key} value={s.key}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5 sm:col-span-2">
+            <Label htmlFor="j-title">Job title (optional)</Label>
+            <Input id="j-title" name="title" placeholder="Leave blank to use the service name" maxLength={200} />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="j-location">Location</Label>

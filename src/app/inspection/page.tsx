@@ -7,6 +7,7 @@ import { Reveal } from "@/components/reveal";
 import { CoqMockup, PortalMockup } from "@/components/mockups";
 import { QuoteForm } from "@/components/forms/quote-form";
 import { getContactSettings } from "@/lib/settings";
+import { listServiceOptions } from "@/lib/service-options";
 
 export const metadata: Metadata = {
   title: "JDL Core Inspection Services | Independent Oil & Gas Inspection",
@@ -78,6 +79,7 @@ function ValueIcon({ children }: { children: React.ReactNode }) {
 
 export default async function InspectionPage() {
   const settings = await getContactSettings();
+  const serviceOptions = await listServiceOptions();
   return (
     <>
       <SiteHeader
@@ -312,7 +314,7 @@ export default async function InspectionPage() {
               </p>
             </Reveal>
             <Reveal>
-              <QuoteForm />
+              <QuoteForm services={serviceOptions.map((o) => o.label)} />
             </Reveal>
           </div>
         </section>

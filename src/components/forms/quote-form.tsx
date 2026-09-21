@@ -6,27 +6,14 @@ import {
   type FormState,
 } from "@/app/actions/submissions";
 
-const SERVICES = [
-  "Stock Monitoring",
-  "Collateral Verification",
-  "Tank & Depot Inspections",
-  "Quantity Verification",
-  "Reconciliation & Exception Reporting",
-  "Loading & Discharge Supervision",
-  "Inventory Audit Support",
-  "Loss & Discrepancy Investigation",
-  "Documentation & Reporting",
-  "Stock Control Advisory",
-  "Not sure yet",
-];
-
 const initial: FormState = { ok: false, message: "" };
 
 const inputClass =
   "w-full rounded-[var(--radius-sm)] border-[1.5px] bg-white px-3.5 py-[0.75em] text-inherit focus:border-gold-600 focus:outline-none";
 const labelClass = "text-[0.85rem] font-semibold text-navy-950";
 
-export function QuoteForm() {
+/** `services` are the current service names from the services table, so a renamed or new service shows up here without editing this file. */
+export function QuoteForm({ services }: { services: string[] }) {
   const [state, action, pending] = useActionState(submitQuoteRequest, initial);
   const formRef = useRef<HTMLFormElement>(null);
 
@@ -73,7 +60,7 @@ export function QuoteForm() {
           <option value="" disabled>
             Select a service
           </option>
-          {SERVICES.map((s) => (
+          {[...services, "Not sure yet"].map((s) => (
             <option key={s}>{s}</option>
           ))}
         </select>

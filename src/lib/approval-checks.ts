@@ -89,7 +89,13 @@ export async function evaluateApproval(jobId: number): Promise<ApprovalEvaluatio
     .from(documents)
     .where(and(eq(documents.jobId, jobId), eq(documents.kind, "report")))
     .limit(1);
-  add("report_attached", "Inspection report attached", reports.length > 0, reports.length > 0 ? "A report document is attached." : "No report document has been uploaded.");
+  const reportRequired = settings.approvalRequireReport !== "0";
+  add(
+    "report_attached",
+    "Inspection report attached",
+    !reportRequired || reports.length > 0,
+    reports.length > 0 ? "A report document is attached." : reportRequired ? "No report document has been uploaded." : "Not required by your settings.",
+  );
 
   // Inspector track record: their last N approved jobs went through without ever being sent back.
   const minClean = Math.max(1, Number(settings.approvalMinCleanJobs) || 5);

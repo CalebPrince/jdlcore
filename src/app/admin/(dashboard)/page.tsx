@@ -163,8 +163,7 @@ export default async function AdminDashboardPage() {
       {dbError && (
         <Card>
           <CardContent className="p-6 text-center text-sm text-muted-foreground">
-            Database not reachable — check your Supabase connection in{" "}
-            <code>.env</code>.
+            Some information couldn&apos;t be loaded right now. Please refresh in a moment.
           </CardContent>
         </Card>
       )}
@@ -229,7 +228,7 @@ export default async function AdminDashboardPage() {
         </Badge>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
           <CheckCircle2 className="h-3.5 w-3.5 text-[#1f7a4d]" />
-          Supabase connected
+          System online
         </Badge>
         <Badge variant="secondary" className="gap-1.5 px-3 py-1.5">
           {placeholders.length === 0 ? (

@@ -23,20 +23,6 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 
-const SERVICES = [
-  "Stock Monitoring",
-  "Collateral Verification",
-  "Tank & Depot Inspections",
-  "Quantity Verification",
-  "Reconciliation & Exception Reporting",
-  "Loading & Discharge Supervision",
-  "Inventory Audit Support",
-  "Loss & Discrepancy Investigation",
-  "Documentation & Reporting",
-  "Stock Control Advisory",
-  "Not sure yet",
-];
-
 const initial: ConvertState = { ok: false, message: "" };
 
 export type ClientOption = {
@@ -59,9 +45,14 @@ export type SubmissionData = {
 export function ConvertQuoteSheet({
   submission,
   clients,
+  services,
+  defaultServiceType,
 }: {
   submission: SubmissionData;
   clients: ClientOption[];
+  services: { key: string; label: string }[];
+  /** The service key the submitted name matched, or null if it didn't match one exactly. */
+  defaultServiceType: string | null;
 }) {
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<"new" | "existing">(
@@ -190,18 +181,23 @@ export function ConvertQuoteSheet({
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cv-service">Service</Label>
-              <Input
-                id="cv-service"
-                name="service"
-                defaultValue={submission.service ?? ""}
-                list="convert-services"
-                required
-              />
-              <datalist id="convert-services">
-                {SERVICES.map((s) => (
-                  <option key={s} value={s} />
-                ))}
-              </datalist>
+              <Select name="serviceType" required defaultValue={defaultServiceType ?? undefined}>
+                <SelectTrigger id="cv-service" className="w-full">
+                  <SelectValue placeholder="Pick the service" />
+                </SelectTrigger>
+                <SelectContent>
+                  {services.map((o) => (
+                    <SelectItem key={o.key} value={o.key}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {!defaultServiceType && submission.service && (
+                <p className="m-0 text-xs text-muted-foreground">
+                  They chose &ldquo;{submission.service}&rdquo;, which doesn&apos;t match a service exactly. Please pick one.
+                </p>
+              )}
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="cv-location">Location</Label>

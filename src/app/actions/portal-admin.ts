@@ -25,7 +25,7 @@ import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { logAudit } from "@/lib/audit";
 import { issueInvoice, payOnlineLine } from "@/lib/invoicing";
 import { issuePortalSetupLink } from "@/lib/account-setup";
-import { resolveServiceType } from "@/lib/assignment";
+import { listServiceOptions } from "@/lib/assignment";
 import { maybeAutoAssign } from "@/lib/automation/auto-assign";
 import type { FormState } from "./submissions";
 
@@ -178,7 +178,8 @@ export async function toggleClientActive(formData: FormData): Promise<void> {
 
 const jobSchema = z.object({
   clientId: z.coerce.number().int().positive(),
-  service: z.string().trim().min(2).max(200),
+  serviceType: z.string().trim().min(1).max(60),
+  title: z.string().trim().max(200).optional(),
   location: z.string().trim().max(200).optional(),
   cargoType: z.string().trim().max(200).optional(),
   notes: z.string().trim().max(4000).optional(),
@@ -190,8 +191,10 @@ export async function createJob(
 ): Promise<FormState> {
   if (!(await requireStaffRole([...ADMIN_ROLES]))) return initialFail("Unauthorized");
   const parsed = jobSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return initialFail("Please fill in client and service.");
+  if (!parsed.success) return initialFail("Please pick a client and a service.");
   const f = parsed.data;
+  const option = (await listServiceOptions()).find((o) => o.key === f.serviceType);
+  if (!option) return initialFail("Pick a service from the list.");
   try {
     const database = requireDb();
     const inserted = await database
@@ -199,8 +202,9 @@ export async function createJob(
       .values({
         ref: `PENDING-${Date.now()}`,
         clientId: f.clientId,
-        service: f.service,
-        serviceType: await resolveServiceType(f.service),
+        // An optional custom title (e.g. "Q3 audit, Tema depot") replaces the service name as the job's title.
+        service: f.title || option.label,
+        serviceType: option.key,
         location: f.location || null,
         cargoType: f.cargoType || null,
         notes: f.notes || null,
@@ -410,7 +414,7 @@ const convertSchema = z.object({
   company: z.string().trim().max(160).optional(),
   email: z.string().trim().email().max(200),
   phone: z.string().trim().max(40).optional(),
-  service: z.string().trim().min(1).max(160),
+  serviceType: z.string().trim().min(1).max(60),
   location: z.string().trim().max(200).optional(),
   notes: z.string().trim().max(4000).optional(),
 });
@@ -424,10 +428,12 @@ export async function convertQuoteToJob(
   if (!parsed.success) {
     return {
       ok: false,
-      message: "Check the fields — name, email, and service are required.",
+      message: "Check the fields: name, email, and service are required.",
     };
   }
   const f = parsed.data;
+  const serviceOption = (await listServiceOptions()).find((o) => o.key === f.serviceType);
+  if (!serviceOption) return { ok: false, message: "Pick a service from the list." };
 
   let database;
   try {
@@ -493,8 +499,8 @@ export async function convertQuoteToJob(
       .values({
         ref: `PENDING-${Date.now()}`,
         clientId,
-        service: f.service,
-        serviceType: await resolveServiceType(f.service),
+        service: serviceOption.label,
+        serviceType: serviceOption.key,
         location: f.location || null,
         cargoType: null,
         notes: f.notes || null,

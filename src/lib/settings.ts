@@ -217,6 +217,8 @@ export type AutomationSettings = {
   approvalMinCleanJobs: string;
   /** Comma-separated service keys that may be auto-approved. Empty = none. */
   approvalServiceTypes: string;
+  /** "1" = a job must have an inspection report document attached before it can be auto-approved. */
+  approvalRequireReport: string;
 };
 
 export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
@@ -226,6 +228,7 @@ export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
   approvalHoldHours: "4",
   approvalMinCleanJobs: "5",
   approvalServiceTypes: "",
+  approvalRequireReport: "1",
 };
 
 const AUTOMATION_KEY_BY_FIELD: Record<keyof AutomationSettings, string> = {
@@ -235,6 +238,7 @@ const AUTOMATION_KEY_BY_FIELD: Record<keyof AutomationSettings, string> = {
   approvalHoldHours: "automation_approval_hold_hours",
   approvalMinCleanJobs: "automation_approval_min_clean_jobs",
   approvalServiceTypes: "automation_approval_service_types",
+  approvalRequireReport: "automation_approval_require_report",
 };
 
 const AUTOMATION_FIELDS = Object.keys(AUTOMATION_KEY_BY_FIELD) as (keyof AutomationSettings)[];

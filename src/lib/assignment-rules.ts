@@ -91,11 +91,12 @@ export function chooseInspector(
       a.name.localeCompare(b.name),
   );
   const best = eligible[0];
+  // Reads as "Auto-assigned to Kojo because they cover Tema, are qualified for this service, ..."
   const reasons = [
-    best.regionMatch ? `covers ${best.regionMatch}` : "covers any location",
-    "qualified for this service",
-    `${best.open} of ${best.max} open jobs`,
-    best.clientJobs > 0 ? `${best.clientJobs} previous job${best.clientJobs === 1 ? "" : "s"} for this client` : null,
+    best.regionMatch ? `cover ${best.regionMatch}` : "cover any location",
+    "are qualified for this service",
+    `have ${best.open} of ${best.max} open jobs`,
+    best.clientJobs > 0 ? `have done ${best.clientJobs} previous job${best.clientJobs === 1 ? "" : "s"} for this client` : null,
   ].filter(Boolean);
   return { found: true, inspectorId: best.id, inspectorName: best.name, reason: reasons.join(", ") };
 }

@@ -6,7 +6,7 @@ import { assignJobToInspector, pickInspectorForJob, triedInspectorIds } from "@/
 import { brandedEmailHtml } from "@/lib/email";
 import { canTransition, type Actor } from "@/lib/job-workflow";
 import type { JobStatus } from "@/lib/jobs";
-import { notifyBoth } from "@/lib/notifications";
+import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { getAutomationSettings } from "@/lib/settings";
 import { claimEvent } from "./events";
 
@@ -47,6 +47,25 @@ export async function maybeAutoAssign(jobId: number): Promise<AutoAssignOutcome>
           actorType: "system",
           actorId: null,
           actorName: "JDL Core",
+        });
+        // Tell Operations straight away (once per job) rather than leaving it for the next morning's digest.
+        const title = `${job.ref} needs an inspector`;
+        const body = `Automatic assignment couldn't find a suitable inspector (${pick.why}). Please assign one.`;
+        await notifyStaffBoth({
+          roles: ["operations", "administrator", "superadmin"],
+          type: "auto_assign_no_match",
+          title,
+          body,
+          link: `/admin/jobs/${job.id}`,
+          emailSubject: `[${job.ref}] Needs an inspector`,
+          emailHtml: brandedEmailHtml({
+            label: "JDL CORE ADMIN",
+            heading: title,
+            bodyLines: [body],
+            ctaUrl: `https://jdlcore.com/admin/jobs/${job.id}`,
+            ctaLabel: "Open Job",
+            footer: `Job reference: ${job.ref}`,
+          }),
         });
       }
       return { outcome: "no_match", why: pick.why };

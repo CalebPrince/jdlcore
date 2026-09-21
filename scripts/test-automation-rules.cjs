@@ -12,6 +12,7 @@ function load(file) {
 }
 const { chooseInspector } = load("src/lib/assignment-rules.ts");
 const { checkRequired, checkReconcile } = load("src/lib/approval-rules.ts");
+const { matchServiceKey } = load("src/lib/service-match.ts");
 
 let n = 0;
 const t = (name, fn) => { fn(); n += 1; console.log("ok  ", name); };
@@ -32,7 +33,7 @@ t("no eligible-for-auto inspectors gives a clear reason", () => {
 });
 t("matches on service and region, and explains why", () => {
   const r = chooseInspector(job, [insp(1, "Kojo")], none, none, [], now);
-  assert.equal(r.found, true); assert.equal(r.inspectorId, 1); assert.match(r.reason, /covers Tema/);
+  assert.equal(r.found, true); assert.equal(r.inspectorId, 1); assert.equal(r.reason, "cover Tema, are qualified for this service, have 0 of 3 open jobs");
 });
 t("region is case-insensitive and matches inside the location text", () => {
   const r = chooseInspector({ ...job, location: "TEMA harbour" }, [insp(1, "Kojo", { regions: ["tema"] })], none, none, [], now);
@@ -104,4 +105,49 @@ t("completion before start fails", () => {
   const r = checkReconcile({ ...good, started: good.finished, finished: good.started });
   assert.equal(r.ok, false); assert.match(r.detail, /before the start/);
 });
+
+// ---- service name matching (public forms vs the services table)
+const OPTIONS = [
+  ["stock_monitoring", "Stock Monitoring Services"],
+  ["collateral_verification", "Collateral Verification Services"],
+  ["tank_depot_inspection", "Tank and Depot Inspections"],
+  ["quantity_verification", "Quantity Verification"],
+  ["reconciliation_exception", "Reconciliation & Exception Reporting"],
+  ["loading_discharge_supervision", "Loading & Discharge Supervision"],
+  ["inventory_audit", "Inventory Audit Support"],
+  ["loss_discrepancy_investigation", "Loss & Discrepancy Investigation"],
+  ["documentation_reporting", "Documentation & Reporting"],
+  ["stock_control_advisory", "Stock Control Advisory"],
+].map(([key, label]) => ({ key, label }));
+t("every name on the public quote form maps to the right service", () => {
+  const form = {
+    "Stock Monitoring": "stock_monitoring",
+    "Collateral Verification": "collateral_verification",
+    "Tank & Depot Inspections": "tank_depot_inspection",
+    "Quantity Verification": "quantity_verification",
+    "Reconciliation & Exception Reporting": "reconciliation_exception",
+    "Loading & Discharge Supervision": "loading_discharge_supervision",
+    "Inventory Audit Support": "inventory_audit",
+    "Loss & Discrepancy Investigation": "loss_discrepancy_investigation",
+    "Documentation & Reporting": "documentation_reporting",
+    "Stock Control Advisory": "stock_control_advisory",
+  };
+  for (const [text, key] of Object.entries(form)) assert.equal(matchServiceKey(text, OPTIONS), key, text);
+});
+t("older singular and key forms also match", () => {
+  assert.equal(matchServiceKey("Tank and Depot Inspection", OPTIONS), "tank_depot_inspection");
+  assert.equal(matchServiceKey("stock_monitoring", OPTIONS), "stock_monitoring");
+  assert.equal(matchServiceKey("  STOCK   monitoring services ", OPTIONS), "stock_monitoring");
+});
+t("unclear names never guess", () => {
+  assert.equal(matchServiceKey("Not sure yet", OPTIONS), null);
+  assert.equal(matchServiceKey("TEST — Paystack Flow Verification", OPTIONS), null);
+  assert.equal(matchServiceKey("", OPTIONS), null);
+  assert.equal(matchServiceKey(null, OPTIONS), null);
+});
+t("a name that fits two services is treated as ambiguous", () => {
+  const dup = [{ key: "a", label: "Inspection Services" }, { key: "b", label: "Inspection" }];
+  assert.equal(matchServiceKey("Inspection", dup), null);
+});
+
 console.log(`\n${n} tests passed`);

@@ -60,14 +60,8 @@ export async function updateContactSettings(
   }
   try {
     await saveContactSettings(parsed.data);
-  } catch (err) {
-    return {
-      ok: false,
-      message:
-        err instanceof Error && err.message.includes("DATABASE_URL")
-          ? "DATABASE_URL is not set — connect Supabase first (see README)."
-          : "Could not save to the database. Check your connection.",
-    };
+  } catch {
+    return { ok: false, message: "We couldn't save your changes right now. Please try again in a moment." };
   }
   revalidatePath("/", "layout");
   await logAudit({
@@ -163,6 +157,7 @@ const automationSchema = z.object({
   approvalMode: z.enum(["off", "shadow", "auto"]),
   approvalHoldHours: z.coerce.number().int().min(0).max(168),
   approvalMinCleanJobs: z.coerce.number().int().min(1).max(50),
+  approvalRequireReport: z.string().optional(),
 });
 
 export async function updateAutomationSettings(
@@ -188,6 +183,7 @@ export async function updateAutomationSettings(
       approvalHoldHours: String(parsed.data.approvalHoldHours),
       approvalMinCleanJobs: String(parsed.data.approvalMinCleanJobs),
       approvalServiceTypes: allowed.join(","),
+      approvalRequireReport: parsed.data.approvalRequireReport === "on" ? "1" : "0",
     });
   } catch {
     return { ok: false, message: "Could not save. Check your connection." };

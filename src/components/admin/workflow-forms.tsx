@@ -8,6 +8,7 @@ import {
   overrideJobStatus,
   rejectJob,
   rejectPaymentSubmission,
+  updateJobDetails,
   verifyPayment,
 } from "@/app/actions/job-workflow";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -38,6 +39,65 @@ function Feedback({ state }: { state: FormState }) {
         {state.message}
       </AlertDescription>
     </Alert>
+  );
+}
+
+export function EditJobDetailsForm({
+  jobId,
+  title,
+  serviceType,
+  location,
+  tankOrDepot,
+  services,
+}: {
+  jobId: number;
+  title: string;
+  serviceType: string | null;
+  location: string | null;
+  tankOrDepot: string | null;
+  services: { key: string; label: string }[];
+}) {
+  const [state, action, pending] = useActionState(updateJobDetails, initial);
+  return (
+    <form action={action} className="flex flex-col gap-3">
+      <input type="hidden" name="jobId" value={jobId} />
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`jd-title-${jobId}`}>Job title</Label>
+        <Input id={`jd-title-${jobId}`} name="title" defaultValue={title} maxLength={200} />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`jd-service-${jobId}`}>Service type</Label>
+        <Select name="serviceType" defaultValue={serviceType ?? undefined}>
+          <SelectTrigger id={`jd-service-${jobId}`} className="w-full">
+            <SelectValue placeholder="Not set: select the service" />
+          </SelectTrigger>
+          <SelectContent>
+            {services.map((s) => (
+              <SelectItem key={s.key} value={s.key}>
+                {s.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {!serviceType && (
+          <p className="m-0 text-xs text-muted-foreground">
+            Needed for automatic assignment and invoicing. Set it here.
+          </p>
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`jd-location-${jobId}`}>Location</Label>
+        <Input id={`jd-location-${jobId}`} name="location" defaultValue={location ?? ""} placeholder="Tema, Tank Farm B" />
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`jd-depot-${jobId}`}>Tank or depot</Label>
+        <Input id={`jd-depot-${jobId}`} name="tankOrDepot" defaultValue={tankOrDepot ?? ""} placeholder="Optional" />
+      </div>
+      <Button type="submit" disabled={pending} className="btn-gold self-start">
+        {pending ? "Saving…" : "Save details"}
+      </Button>
+      <Feedback state={state} />
+    </form>
   );
 }
 

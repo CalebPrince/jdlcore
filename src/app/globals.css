@@ -646,3 +646,13 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/*
+ * The shadcn Button sets its own text colour (a utility), which beats `.btn-gold`'s navy text because
+ * utilities sit in a later cascade layer than components. The result was near-white text on the gold
+ * gradient (about 1.5:1 contrast) on every gold button. An unlayered rule wins over any layer, so the
+ * intended navy text is restored without touching each button.
+ */
+button.btn-gold {
+  color: var(--navy-950);
+}

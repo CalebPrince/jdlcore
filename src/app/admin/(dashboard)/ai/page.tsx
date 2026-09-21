@@ -79,15 +79,12 @@ export default async function AdminAiSettingsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm text-muted-foreground">
           <p>
-            Keys are stored in your Supabase database and only ever used server-side; they
-            are never sent to the browser. You can also set GEMINI_API_KEY,
-            ANTHROPIC_API_KEY or GROQ_API_KEY as environment variables as a fallback.
+            Keys are stored securely and are never shown in the browser or sent to visitors.
           </p>
           <p>
-            When the chat assistant receives a message it tries the first provider in the
-            chain. If that provider errors, times out or returns an empty reply, the request
-            automatically moves to the next provider within a shared 30 second budget. If
-            every provider fails, the chat falls back to its built-in scripted responses.
+            The chat assistant uses the first provider in the list. If that one is busy or
+            fails to answer, it automatically tries the next. If none of them can answer, the
+            chat falls back to its built-in replies, so visitors are never left without a response.
           </p>
         </CardContent>
       </Card>

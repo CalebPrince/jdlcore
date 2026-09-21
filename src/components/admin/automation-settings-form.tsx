@@ -34,7 +34,7 @@ export function AutomationSettingsForm({
       <CardHeader>
         <CardTitle className="font-display">Assignment &amp; Approval Automation</CardTitle>
         <CardDescription>
-          Both are off until you switch them on. Bank-transfer payment verification is never automated.
+          Neither runs until you switch it on below. Bank-transfer payment verification is never automated.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -61,7 +61,7 @@ export function AutomationSettingsForm({
               <Label htmlFor="reassignHours">Move to the next inspector if not accepted within (hours)</Label>
               <Input id="reassignHours" name="reassignHours" type="number" min={1} max={168} defaultValue={defaults.reassignHours} required />
               <p className="text-xs text-muted-foreground">
-                Checked once a day, so it can take a little longer than this.
+                Checked regularly (at least once a day), so it can take a little longer than this.
               </p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export function AutomationSettingsForm({
               <div className="flex flex-col gap-2">
                 <Label htmlFor="approvalHoldHours">Wait before approving (hours)</Label>
                 <Input id="approvalHoldHours" name="approvalHoldHours" type="number" min={0} max={168} defaultValue={defaults.approvalHoldHours} required />
-                <p className="text-xs text-muted-foreground">Gives your team time to look first. Approval is checked once a day, so it can take a little longer than this.</p>
+                <p className="text-xs text-muted-foreground">Gives your team time to look first. Approval is checked regularly (at least once a day), so it can take a little longer than this.</p>
               </div>
               <div className="flex flex-col gap-2">
                 <Label htmlFor="approvalMinCleanJobs">Inspector needs this many clean jobs in a row</Label>
@@ -116,9 +116,24 @@ export function AutomationSettingsForm({
               </div>
               <p className="text-xs text-muted-foreground">
                 A job is only approved automatically when every check passes: figures complete and consistent, AI review
-                ran and raised nothing, a report attached, first submission, and the inspector&apos;s clean record.
+                ran and raised nothing, first submission, the inspector&apos;s clean record, and (if ticked below) a report attached.
               </p>
             </fieldset>
+            <div className="flex items-start gap-3">
+              <input
+                id="approvalRequireReport"
+                name="approvalRequireReport"
+                type="checkbox"
+                defaultChecked={defaults.approvalRequireReport !== "0"}
+                className="mt-1 size-4 accent-[#c98e12]"
+              />
+              <div className="flex flex-col gap-1">
+                <Label htmlFor="approvalRequireReport">Require an inspection report to be attached</Label>
+                <p className="text-xs text-muted-foreground">
+                  Untick this if your team does not normally upload a report document for every job.
+                </p>
+              </div>
+            </div>
 
             {stats && (
               <div className="rounded-xl border p-4 text-sm" style={{ borderColor: "var(--border)" }}>

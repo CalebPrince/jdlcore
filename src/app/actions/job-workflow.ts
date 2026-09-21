@@ -8,7 +8,8 @@ import { clients, inspectors, invoices, jobComments, jobUpdates, jobs } from "@/
 import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
-import { assignJobToInspector } from "@/lib/assignment";
+import { assignJobToInspector, listServiceOptions } from "@/lib/assignment";
+import { maybeAutoAssign } from "@/lib/automation/auto-assign";
 import { approveJobCore } from "@/lib/job-approval";
 import { recordApprovalDecision } from "@/lib/approval-checks";
 import { notifyBoth } from "@/lib/notifications";
@@ -97,6 +98,77 @@ export async function assignInspector(_prev: FormState, formData: FormData): Pro
 
   revalidateJob(jobId);
   return { ok: true, message: result.isReassign ? "Job reassigned." : "Job assigned." };
+}
+
+/* ---------------- Job details ---------------- */
+
+const detailsSchema = z.object({
+  jobId: z.coerce.number().int().positive(),
+  title: z.string().trim().max(200).optional(),
+  serviceType: z.string().trim().max(60).optional(),
+  location: z.string().trim().max(200).optional(),
+  tankOrDepot: z.string().trim().max(120).optional(),
+});
+
+/**
+ * Lets staff fill in or correct the service type, location and depot/tank of a job, which is what
+ * auto-assignment matches on. Recorded on the job timeline. For a job still waiting for an
+ * inspector, tries automatic assignment straight away (if it is switched on).
+ */
+export async function updateJobDetails(_prev: FormState, formData: FormData): Promise<FormState> {
+  const staff = await requireStaffRole([...OPS_ROLES]);
+  if (!staff) return initialFail("Unauthorized");
+  const parsed = detailsSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail("Check the details entered.");
+  const f = parsed.data;
+
+  const job = await loadJob(f.jobId);
+  if (!job) return initialFail("Job not found.");
+  if (job.status === "closed") return initialFail("This job is closed and can't be edited.");
+
+  const options = await listServiceOptions();
+  let serviceType = job.serviceType;
+  let serviceLabel: string | null = null;
+  if (f.serviceType) {
+    const option = options.find((o) => o.key === f.serviceType);
+    if (!option) return initialFail("Pick a service from the list.");
+    serviceType = option.key;
+    serviceLabel = option.label;
+  }
+  const location = f.location ? f.location : null;
+  const tankOrDepot = f.tankOrDepot ? f.tankOrDepot : null;
+
+  // A blank title keeps the current one, so the job can never end up untitled.
+  const title = f.title ? f.title : job.service;
+
+  const changes: string[] = [];
+  if (title !== job.service) changes.push(`title set to ${title}`);
+  if (serviceType !== job.serviceType) changes.push(`service type set to ${serviceLabel ?? serviceType}`);
+  if (location !== job.location) changes.push(location ? `location set to ${location}` : "location cleared");
+  if (tankOrDepot !== job.tankOrDepot) changes.push(tankOrDepot ? `tank/depot set to ${tankOrDepot}` : "tank/depot cleared");
+  if (changes.length === 0) return { ok: true, message: "Nothing to change." };
+
+  const database = requireDb();
+  // updatedAt is left alone on purpose so this doesn't hide a job that has genuinely been stuck.
+  await database.update(jobs).set({ service: title, serviceType, location, tankOrDepot }).where(eq(jobs.id, job.id));
+  await database.insert(jobUpdates).values({
+    jobId: job.id,
+    status: job.status,
+    note: `Details updated by ${staff.name}: ${changes.join("; ")}.`,
+    actorType: "staff",
+    actorId: staff.id,
+    actorName: staff.name,
+  });
+
+  let message = "Job details saved.";
+  if (job.status === "awaiting_assignment") {
+    const auto = await maybeAutoAssign(job.id);
+    if (auto.outcome === "assigned") message = `Job details saved. Assigned automatically to ${auto.inspectorName}.`;
+    else if (auto.outcome === "no_match") message = `Job details saved. No inspector matched automatically (${auto.why}), so it's waiting for you to assign.`;
+  }
+
+  revalidateJob(job.id);
+  return { ok: true, message };
 }
 
 /* ---------------- Approve / Reject ---------------- */
