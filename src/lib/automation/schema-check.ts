@@ -13,6 +13,7 @@ export const REQUIRED_MIGRATIONS = [
   "0004_automation_events_email_retry",
   "0005_auto_assignment_and_approval",
   "0006_backfill_job_service_types",
+  "0007_automation_runs",
 ] as const;
 
 function isMissingTable(err: unknown): boolean {

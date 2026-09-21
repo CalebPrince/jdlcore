@@ -578,6 +578,22 @@ export const jobApprovalChecks = pgTable(
   (table) => [uniqueIndex("job_approval_checks_job_submitted_idx").on(table.jobId, table.submittedAt)],
 );
 
+/** One row per run of a scheduled automation task; powers the admin Automations page (migrations/0007). */
+export const automationRuns = pgTable(
+  "automation_runs",
+  {
+    id: serial("id").primaryKey(),
+    source: text("source").notNull(), // daily | hourly | npa
+    task: text("task").notNull(),
+    ok: boolean("ok").notNull(),
+    ms: integer("ms").notNull().default(0),
+    summary: jsonb("summary"),
+    error: text("error"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("automation_runs_task_started_idx").on(table.task, table.startedAt)],
+);
+
 /**
  * The migration ledger (migrations/0001_schema_migrations.sql). Declared here only so
  * `drizzle-kit push` knows the table is intentional; rows are written by the migration files

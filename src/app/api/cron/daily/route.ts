@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cronAuthError } from "@/lib/automation/cron-auth";
-import { runTask } from "@/lib/automation/run";
+import { recordRuns, runTask } from "@/lib/automation/run";
 import { runInvoiceReminders } from "@/lib/automation/invoice-reminders";
 import { runOpsDigest } from "@/lib/automation/ops-digest";
 import { runAutoClose } from "@/lib/automation/auto-close";
@@ -39,6 +39,7 @@ export async function GET(req: Request) {
   ];
   // A failed task makes the whole run report as failed (HTTP 500), so it shows up in Vercel's cron
   // history and logs, which is where problems for the developer belong, not in the admin screens.
+  await recordRuns("daily", tasks);
   const ok = tasks.every((t) => t.ok);
   return NextResponse.json({ ok, tasks }, { status: ok ? 200 : 500 });
 }

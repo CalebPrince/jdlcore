@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { cronAuthError } from "@/lib/automation/cron-auth";
-import { runTask } from "@/lib/automation/run";
+import { recordRuns, runTask } from "@/lib/automation/run";
 import { runAutoAssignSweep } from "@/lib/automation/auto-assign";
 import { runAutoApprove } from "@/lib/automation/auto-approve";
 import { retryFailedEmails } from "@/lib/email";
@@ -23,6 +23,7 @@ export async function GET(req: Request) {
     await runTask("auto-approve", runAutoApprove),
     await runTask("email-retry", () => retryFailedEmails()),
   ];
+  await recordRuns("hourly", tasks);
   const ok = tasks.every((t) => t.ok);
   return NextResponse.json({ ok, tasks }, { status: ok ? 200 : 500 });
 }

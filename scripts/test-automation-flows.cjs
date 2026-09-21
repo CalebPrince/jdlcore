@@ -628,6 +628,108 @@ async function main() {
     await q(`delete from services`);
   });
 
+
+  // =========================== THE AUTOMATIONS PAGE ===========================
+  const { recordRuns } = load("src/lib/automation/run.ts");
+  const { loadAutomationOverview } = load("src/lib/automation/overview.ts");
+  const card = (ov, id) => [...ov.scheduled, ...ov.event].find((c) => c.id === id);
+
+  await t("automations page: the hourly route records its runs", async () => {
+    const route = load("src/app/api/cron/hourly/route.ts");
+    process.env.CRON_SECRET = "test-secret";
+    await route.GET(new Request("http://x/api/cron/hourly", { headers: { authorization: "Bearer test-secret" } }));
+    delete process.env.CRON_SECRET;
+    const rows = await q(`select task, source, ok from automation_runs where source = 'hourly' order by id`);
+    assert.deepEqual(rows.map((r) => r.task).slice(-3), ["auto-assign", "auto-approve", "email-retry"]);
+    assert.ok(rows.every((r) => r.ok));
+  });
+
+  await t("automations page: shows when each ran, in plain words, and calls the healthy ones healthy", async () => {
+    await q(`delete from automation_runs`);
+    await recordRuns("daily", [
+      { name: "invoice-reminders", ok: true, ms: 40, result: { dueSoon: 2, overdue7: 1, overdue14: 0, overdueFlagged: 1 } },
+      { name: "ops-digest", ok: true, ms: 90, result: { itemsListed: 0, sections: 0, inspectorNudges: 0 } },
+      { name: "schema-check", ok: false, ms: 3, error: "Database is behind the code" },
+    ]);
+    const ov = await loadAutomationOverview();
+    assert.equal(ov.historyAvailable, true);
+    const inv = card(ov, "invoice-reminders");
+    assert.equal(inv.health, "healthy");
+    assert.equal(inv.lastRunText, "just now");
+    assert.equal(inv.lastResult, "Sent 4 reminders.");
+    assert.equal(inv.state, "always");
+    assert.equal(card(ov, "morning-summary").lastResult, "Nothing needed attention.");
+    // the developer-only schema check never appears on the page
+    assert.equal([...ov.scheduled, ...ov.event].some((c) => /schema/i.test(c.name + c.id)), false);
+    // an automation that has never run says so instead of pretending
+    assert.equal(card(ov, "close-finished-jobs").health, "waiting");
+    assert.equal(card(ov, "close-finished-jobs").lastRunText, "Not run yet");
+  });
+
+  await t("automations page: a failed run and a late run are flagged, and counted as needing a look", async () => {
+    await q(`delete from automation_runs`);
+    await recordRuns("daily", [{ name: "auto-close", ok: false, ms: 5, error: "boom" }]);
+    await q(`insert into automation_runs (source, task, ok, ms, started_at) values ('daily','ops-digest',true,10, now() - interval '40 hours')`);
+    const ov = await loadAutomationOverview();
+    assert.equal(card(ov, "close-finished-jobs").health, "failed");
+    assert.equal(card(ov, "close-finished-jobs").lastResult, "The last run didn't finish. It will try again on its next run.");
+    assert.equal(card(ov, "morning-summary").health, "late");
+    assert.equal(ov.needsAttention, 2);
+    // the raw error text is never shown to the team
+    assert.equal(JSON.stringify(ov).includes("boom"), false);
+  });
+
+  await t("automations page: hourly ones are hourly once the hourly schedule has been seen, and off ones are never 'late'", async () => {
+    await q(`delete from automation_runs`);
+    await q(`insert into automation_runs (source, task, ok, ms, summary, started_at) values ('hourly','auto-approve',true,5,'{"mode":"auto","approved":1}', now() - interval '10 minutes'), ('hourly','auto-assign',true,5,'{"enabled":true,"assigned":0,"reassigned":0,"unmatched":0}', now() - interval '5 hours')`);
+    await setSetting("automation_approval_mode", "auto");
+    await setSetting("automation_auto_assign", "1");
+    let ov = await loadAutomationOverview();
+    assert.equal(card(ov, "approval-sweep").when, "Every hour");
+    assert.equal(card(ov, "approval-sweep").health, "healthy");
+    assert.equal(card(ov, "approval-sweep").lastResult, "Approved 1 job.");
+    assert.equal(card(ov, "assignment-sweep").health, "late"); // 5 hours with an hourly schedule in use
+    await setSetting("automation_auto_assign", "0");
+    await setSetting("automation_approval_mode", "shadow");
+    ov = await loadAutomationOverview();
+    assert.equal(card(ov, "assignment-sweep").state, "off");
+    assert.equal(card(ov, "assignment-sweep").health, "healthy"); // switched off is not a problem
+    assert.equal(card(ov, "approval-sweep").state, "shadow");
+    assert.equal(card(ov, "approval-sweep").stateLabel, "Watching only");
+    await setSetting("automation_auto_assign", "1");
+  });
+
+  await t("automations page: recent automatic activity and the tally are shown, linked to the jobs", async () => {
+    const ov = await loadAutomationOverview();
+    assert.ok(ov.activity.length > 0);
+    assert.ok(ov.activity.every((a) => a.ref && a.jobId && a.text && a.when));
+    assert.ok(ov.activity.some((a) => a.text.startsWith("Assigned to ")));
+    assert.ok(ov.activity.some((a) => a.text.startsWith("Approved automatically:")));
+    const labels = ov.counts.map((c) => c.label);
+    assert.ok(labels.includes("Jobs assigned to an inspector"));
+    assert.ok(labels.includes("Jobs approved automatically"));
+    assert.ok(labels.includes("\"Needs an inspector\" alerts"));
+  });
+
+  await t("automations page: the daily run prunes history older than 30 days", async () => {
+    await q(`insert into automation_runs (source, task, ok, ms, started_at) values ('daily','old-task',true,1, now() - interval '40 days')`);
+    await recordRuns("daily", []);
+    assert.equal((await q(`select 1 from automation_runs where task = 'old-task'`)).length, 0);
+  });
+
+  await t("automations page: still works, saying so plainly, when no history has been recorded yet", async () => {
+    await q(`alter table automation_runs rename to automation_runs_hidden`);
+    try {
+      await recordRuns("daily", [{ name: "auto-close", ok: true, ms: 1, result: { closed: 0 } }]); // must not throw
+      const ov = await loadAutomationOverview();
+      assert.equal(ov.historyAvailable, false);
+      assert.equal(card(ov, "close-finished-jobs").lastRunText, "Not recorded yet");
+      assert.ok(ov.event.length > 0 && ov.scheduled.length > 0);
+    } finally {
+      await q(`alter table automation_runs_hidden rename to automation_runs`);
+    }
+  });
+
   // =========================== DIGEST + SCHEMA CHECK ===========================
   await t("daily digest: runs, and reports automatic actions to Operations", async () => {
     await runOpsDigest();

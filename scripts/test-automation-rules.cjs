@@ -13,6 +13,7 @@ function load(file) {
 const { chooseInspector } = load("src/lib/assignment-rules.ts");
 const { checkRequired, checkReconcile } = load("src/lib/approval-rules.ts");
 const { matchServiceKey } = load("src/lib/service-match.ts");
+const catalog = load("src/lib/automation/catalog.ts");
 
 let n = 0;
 const t = (name, fn) => { fn(); n += 1; console.log("ok  ", name); };
@@ -148,6 +149,59 @@ t("unclear names never guess", () => {
 t("a name that fits two services is treated as ambiguous", () => {
   const dup = [{ key: "a", label: "Inspection Services" }, { key: "b", label: "Inspection" }];
   assert.equal(matchServiceKey("Inspection", dup), null);
+});
+
+
+// ---- the Automations page: descriptions, health and wording
+const NOW = new Date("2026-09-22T12:00:00Z").getTime();
+const runAt = (hoursAgo, ok = true) => ({ task: "x", ok, startedAt: new Date(NOW - hoursAgo * 3600 * 1000), source: "daily", summary: {}, error: null });
+t("automations catalogue: every scheduled one can be tracked, and ids are unique", () => {
+  const ids = catalog.AUTOMATIONS.map((a) => a.id);
+  assert.equal(new Set(ids).size, ids.length);
+  for (const a of catalog.AUTOMATIONS) {
+    if (a.kind === "scheduled") { assert.ok(a.task, a.id + " needs a task"); assert.ok(a.cadence, a.id + " needs a cadence"); }
+    assert.ok(a.does.length > 0 && a.never && a.summary && a.when, a.id + " is missing wording");
+  }
+});
+t("automations catalogue: written for the client's team, with no technical wording", () => {
+  const banned = /\b(cron|sql|database|migration|api|webhook|supabase|drizzle|endpoint|github|vercel|env|json|http|token|server|deploy|schema)\b/i;
+  for (const a of catalog.AUTOMATIONS) {
+    const text = [a.name, a.summary, a.when, a.never, ...a.does].join(" | ");
+    assert.equal(banned.test(text), false, a.id + ": " + (text.match(banned) || [])[0]);
+    assert.equal(text.includes("\u2014"), false, a.id + " has an em dash");
+  }
+  for (const label of Object.values(catalog.EVENT_LABELS)) assert.equal(banned.test(label), false, label);
+});
+t("automations health: healthy, late, failed and never-run are told apart", () => {
+  assert.equal(catalog.assessHealth("daily", runAt(5), false, NOW), "healthy");
+  assert.equal(catalog.assessHealth("daily", runAt(30), false, NOW), "late");
+  assert.equal(catalog.assessHealth("daily", runAt(1, false), false, NOW), "failed");
+  assert.equal(catalog.assessHealth("daily", undefined, false, NOW), "waiting");
+});
+t("automations health: hourly ones are judged hourly only once the hourly schedule is in use", () => {
+  assert.equal(catalog.assessHealth("hourly-or-daily", runAt(5), true, NOW), "late");    // hourly schedule seen, 5h is too long
+  assert.equal(catalog.assessHealth("hourly-or-daily", runAt(5), false, NOW), "healthy"); // daily only: 5h is fine
+  assert.equal(catalog.assessHealth("hourly-or-daily", runAt(1), true, NOW), "healthy");
+  assert.equal(catalog.assessHealth("npa", runAt(20), false, NOW), "healthy");
+});
+t("automations wording: run results read as plain sentences", () => {
+  assert.equal(catalog.describeRun("invoice-reminders", { dueSoon: 2, overdue7: 1, overdue14: 0, overdueFlagged: 1 }), "Sent 4 reminders.");
+  assert.equal(catalog.describeRun("invoice-reminders", { dueSoon: 0, overdue7: 0, overdue14: 0, overdueFlagged: 0 }), "No reminders were due.");
+  assert.equal(catalog.describeRun("auto-close", { closed: 1 }), "Closed 1 job.");
+  assert.equal(catalog.describeRun("auto-assign", { enabled: false }), "Switched off, so nothing to do.");
+  assert.equal(catalog.describeRun("auto-assign", { enabled: true, assigned: 1, reassigned: 0, unmatched: 2 }), "Assigned 1, moved on 0, 2 still need a person.");
+  assert.equal(catalog.describeRun("auto-approve", { mode: "shadow" }), "Not in Automatic mode, so nothing to do.");
+  assert.equal(catalog.describeRun("ops-digest", { itemsListed: 3 }), "Listed 3 items for your team.");
+  assert.equal(catalog.describeRun("something-new", null), "Completed.");
+});
+t("automations wording: relative times", () => {
+  const ago = (min) => new Date(NOW - min * 60000);
+  assert.equal(catalog.agoText(ago(0), NOW), "just now");
+  assert.equal(catalog.agoText(ago(1), NOW), "1 minute ago");
+  assert.equal(catalog.agoText(ago(45), NOW), "45 minutes ago");
+  assert.equal(catalog.agoText(ago(180), NOW), "3 hours ago");
+  assert.equal(catalog.agoText(ago(24 * 60), NOW), "yesterday");
+  assert.equal(catalog.agoText(ago(5 * 24 * 60), NOW), "5 days ago");
 });
 
 console.log(`\n${n} tests passed`);
