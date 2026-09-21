@@ -1,5 +1,5 @@
 import "server-only";
-import { desc, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, lt, sql } from "drizzle-orm";
 import nodemailer from "nodemailer";
 import { requireDb } from "@/db";
 import { emailLog, settings } from "@/db/schema";
@@ -127,15 +127,85 @@ async function logEmail(row: {
   provider: string;
   status: string;
   error?: string | null;
+  /** Kept only for failed sends so the daily retry can re-send it. */
+  html?: string | null;
+  attempts?: number;
 }): Promise<void> {
+  const database = requireDb();
   try {
-    await requireDb().insert(emailLog).values(row);
+    await database.insert(emailLog).values(row);
   } catch {
-    /* logging must never break the action */
+    // The html/attempts columns come from scripts/2026-09-21-automation.sql; if that hasn't
+    // been applied yet, still record the send the way it always was.
+    try {
+      await database.insert(emailLog).values({
+        toEmail: row.toEmail,
+        subject: row.subject,
+        provider: row.provider,
+        status: row.status,
+        error: row.error ?? null,
+      });
+    } catch {
+      /* logging must never break the action */
+    }
   }
 }
 
-/** Sends an email via the configured provider. Never throws; result is logged to email_log. */
+type SendAttempt = { ok: true } | { ok: false; error: string };
+
+async function attemptSend(
+  config: EmailConfig,
+  input: { to: string; subject: string; html: string },
+): Promise<SendAttempt> {
+  const from = `${config.fromName} <${config.fromAddress}>`;
+  try {
+    if (config.resendKey) {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${config.resendKey}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ from, to: [input.to], subject: input.subject, html: input.html }),
+      });
+      if (!res.ok) {
+        let detail = "";
+        try {
+          const body = (await res.json()) as { message?: string };
+          detail = body.message ? ` — ${body.message}` : "";
+        } catch {
+          /* body wasn't JSON; fall back to the bare status */
+        }
+        throw new Error(`Resend ${res.status}${detail}`);
+      }
+      return { ok: true };
+    }
+    const transporter = nodemailer.createTransport({
+      host: config.smtpHost!,
+      port: config.smtpPort ?? 587,
+      secure: (config.smtpPort ?? 587) === 465,
+      auth: config.smtpUser ? { user: config.smtpUser, pass: config.smtpPass ?? "" } : undefined,
+    });
+    await transporter.sendMail({ from, to: input.to, subject: input.subject, html: input.html });
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** A 4xx from Resend (other than 429) means the message itself is bad, so retrying can't help. */
+function isRetryable(error: string): boolean {
+  const match = error.match(/^Resend (\d{3})/);
+  if (!match) return true; // network / SMTP errors are usually transient
+  const status = Number(match[1]);
+  return status >= 500 || status === 429;
+}
+
+/**
+ * Sends an email via the configured provider. Never throws; the result is logged to email_log.
+ * A transient provider failure is retried once straight away; anything still failing keeps its
+ * body in the log so the daily cron (retryFailedEmails) can try again.
+ */
 export async function sendNotification(input: {
   to: string;
   subject: string;
@@ -148,8 +218,6 @@ export async function sendNotification(input: {
     return { sent: false };
   }
 
-  const from = `${config.fromName} <${config.fromAddress}>`;
-
   if (!config.enabled || !isEmailConfigured(config)) {
     await logEmail({
       toEmail: input.to,
@@ -161,73 +229,100 @@ export async function sendNotification(input: {
     return { sent: false };
   }
 
-  if (config.resendKey) {
-    try {
-      const res = await fetch("https://api.resend.com/emails", {
-        method: "POST",
-        headers: {
-          authorization: `Bearer ${config.resendKey}`,
-          "content-type": "application/json",
-        },
-        body: JSON.stringify({
-          from,
-          to: [input.to],
-          subject: input.subject,
-          html: input.html,
-        }),
-      });
-      if (!res.ok) {
-        let detail = "";
-        try {
-          const body = (await res.json()) as { message?: string };
-          detail = body.message ? ` — ${body.message}` : "";
-        } catch {
-          /* body wasn't JSON; fall back to the bare status */
-        }
-        throw new Error(`Resend ${res.status}${detail}`);
-      }
-      await logEmail({ toEmail: input.to, subject: input.subject, provider: "resend", status: "sent" });
-      return { sent: true };
-    } catch (err) {
-      await logEmail({
-        toEmail: input.to,
-        subject: input.subject,
-        provider: "resend",
-        status: "failed",
-        error: err instanceof Error ? err.message : String(err),
-      });
-      return { sent: false };
-    }
+  const provider = config.resendKey ? "resend" : "smtp";
+  let attempts = 1;
+  let outcome = await attemptSend(config, input);
+  if (!outcome.ok && isRetryable(outcome.error)) {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    attempts = 2;
+    outcome = await attemptSend(config, input);
   }
 
-  try {
-    const transporter = nodemailer.createTransport({
-      host: config.smtpHost!,
-      port: config.smtpPort ?? 587,
-      secure: (config.smtpPort ?? 587) === 465,
-      auth: config.smtpUser
-        ? { user: config.smtpUser, pass: config.smtpPass ?? "" }
-        : undefined,
-    });
-    await transporter.sendMail({ from, to: input.to, subject: input.subject, html: input.html });
-    await logEmail({ toEmail: input.to, subject: input.subject, provider: "smtp", status: "sent" });
+  if (outcome.ok) {
+    await logEmail({ toEmail: input.to, subject: input.subject, provider, status: "sent", attempts });
     return { sent: true };
-  } catch (err) {
-    await logEmail({
-      toEmail: input.to,
-      subject: input.subject,
-      provider: "smtp",
-      status: "failed",
-      error: err instanceof Error ? err.message : String(err),
-    });
-    return { sent: false };
   }
+  await logEmail({
+    toEmail: input.to,
+    subject: input.subject,
+    provider,
+    status: "failed",
+    error: outcome.error,
+    html: isRetryable(outcome.error) ? input.html : null,
+    attempts,
+  });
+  return { sent: false };
+}
+
+const MAX_EMAIL_ATTEMPTS = 5;
+const RETRY_WINDOW_MS = 48 * 60 * 60 * 1000;
+
+/**
+ * Daily retry of emails that failed for a transient reason. Re-sends the stored body and
+ * flips the same log row to "sent" on success, so the admin email log stays truthful.
+ */
+export async function retryFailedEmails(limit = 40): Promise<{ tried: number; sent: number }> {
+  const database = requireDb();
+  const config = await getEmailConfig();
+  if (!config.enabled || !isEmailConfigured(config)) return { tried: 0, sent: 0 };
+
+  const rows = await database
+    .select({
+      id: emailLog.id,
+      toEmail: emailLog.toEmail,
+      subject: emailLog.subject,
+      html: emailLog.html,
+      attempts: emailLog.attempts,
+    })
+    .from(emailLog)
+    .where(
+      and(
+        eq(emailLog.status, "failed"),
+        isNotNull(emailLog.html),
+        lt(emailLog.attempts, MAX_EMAIL_ATTEMPTS),
+        gt(emailLog.createdAt, new Date(Date.now() - RETRY_WINDOW_MS)),
+      ),
+    )
+    .orderBy(emailLog.createdAt)
+    .limit(limit);
+
+  let sent = 0;
+  for (const row of rows) {
+    const outcome = await attemptSend(config, { to: row.toEmail, subject: row.subject, html: row.html! });
+    if (outcome.ok) {
+      sent += 1;
+      await database
+        .update(emailLog)
+        .set({ status: "sent", error: null, html: null, attempts: row.attempts + 1 })
+        .where(eq(emailLog.id, row.id));
+    } else {
+      await database
+        .update(emailLog)
+        .set({
+          error: outcome.error,
+          attempts: row.attempts + 1,
+          // Stop keeping the body once it can never be retried again.
+          html: isRetryable(outcome.error) && row.attempts + 1 < MAX_EMAIL_ATTEMPTS ? row.html : null,
+        })
+        .where(eq(emailLog.id, row.id));
+    }
+  }
+  return { tried: rows.length, sent };
 }
 
 export async function recentEmailLogs(limit = 15) {
   const database = requireDb();
+  // Explicit columns: never drags the (large) stored html body into the admin page.
   return database
-    .select()
+    .select({
+      id: emailLog.id,
+      toEmail: emailLog.toEmail,
+      subject: emailLog.subject,
+      provider: emailLog.provider,
+      status: emailLog.status,
+      error: emailLog.error,
+      createdAt: emailLog.createdAt,
+    })
     .from(emailLog)
     .orderBy(desc(emailLog.createdAt))
     .limit(limit);

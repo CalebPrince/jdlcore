@@ -44,10 +44,13 @@ function Feedback({ state }: { state: FormState }) {
 export function AssignInspectorForm({
   jobId,
   inspectors,
+  suggestedId,
   isReassign,
 }: {
   jobId: number;
-  inspectors: { id: number; name: string }[];
+  inspectors: { id: number; name: string; openJobs?: number; clientJobs?: number }[];
+  /** Best default by workload and client history; preselected but still confirmed by pressing Assign. */
+  suggestedId?: number;
   isReassign: boolean;
 }) {
   const [state, action, pending] = useActionState(assignInspector, initial);
@@ -56,7 +59,7 @@ export function AssignInspectorForm({
       <input type="hidden" name="jobId" value={jobId} />
       <div className="flex flex-col gap-1.5">
         <Label>Inspector</Label>
-        <Select name="inspectorId" required>
+        <Select name="inspectorId" required defaultValue={suggestedId ? String(suggestedId) : undefined}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder={inspectors.length === 0 ? "No active inspectors" : "Select inspector"} />
           </SelectTrigger>
@@ -64,6 +67,10 @@ export function AssignInspectorForm({
             {inspectors.map((i) => (
               <SelectItem key={i.id} value={String(i.id)}>
                 {i.name}
+                {i.openJobs !== undefined
+                  ? ` (${i.openJobs} open${i.clientJobs ? `, ${i.clientJobs} for this client` : ""})`
+                  : ""}
+                {i.id === suggestedId ? " · suggested" : ""}
               </SelectItem>
             ))}
           </SelectContent>

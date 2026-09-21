@@ -18,20 +18,14 @@ import {
   jobs,
   submissions,
 } from "@/db/schema";
-import { JOB_STATUSES, JOB_STATUS_META, makeInvoiceNumber, makeRef } from "@/lib/jobs";
-import { computeInvoiceTotal } from "@/lib/invoice-tax";
-import { getInvoiceSettings } from "@/lib/settings";
+import { JOB_STATUSES, JOB_STATUS_META, makeRef } from "@/lib/jobs";
 import { isEmailConfigured, getEmailConfig, sendNotification, brandedEmailHtml } from "@/lib/email";
 import { notify, notifyBoth } from "@/lib/notifications";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { logAudit } from "@/lib/audit";
-import { getPaystackConfig, isPaystackReady } from "@/lib/paystack";
+import { issueInvoice, payOnlineLine } from "@/lib/invoicing";
+import { issuePortalSetupLink } from "@/lib/account-setup";
 import type { FormState } from "./submissions";
-
-async function payOnlineLine(): Promise<string> {
-  const ready = isPaystackReady(await getPaystackConfig());
-  return ready ? "You can also pay this invoice online instantly by card or mobile money from the portal." : "";
-}
 
 export type ConvertState = FormState & {
   jobId?: number;
@@ -336,63 +330,17 @@ export async function createInvoice(
   const parsed = invoiceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Enter a valid amount.");
   const f = parsed.data;
-  const subtotalCents = Math.round(f.amount * 100);
-  const breakdown = computeInvoiceTotal(subtotalCents, f.currency);
-  const amountCents = breakdown?.totalCents ?? subtotalCents;
-  let invoiceNumber = "";
   try {
-    const database = requireDb();
-    const inserted = await database
-      .insert(invoices)
-      .values({
-        number: `PENDING-${Date.now()}`,
-        jobId: f.jobId,
-        amountCents,
-        subtotalCents: breakdown?.subtotalCents ?? null,
-        nhilCents: breakdown?.nhilCents ?? null,
-        getfundCents: breakdown?.getfundCents ?? null,
-        vatCents: breakdown?.vatCents ?? null,
-        currency: f.currency,
-        dueDate: f.dueDate ? new Date(f.dueDate) : null,
-        status: "pending",
-      })
-      .returning({ id: invoices.id });
-    const invoiceSettings = await getInvoiceSettings();
-    invoiceNumber = makeInvoiceNumber(inserted[0].id, invoiceSettings.invoicePrefix);
-    await database
-      .update(invoices)
-      .set({ number: invoiceNumber })
-      .where(eq(invoices.id, inserted[0].id));
+    await issueInvoice({
+      jobId: f.jobId,
+      subtotalCents: Math.round(f.amount * 100),
+      currency: f.currency,
+      dueDate: f.dueDate || null,
+    });
   } catch {
     return initialFail("Could not create invoice.");
   }
   revalidatePath(`/admin/jobs/${f.jobId}`);
-
-  const recipient = await clientEmailForJob(f.jobId);
-  if (recipient) {
-    const amountStr = `${f.currency} ${(amountCents / 100).toLocaleString("en-GH", { minimumFractionDigits: 2 })}`;
-    await notifyBoth({
-      recipientType: "client",
-      recipientId: recipient.clientId,
-      email: recipient.email,
-      jobId: f.jobId,
-      type: "invoice_created",
-      title: `Invoice ${invoiceNumber} issued on job ${recipient.ref}`,
-      body: `Amount due: ${amountStr}`,
-      link: "/portal",
-      emailSubject: `[${recipient.ref}] New invoice - JDL Core`,
-      emailHtml: notifyHtml(
-        `Invoice ${invoiceNumber} has been issued`,
-        [
-          `Amount due: <strong>${amountStr}</strong>`,
-          f.dueDate ? `Payment is due by ${f.dueDate}.` : "",
-          "Download the PDF invoice from the portal.",
-          await payOnlineLine(),
-        ].filter(Boolean),
-        recipient.ref,
-      ),
-    });
-  }
   return { ok: true, message: "Invoice issued." };
 }
 
@@ -579,18 +527,24 @@ export async function convertQuoteToJob(
       });
       const config = await getEmailConfig();
       if (isEmailConfigured(config) && config.enabled) {
+        // Email a one-time "choose your password" link instead of the plaintext temporary
+        // password. The temp password is still shown to staff below as a manual fallback.
+        const setupLink = await issuePortalSetupLink(clientId);
         const result = await sendNotification({
           to: f.email,
           subject: `Your JDL Core portal account - Job ${jobRef}`,
-          html: notifyHtml(
-            `Welcome to the JDL Core Client Portal`,
-            [
+          html: brandedEmailHtml({
+            label: "JDL CORE CLIENT PORTAL",
+            heading: "Welcome to the JDL Core Client Portal",
+            bodyLines: [
               `Your quote request has been converted into job <strong>${jobRef}</strong>.`,
-              `Sign in at jdlcore.com/portal/login with <strong>${f.email}</strong> and the temporary password: <strong>${tempPassword}</strong>`,
-              "Please keep this email safe — you can ask us to reset the password at any time.",
+              `Your sign-in email is <strong>${f.email}</strong>. Use the button below to choose your password (the link works once and expires in 7 days).`,
+              "If the link expires, use “Forgot password” on the sign-in page to get a new one.",
             ],
-            jobRef,
-          ),
+            ctaUrl: setupLink,
+            ctaLabel: "Choose your password",
+            footer: `Job reference: ${jobRef}`,
+          }),
         });
         emailSent = result.sent;
       }
@@ -600,7 +554,7 @@ export async function convertQuoteToJob(
       ok: true,
       message: clientCreated
         ? emailSent
-          ? `Client account created — credentials emailed. Job ${jobRef} is live.`
+          ? `Client account created. A password setup link was emailed. Job ${jobRef} is live.`
           : `Client account created. Job ${jobRef} is live.`
         : `Attached to existing client. Job ${jobRef} is live.`,
       jobId,

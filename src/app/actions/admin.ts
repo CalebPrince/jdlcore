@@ -92,6 +92,7 @@ const invoiceSettingsSchema = z.object({
   termsDays: z.coerce.number().int().min(0).max(365),
   paymentInstructions: z.string().trim().min(1).max(200),
   closingNote: z.string().trim().min(1).max(200),
+  autoIssue: z.string().optional(),
 });
 
 export async function updateInvoiceSettings(
@@ -103,7 +104,11 @@ export async function updateInvoiceSettings(
   const parsed = invoiceSettingsSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0].message };
   try {
-    await saveInvoiceSettings({ ...parsed.data, termsDays: String(parsed.data.termsDays) });
+    await saveInvoiceSettings({
+      ...parsed.data,
+      termsDays: String(parsed.data.termsDays),
+      autoIssue: parsed.data.autoIssue === "on" ? "1" : "0",
+    });
   } catch {
     return { ok: false, message: "Could not save invoice settings. Check your connection." };
   }
@@ -112,7 +117,7 @@ export async function updateInvoiceSettings(
     actor: current,
     action: "settings.invoice_updated",
     targetType: "settings",
-    summary: `Updated invoice settings (prefix ${parsed.data.invoicePrefix}, ${parsed.data.defaultCurrency}, ${parsed.data.termsDays}-day terms).`,
+    summary: `Updated invoice settings (prefix ${parsed.data.invoicePrefix}, ${parsed.data.defaultCurrency}, ${parsed.data.termsDays}-day terms, auto-issue ${parsed.data.autoIssue === "on" ? "on" : "off"}).`,
   });
   return { ok: true, message: "Invoice settings saved." };
 }

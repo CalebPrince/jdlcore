@@ -372,10 +372,17 @@ export async function handleChargeSuccessRenewal(data: {
     }),
   });
 
-  if (user.subscriptionStatus === "active") return;
-
+  // Always roll the billing period forward: the monthly question quota is measured against
+  // [currentPeriodStart, currentPeriodEnd), so leaving it frozen after the first month meant the
+  // window never advanced. Only touch the status fields when recovering from past_due/canceled,
+  // so a deliberately disabled account isn't silently re-enabled by a renewal charge.
+  const recovering = user.subscriptionStatus !== "active";
   await database
     .update(analyticsUsers)
-    .set({ subscriptionStatus: "active", status: "active", currentPeriodStart: now, currentPeriodEnd: periodEnd })
+    .set({
+      currentPeriodStart: now,
+      currentPeriodEnd: periodEnd,
+      ...(recovering ? { subscriptionStatus: "active", status: "active" } : {}),
+    })
     .where(eq(analyticsUsers.id, user.id));
 }

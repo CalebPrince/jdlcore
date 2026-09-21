@@ -105,8 +105,8 @@ export function ConvertQuoteSheet({
                 </code>
                 <p className="m-0 mt-2 text-xs text-muted-foreground">
                   {state.emailSent
-                    ? `Also emailed to ${submission.email}.`
-                    : "Email notifications aren't configured — share this with the client manually."}
+                    ? `A secure link to choose their own password was emailed to ${submission.email}. Only share this if they can't use it.`
+                    : "Email notifications aren't configured or the email failed. Share this with the client manually."}
                 </p>
               </div>
             )}

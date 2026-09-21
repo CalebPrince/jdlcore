@@ -31,8 +31,8 @@ export function InvoiceSettingsForm({ defaults }: { defaults: InvoiceSettings })
       <CardHeader>
         <CardTitle className="font-display">Invoice Settings</CardTitle>
         <CardDescription>
-          Controls the numbering, default terms, and footer text used on every invoice —
-          both auto-generated on approval and manually issued. Changes apply to new
+          Controls the numbering, default terms, and footer text used on every invoice,
+          whether issued automatically on approval or manually. Changes apply to new
           invoices only.
         </CardDescription>
       </CardHeader>
@@ -89,6 +89,24 @@ export function InvoiceSettingsForm({ defaults }: { defaults: InvoiceSettings })
               maxLength={200}
               required
             />
+          </div>
+
+          <div className="flex items-start gap-3 sm:col-span-2">
+            <input
+              id="autoIssue"
+              name="autoIssue"
+              type="checkbox"
+              defaultChecked={defaults.autoIssue === "1"}
+              className="mt-1 size-4 accent-[#c98e12]"
+            />
+            <div className="flex flex-col gap-1">
+              <Label htmlFor="autoIssue">Issue the invoice automatically when a job is approved</Label>
+              <p className="text-xs text-muted-foreground">
+                Uses the service&apos;s default price (Admin &gt; Services), the currency and terms above,
+                and emails the client. Jobs whose service has no default price are left for staff to
+                invoice and show up in the daily operations digest.
+              </p>
+            </div>
           </div>
 
           <div className="sm:col-span-full">

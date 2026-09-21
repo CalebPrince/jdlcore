@@ -91,6 +91,8 @@ export type InvoiceSettings = {
   termsDays: string;
   paymentInstructions: string;
   closingNote: string;
+  /** "1" = draft-and-issue an invoice automatically when a job is approved (needs a service default price). */
+  autoIssue: string;
 };
 
 export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
@@ -99,6 +101,7 @@ export const DEFAULT_INVOICE_SETTINGS: InvoiceSettings = {
   termsDays: "14",
   paymentInstructions: "Payment details are provided on request. Quote this invoice number as reference.",
   closingNote: "Thank you for working with JDL Core.",
+  autoIssue: "0",
 };
 
 const INVOICE_KEY_BY_FIELD: Record<keyof InvoiceSettings, string> = {
@@ -107,6 +110,7 @@ const INVOICE_KEY_BY_FIELD: Record<keyof InvoiceSettings, string> = {
   termsDays: "invoice_terms_days",
   paymentInstructions: "invoice_payment_instructions",
   closingNote: "invoice_closing_note",
+  autoIssue: "invoice_auto_issue",
 };
 
 const INVOICE_FIELDS = Object.keys(INVOICE_KEY_BY_FIELD) as (keyof InvoiceSettings)[];

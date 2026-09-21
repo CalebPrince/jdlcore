@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { and, asc, desc, eq, sql } from "drizzle-orm";
+import { asc, desc, eq, sql } from "drizzle-orm";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
@@ -52,6 +52,7 @@ import {
   type ServiceType,
 } from "@/lib/jobs";
 import { getInvoiceSettings } from "@/lib/settings";
+import { rankInspectorsForJob } from "@/lib/inspector-suggestions";
 
 export const dynamic = "force-dynamic";
 
@@ -98,10 +99,7 @@ export default async function AdminJobDetailPage({
   const timeline = await database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(desc(jobUpdates.createdAt));
   const docs = await database.select().from(documents).where(eq(documents.jobId, jobId)).orderBy(desc(documents.createdAt));
   const bills = await database.select().from(invoices).where(eq(invoices.jobId, jobId)).orderBy(desc(invoices.issuedAt));
-  const activeInspectors = await database
-    .select({ id: inspectors.id, name: inspectors.name })
-    .from(inspectors)
-    .where(and(eq(inspectors.active, true), eq(inspectors.status, "active")));
+  const activeInspectors = await rankInspectorsForJob(job.clientId, job.assignedInspectorId);
   const assignedInspector = job.assignedInspectorId
     ? await database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
     : [];
@@ -183,6 +181,11 @@ export default async function AdminJobDetailPage({
               <AssignInspectorForm
                 jobId={job.id}
                 inspectors={activeInspectors}
+                suggestedId={
+                  activeInspectors[0] && activeInspectors[0].id !== job.assignedInspectorId
+                    ? activeInspectors[0].id
+                    : undefined
+                }
                 isReassign={job.status === "assigned"}
               />
             </CardContent>

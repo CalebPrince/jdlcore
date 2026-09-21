@@ -7,11 +7,12 @@ import { brandedEmailHtml } from "@/lib/email";
 import { getPaystackConfig, isPaystackReady } from "@/lib/paystack";
 
 /**
- * No cron/queue infra in this project — call this from a jobs-list loader to
- * opportunistically flag invoices that just became overdue. overdueNotifiedAt
- * dedupes so a given invoice is only notified once.
+ * Flags invoices that just became overdue and notifies the client once (overdueNotifiedAt
+ * dedupes). The daily cron (src/lib/automation/invoice-reminders.ts) is the primary
+ * caller; the jobs-list and portal loaders still call it as a fallback so a missed cron
+ * run doesn't leave an overdue invoice unflagged. Returns how many invoices were flagged.
  */
-export async function flagOverdueInvoices(): Promise<void> {
+export async function flagOverdueInvoices(): Promise<number> {
   try {
     const database = requireDb();
     const overdue = await database
@@ -38,7 +39,7 @@ export async function flagOverdueInvoices(): Promise<void> {
         ),
       );
 
-    if (overdue.length === 0) return;
+    if (overdue.length === 0) return 0;
     const payOnline = isPaystackReady(await getPaystackConfig())
       ? "You can also pay this invoice online instantly by card or mobile money from the portal."
       : null;
@@ -67,7 +68,9 @@ export async function flagOverdueInvoices(): Promise<void> {
         }),
       });
     }
+    return overdue.length;
   } catch (err) {
     console.error("flagOverdueInvoices:", err);
+    return 0;
   }
 }

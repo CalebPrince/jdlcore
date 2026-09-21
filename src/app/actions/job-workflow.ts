@@ -9,6 +9,7 @@ import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { generateCoq } from "@/lib/coq";
+import { maybeAutoIssueInvoice } from "@/lib/automation/auto-invoice";
 import { notifyBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import type { FormState } from "./submissions";
@@ -175,9 +176,13 @@ export async function approveJob(_prev: FormState, formData: FormData): Promise<
   await database.update(jobs).set({ status: "invoice_issued", updatedAt: new Date() }).where(eq(jobs.id, jobId));
 
   await generateCoq(jobId, staff.id);
+  const auto = await maybeAutoIssueInvoice(jobId);
 
   revalidateJob(jobId);
-  return { ok: true, message: "Job approved — Certificate of Quantity issued. Issue the invoice from this page when the amount is ready." };
+  if (auto.outcome === "issued") {
+    return { ok: true, message: `Job approved. Certificate of Quantity and invoice ${auto.number} issued automatically.` };
+  }
+  return { ok: true, message: "Job approved. Certificate of Quantity issued. Issue the invoice from this page when the amount is ready." };
 }
 
 const rejectSchema = z.object({

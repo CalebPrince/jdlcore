@@ -87,6 +87,8 @@ export type NpaSyncResult = {
   skippedUnsupported: number;
   failed: number;
   remaining: number;
+  /** NPA source folders that could not be listed this run (layout change, outage, block). */
+  sourceErrors: number;
   durationMs: number;
 };
 
@@ -104,6 +106,7 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
 
   const discovered: NpaFile[] = [];
   const seen = new Set<string>();
+  let sourceErrors = 0;
   for (const source of NPA_SOURCES) {
     try {
       for (const file of await listSourceFiles(source)) {
@@ -112,7 +115,9 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
         discovered.push(file);
       }
     } catch {
-      // one folder failing shouldn't abort the whole sync
+      // one folder failing shouldn't abort the whole sync, but it is counted so the
+      // daily cron can alert when a source has stopped listing (see automation/npa-health.ts)
+      sourceErrors += 1;
     }
   }
 
@@ -215,6 +220,7 @@ export async function syncNpaKnowledge(options: { maxDocuments?: number; maxMs?:
     skippedUnsupported,
     failed,
     remaining: pending.length - processed,
+    sourceErrors,
     durationMs: Date.now() - start,
   };
 }

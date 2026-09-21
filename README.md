@@ -83,6 +83,22 @@ These are planned steps, not currently available agent features:
 
 Before relying on automated inspection review, distinguish invalid or failed AI reviews from a successful review with severity `none`. Improve document retrieval beyond the current keyword-ranked chunk sample before using it for broad investigations.
 
+## Scheduled automations
+
+Two Vercel crons (see `vercel.json`) run behind `CRON_SECRET` (`Authorization: Bearer`). Run `scripts/2026-09-21-automation.sql` in the Supabase SQL Editor once; without it the tasks that need `automation_events` report an error in the cron response and email retry stays off, and nothing else is affected.
+
+- `/api/cron/npa-sync` (06:00): NPA knowledge crawl, then a health check that alerts staff on failed documents, unlistable sources, or a week with nothing new.
+- `/api/cron/daily` (07:00): each task is isolated and idempotent (`src/lib/automation/`), and the JSON response lists every task's outcome.
+  - `paystack-reconcile`: re-checks online payments started in the last 7 days that never finalized (missed webhook) with Paystack; only Paystack-confirmed successes are finalized, mismatches still go to staff.
+  - `subscription-sweep`: refreshes a stale billing period from Paystack, or alerts staff when a subscription has really ended. It never suspends anyone.
+  - `invoice-reminders`: due-soon (3 days), 7 and 14 days overdue; the 14-day step also alerts Operations.
+  - `ops-digest`: one daily list of stuck jobs, missing stock readings, approved-but-uninvoiced jobs, receipts waiting on verification and unconverted quotes; nudges an inspector once for an unanswered assignment or amendment.
+  - `auto-close`: closes `paid` jobs 48h after payment once the CoQ exists and no invoice is open.
+  - `email-retry`: re-sends transient email failures (body kept in `email_log`).
+- Invoice on approval: Admin > Settings > Invoice Settings has an "issue automatically" switch (off by default) that uses the service's default price.
+
+Bank-transfer receipt verification (`verifyPayment` / `rejectPaymentSubmission`) is deliberately not automated.
+
 ## Apple-inspired UI system
 
 The interface follows Apple-caliber design principles adapted to the JDL Core brand. It does not reproduce Apple product pages or proprietary interface styling.

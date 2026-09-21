@@ -4,7 +4,7 @@ import { z } from "zod";
 import { requireDb } from "@/db";
 import { submissions } from "@/db/schema";
 import { notifyStaffBoth } from "@/lib/notifications";
-import { brandedEmailHtml } from "@/lib/email";
+import { brandedEmailHtml, sendNotification } from "@/lib/email";
 
 export type FormState = {
   ok: boolean;
@@ -29,6 +29,25 @@ async function notifyStaffOfSubmission(submissionType: string, title: string, bo
       bodyLines: [body],
       ctaUrl: `https://jdlcore.com/admin/inbox?type=${submissionType}`,
       ctaLabel: "Open Inbox",
+    }),
+  });
+}
+
+const escapeHtml = (v: string) => v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+/**
+ * Confirms receipt to the person who filled in a public form, so they aren't left wondering
+ * whether it went through. Best-effort (sendNotification never throws) and deliberately generic:
+ * only their own name is echoed back, HTML-escaped, since the forms are open to anyone.
+ */
+async function acknowledgeSubmitter(email: string, name: string, subject: string, heading: string, line: string): Promise<void> {
+  await sendNotification({
+    to: email,
+    subject,
+    html: brandedEmailHtml({
+      label: "JDL CORE",
+      heading,
+      bodyLines: [`Hello ${escapeHtml(name)},`, line, "If you need to add anything, just reply to this email or message us on WhatsApp."],
     }),
   });
 }
@@ -78,6 +97,13 @@ export async function submitQuoteRequest(
         message: d.details || null,
       });
     await notifyStaffOfSubmission("quote", `New quote request from ${d.name}`, d.service);
+    await acknowledgeSubmitter(
+      d.email,
+      d.name,
+      "We received your inspection request - JDL Core",
+      "We received your request",
+      "Thanks for your inspection request. Our operations team will review the scope and come back to you shortly to confirm details and pricing.",
+    );
     return {
       ok: true,
       message:
@@ -171,6 +197,13 @@ export async function submitContactMessage(
         message: d.message,
       });
     await notifyStaffOfSubmission("contact", `New message from ${d.name}`, d.topic);
+    await acknowledgeSubmitter(
+      d.email,
+      d.name,
+      "We received your message - JDL Core",
+      "We received your message",
+      "Thanks for getting in touch. A member of our team will reply as soon as possible.",
+    );
     return {
       ok: true,
       message: "Message sent — we'll get back to you soon.",

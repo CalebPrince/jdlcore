@@ -44,7 +44,8 @@ const TRANSITIONS: Record<JobStatus, { to: JobStatus; roles: TransitionRole[] }[
   // "system" covers an automated Paystack webhook/callback confirming payment
   // without a staff member manually verifying a receipt.
   invoice_issued: [{ to: "paid", roles: [...STAFF_ANY, "system"] }],
-  paid: [{ to: "closed", roles: STAFF_ANY }],
+  // "system" covers the daily auto-close of paid jobs whose CoQ has been delivered.
+  paid: [{ to: "closed", roles: [...STAFF_ANY, "system"] }],
   closed: [],
 };
 

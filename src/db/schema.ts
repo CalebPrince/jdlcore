@@ -504,6 +504,10 @@ export const emailLog = pgTable(
     provider: text("provider").notNull(), // smtp | resend | skipped
     status: text("status").notNull(), // sent | failed | skipped
     error: text("error"),
+    // Body of a failed send, kept so the daily cron can retry it; cleared once sent or
+    // once it can no longer be retried. Added by scripts/2026-09-21-automation.sql.
+    html: text("html"),
+    attempts: integer("attempts").notNull().default(1),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -533,6 +537,23 @@ export const paymentTransactions = pgTable(
     index("payment_transactions_created_idx").on(table.createdAt),
     index("payment_transactions_kind_idx").on(table.kind),
   ],
+);
+
+/**
+ * Idempotency ledger for scheduled automations (reminders, alerts, nudges). A cron run
+ * "claims" a (kind, ref) pair with INSERT ... ON CONFLICT DO NOTHING; only the run that
+ * actually inserted the row sends the message, so re-runs and overlapping runs never
+ * double-notify. See src/lib/automation/events.ts.
+ */
+export const automationEvents = pgTable(
+  "automation_events",
+  {
+    id: serial("id").primaryKey(),
+    kind: text("kind").notNull(),
+    ref: text("ref").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("automation_events_kind_ref_idx").on(table.kind, table.ref)],
 );
 
 /* ---------------- Analytics product ---------------- */

@@ -236,6 +236,39 @@ export async function sendSubscriptionManageLink(
   }
 }
 
+export type PaystackSubscriptionInfo = {
+  /** Paystack's own status: active | non-renewing | attention | completed | cancelled. */
+  status: string;
+  nextPaymentDate: Date | null;
+};
+
+/** Reads a subscription from Paystack; the source of truth for whether it is really still renewing. */
+export async function fetchSubscription(
+  subscriptionCode: string,
+): Promise<{ ok: true; subscription: PaystackSubscriptionInfo } | { ok: false; error: string }> {
+  const config = await getPaystackConfig();
+  if (!config.secretKey) return { ok: false, error: "Online payments aren't configured yet." };
+  try {
+    const res = await fetch(`${API_BASE}/subscription/${encodeURIComponent(subscriptionCode)}`, {
+      headers: { authorization: `Bearer ${config.secretKey}` },
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => null)) as
+      | { status?: boolean; message?: string; data?: { status?: string; next_payment_date?: string | null } }
+      | null;
+    if (!res.ok || !body?.status || !body.data?.status) {
+      return { ok: false, error: body?.message || `Paystack error (${res.status})` };
+    }
+    const next = body.data.next_payment_date ? new Date(body.data.next_payment_date) : null;
+    return {
+      ok: true,
+      subscription: { status: body.data.status, nextPaymentDate: next && !Number.isNaN(next.getTime()) ? next : null },
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Could not reach Paystack." };
+  }
+}
+
 /** Verifies the `x-paystack-signature` header using a constant-time comparison. */
 export async function verifyWebhookSignature(rawBody: string, signature: string | null): Promise<boolean> {
   if (!signature) return false;
