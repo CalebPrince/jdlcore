@@ -12,6 +12,7 @@ import {
   jobComments,
   jobCompletionData,
   jobOutturns,
+  jobOutturnTanks,
   jobUpdates,
   jobs,
   stockReadings,
@@ -20,6 +21,7 @@ import {
 import { getStaff } from "@/lib/staff-auth";
 import { buildOutturnTrail } from "@/lib/outturn-trail";
 import { OutturnTrailDisplay } from "@/components/inspector/outturn-trail-display";
+import { OutturnSummaryCard, OutturnTanksList } from "@/components/inspector/outturn-summary";
 import {
   Card,
   CardContent,
@@ -113,7 +115,7 @@ export default async function AdminJobDetailPage({
     ? await database.select().from(inspectors).where(eq(inspectors.id, job.assignedInspectorId)).limit(1)
     : [];
   const completion = await database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1);
-  const outturnRows = await database.select().from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
+  const outturnHeaderRows = await database.select().from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
   const tankList = await database.select().from(tanks).where(eq(tanks.clientId, job.clientId));
   const readings = await database
     .select()
@@ -158,8 +160,11 @@ export default async function AdminJobDetailPage({
   const isAdmin = staff.role === "administrator" || staff.role === "superadmin";
   const cd = completion[0];
   const tankById = new Map(tankList.map((t) => [t.id, t]));
-  const outturnRow = outturnRows[0];
-  const outturnTrail = outturnRow ? buildOutturnTrail(outturnRow) : null;
+  const tankNames = new Map(tankList.map((t) => [t.id, t.name]));
+  const outturnHeader = outturnHeaderRows[0];
+  const outturnTankRows = outturnHeader
+    ? await database.select().from(jobOutturnTanks).where(eq(jobOutturnTanks.jobOutturnId, outturnHeader.id))
+    : [];
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -261,13 +266,17 @@ export default async function AdminJobDetailPage({
           </Card>
         )}
 
-        {outturnTrail && (
+        {outturnHeader && outturnTankRows.length > 0 && (
           <Card>
             <CardHeader>
               <CardTitle className="font-display">Product Outturn</CardTitle>
             </CardHeader>
-            <CardContent>
-              <OutturnTrailDisplay trail={outturnTrail} />
+            <CardContent className="flex flex-col gap-5">
+              <OutturnTanksList jobId={job.id} header={outturnHeader} tankRows={outturnTankRows} tankNames={tankNames} editable={false} />
+              {outturnTankRows.map((t) => (
+                <OutturnTrailDisplay key={t.id} trail={buildOutturnTrail(outturnHeader, t)} />
+              ))}
+              <OutturnSummaryCard header={outturnHeader} tankRows={outturnTankRows} tankNames={tankNames} />
             </CardContent>
           </Card>
         )}
@@ -327,16 +336,28 @@ export default async function AdminJobDetailPage({
                 <AiReviewBanner reviews={documentReviews(d.id)} />
               </div>
             ))}
-            {coq[0] && (
-              <a
-                href={`/api/certificates/${coq[0].id}/pdf`}
-                className="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
-                style={{ borderColor: "var(--border)" }}
-                download
-              >
-                Download COQ ({coq[0].coqNumber})
-              </a>
-            )}
+            <div className="mt-1 flex flex-wrap gap-2">
+              {coq[0] && (
+                <a
+                  href={`/api/certificates/${coq[0].id}/pdf`}
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                  style={{ borderColor: "var(--border)" }}
+                  download
+                >
+                  Download COQ ({coq[0].coqNumber})
+                </a>
+              )}
+              {outturnHeader && outturnTankRows.length > 0 && (
+                <a
+                  href={`/api/jobs/${job.id}/outturn-report/pdf`}
+                  className="inline-flex w-fit items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold text-navy-800 transition-colors hover:bg-navy-50"
+                  style={{ borderColor: "var(--border)" }}
+                  download
+                >
+                  Download Outturn Report
+                </a>
+              )}
+            </div>
           </CardContent>
         </Card>
 

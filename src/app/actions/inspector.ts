@@ -12,6 +12,7 @@ import {
   inspectors,
   jobCompletionData,
   jobOutturns,
+  jobOutturnTanks,
   jobUpdates,
   jobs,
   stockReadings,
@@ -34,6 +35,7 @@ import { recordApprovalCheck } from "@/lib/approval-checks";
 import { parseDecimal3, parseDecimalN } from "@/lib/decimal";
 import { lookupVolumeForDip } from "@/lib/tank-calibration";
 import { calculateOutturn, calculateReading, type MovementType, type ReadingInput } from "@/lib/outturn";
+import { sumOutturnTotals } from "@/lib/outturn-trail";
 import type { FormState } from "./submissions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
@@ -380,9 +382,12 @@ export async function saveCompletionData(_prev: FormState, formData: FormData): 
 
 const outturnSchema = z.object({
   jobId: z.coerce.number().int().positive(),
+  /** Present when editing an existing tank row; absent when adding a new one. */
+  tankRowId: z.coerce.number().int().positive().optional(),
   movementType: z.enum(["receipt", "delivery"]),
   isCrudeOil: z.string().optional(),
   densityUnit: z.enum(["kg_m3", "g_cm3"]).default("kg_m3"),
+  notes: z.string().trim().max(2000).optional(),
 
   initialTankId: z.coerce.number().int().positive(),
   initialDipMm: z.string().optional(),
@@ -499,6 +504,54 @@ async function prepareSide(
   };
 }
 
+/** Loads (or creates) the job's outturn header, using the given movement/crude/density/notes as the latest values. */
+async function upsertOutturnHeader(
+  jobId: number,
+  movementType: "receipt" | "delivery",
+  isCrudeOil: boolean,
+  densityUnit: "kg_m3" | "g_cm3",
+  notes: string | null,
+): Promise<number> {
+  const database = requireDb();
+  const existing = await database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
+  const values = { movementType, isCrudeOil, densityUnit, notes, updatedAt: new Date() };
+  if (existing[0]) {
+    await database.update(jobOutturns).set(values).where(eq(jobOutturns.id, existing[0].id));
+    return existing[0].id;
+  }
+  const inserted = await database.insert(jobOutturns).values({ jobId, ...values }).returning({ id: jobOutturns.id });
+  return inserted[0].id;
+}
+
+/** Recomputes the job-wide outturn totals from every tank row and writes them into jobCompletionData — the actual "feed the existing report fields" step, read unchanged by approval checks and the Certificate of Quantity. */
+async function recomputeCompletionFigures(jobId: number): Promise<void> {
+  const database = requireDb();
+  const headerRows = await database.select().from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
+  const header = headerRows[0];
+  const tankRows = header ? await database.select().from(jobOutturnTanks).where(eq(jobOutturnTanks.jobOutturnId, header.id)) : [];
+
+  const completionValues =
+    header && tankRows.length > 0
+      ? (() => {
+          const totals = sumOutturnTotals(header, tankRows);
+          return {
+            gov: round3(totals.govOutturnL),
+            gsv: round3(totals.volumeOutturnL),
+            metricTonnesAir: round3(totals.mtAirOutturn),
+            metricTonnesVacuum: round3(totals.mtVacOutturn),
+          };
+        })()
+      : { gov: null, gsv: null, metricTonnesAir: null, metricTonnesVacuum: null };
+
+  const existingCompletion = await database.select({ id: jobCompletionData.id }).from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1);
+  if (existingCompletion[0]) {
+    await database.update(jobCompletionData).set({ ...completionValues, updatedAt: new Date() }).where(eq(jobCompletionData.id, existingCompletion[0].id));
+  } else {
+    await database.insert(jobCompletionData).values({ jobId, ...completionValues });
+  }
+}
+
+/** Adds a new tank to the job's outturn, or updates one (when tankRowId is given). One job can cover several tanks (e.g. a vessel discharging into 3 tanks at once) — the report shows one column-pair per tank plus a summed total. */
 export async function saveOutturnData(_prev: FormState, formData: FormData): Promise<FormState> {
   const inspector = await getInspector();
   if (!inspector) return initialFail("Unauthorized");
@@ -547,12 +600,10 @@ export async function saveOutturnData(_prev: FormState, formData: FormData): Pro
   );
 
   const database = requireDb();
-  const existingOutturn = await database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, f.jobId)).limit(1);
+  const headerId = await upsertOutturnHeader(f.jobId, f.movementType, isCrudeOil, f.densityUnit, f.notes || null);
+
   const toStrN = (n: number | null, scale: number) => (n === null ? null : n.toFixed(scale));
-  const outturnValues = {
-    movementType: f.movementType,
-    isCrudeOil,
-    densityUnit: f.densityUnit,
+  const tankValues = {
     initialTankId: f.initialTankId,
     initialDipMm: toStrN(initialPrep.input.dipMm, 2),
     initialWaterDipMm: toStrN(initialPrep.input.waterDipMm, 2),
@@ -577,34 +628,46 @@ export async function saveOutturnData(_prev: FormState, formData: FormData): Pro
     finalAirBuoyancyOverrideMt: toStrN(finalPrep.input.airBuoyancyOverrideMt, 3),
     updatedAt: new Date(),
   };
-  if (existingOutturn[0]) {
-    await database.update(jobOutturns).set(outturnValues).where(eq(jobOutturns.id, existingOutturn[0].id));
+
+  if (f.tankRowId) {
+    const owned = await database
+      .select({ id: jobOutturnTanks.id })
+      .from(jobOutturnTanks)
+      .where(and(eq(jobOutturnTanks.id, f.tankRowId), eq(jobOutturnTanks.jobOutturnId, headerId)))
+      .limit(1);
+    if (!owned[0]) return initialFail("That tank entry no longer exists.");
+    await database.update(jobOutturnTanks).set(tankValues).where(eq(jobOutturnTanks.id, f.tankRowId));
   } else {
-    await database.insert(jobOutturns).values({ jobId: f.jobId, ...outturnValues });
+    await database.insert(jobOutturnTanks).values({ jobOutturnId: headerId, ...tankValues });
   }
 
-  // Feed the existing report fields: the client PDF, approval checks and admin job view all read
-  // these straight off jobCompletionData, unchanged.
-  const completionValues = {
-    gov: round3(outturn.result.govOutturnL),
-    gsv: round3(outturn.result.volumeOutturnL),
-    metricTonnesAir: round3(outturn.result.mtAirOutturn),
-    metricTonnesVacuum: round3(outturn.result.mtVacOutturn),
-    updatedAt: new Date(),
-  };
-  const existingCompletion = await database.select({ id: jobCompletionData.id }).from(jobCompletionData).where(eq(jobCompletionData.jobId, f.jobId)).limit(1);
-  if (existingCompletion[0]) {
-    await database.update(jobCompletionData).set(completionValues).where(eq(jobCompletionData.id, existingCompletion[0].id));
-  } else {
-    await database.insert(jobCompletionData).values({ jobId: f.jobId, ...completionValues });
-  }
-
+  await recomputeCompletionFigures(f.jobId);
   revalidateJob(f.jobId);
   const warnings = [...initialEval.warnings, ...finalEval.warnings, ...outturn.warnings];
   return {
     ok: true,
-    message: warnings.length > 0 ? `Outturn saved, with ${warnings.length} warning(s) — see the trail below.` : "Outturn saved.",
+    message: warnings.length > 0 ? `Tank saved, with ${warnings.length} warning(s) — see the trail below.` : "Tank saved.",
   };
+}
+
+/** Removes one tank from the job's outturn and recomputes the job-wide totals. */
+export async function removeOutturnTankReading(formData: FormData): Promise<void> {
+  const inspector = await getInspector();
+  if (!inspector) return;
+  const jobId = Number(formData.get("jobId"));
+  const tankRowId = Number(formData.get("tankRowId"));
+  if (!jobId || !tankRowId) return;
+  const job = await loadOwnJob(jobId, inspector.id);
+  if (!job) return;
+
+  const database = requireDb();
+  const headerRows = await database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
+  const header = headerRows[0];
+  if (!header) return;
+  await database.delete(jobOutturnTanks).where(and(eq(jobOutturnTanks.id, tankRowId), eq(jobOutturnTanks.jobOutturnId, header.id)));
+
+  await recomputeCompletionFigures(jobId);
+  revalidateJob(jobId);
 }
 
 /* ---------------- Stock readings (section 14, stock monitoring jobs only) ---------------- */

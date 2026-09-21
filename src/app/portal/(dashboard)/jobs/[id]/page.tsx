@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { ArrowLeft, Download, ReceiptText } from "lucide-react";
 import { requireDb } from "@/db";
-import { certificates, documents, invoices, jobComments, jobUpdates, jobs } from "@/db/schema";
+import { certificates, documents, invoices, jobComments, jobOutturns, jobUpdates, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import {
   DOCUMENT_KIND_META,
@@ -56,6 +56,7 @@ export default async function PortalJobDetailPage({
   let bills;
   let coq;
   let comments;
+  let outturn;
   const database = requireDb();
   {
     const rows = await database
@@ -66,7 +67,7 @@ export default async function PortalJobDetailPage({
     job = rows[0];
     if (!job) notFound();
 
-    [timeline, docs, bills, coq, comments] = await Promise.all([
+    [timeline, docs, bills, coq, comments, outturn] = await Promise.all([
       database
         .select()
         .from(jobUpdates)
@@ -88,6 +89,7 @@ export default async function PortalJobDetailPage({
         .from(jobComments)
         .where(eq(jobComments.jobId, jobId))
         .orderBy(asc(jobComments.createdAt)),
+      database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1),
     ]);
   }
 
@@ -174,6 +176,30 @@ export default async function PortalJobDetailPage({
                   />
                   <a
                     href={`/api/certificates/${coq[0].id}/pdf`}
+                    className="btn-gold px-[1.1em] py-[0.55em] text-[0.82rem]"
+                  >
+                    <Download className="mr-1.5 inline h-3.5 w-3.5" />
+                    Download
+                  </a>
+                </div>
+              </li>
+            )}
+            {coq[0] && outturn[0] && (
+              <li
+                className="flex items-center gap-4 rounded-[var(--radius)] border bg-white p-4"
+                style={{ borderColor: "var(--border)" }}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="m-0 truncate text-sm font-semibold text-navy-950">Product Outturn Report</p>
+                  <p className="m-0 mt-0.5 text-xs text-muted-foreground">Full initial/final calculation trail for every tank</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <DocumentPreviewDialog
+                    href={`/api/jobs/${job.id}/outturn-report/pdf?preview=1`}
+                    title="Product Outturn Report"
+                  />
+                  <a
+                    href={`/api/jobs/${job.id}/outturn-report/pdf`}
                     className="btn-gold px-[1.1em] py-[0.55em] text-[0.82rem]"
                   >
                     <Download className="mr-1.5 inline h-3.5 w-3.5" />

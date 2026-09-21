@@ -15,6 +15,7 @@ export const REQUIRED_MIGRATIONS = [
   "0006_backfill_job_service_types",
   "0007_automation_runs",
   "0008_outturn_and_calibration",
+  "0009_outturn_multi_tank",
 ] as const;
 
 function isMissingTable(err: unknown): boolean {

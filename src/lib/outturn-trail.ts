@@ -1,8 +1,10 @@
-// Rebuilds the full initial/final/outturn audit trail from a saved job_outturns row. Pure (given the
-// row): GOV, GSV, mass, US BBL, air buoyancy correction and the outturn itself are never persisted —
-// only the raw inputs plus TGV/Water Volume/Roof Volume are (see src/db/schema.ts's job_outturns
-// comment) — so every reader (inspector page, admin page, the client PDF) recomputes from the same
-// retained numbers via this one function, rather than duplicating the arithmetic three times.
+// Rebuilds the full initial/final/outturn audit trail for one tank from a saved job_outturns
+// (header: movement type, crude flag, density unit) + job_outturn_tanks (one tank's readings) row
+// pair. Pure (given the rows): GOV, GSV, mass, US BBL, air buoyancy correction and the outturn
+// itself are never persisted — only the raw inputs plus TGV/Water Volume/Roof Volume are (see
+// src/db/schema.ts's job_outturn_tanks comment) — so every reader (inspector page, admin page, the
+// client outturn report) recomputes from the same retained numbers via this one function, rather
+// than duplicating the arithmetic in each place.
 
 import {
   calculateOutturn,
@@ -12,26 +14,27 @@ import {
   type ReadingInput,
   type ReadingResult,
 } from "./outturn";
-import type { jobOutturns } from "@/db/schema";
+import type { jobOutturns, jobOutturnTanks } from "@/db/schema";
 
-export type OutturnRow = typeof jobOutturns.$inferSelect;
+export type OutturnHeaderRow = typeof jobOutturns.$inferSelect;
+export type OutturnTankRow = typeof jobOutturnTanks.$inferSelect;
 
 const n = (v: string | null): number | null => (v === null ? null : Number(v));
 
-function toInput(row: OutturnRow, side: "initial" | "final"): ReadingInput {
+function toInput(header: OutturnHeaderRow, tank: OutturnTankRow, side: "initial" | "final"): ReadingInput {
   return {
-    tankId: side === "initial" ? row.initialTankId : row.finalTankId,
-    dipMm: n(side === "initial" ? row.initialDipMm : row.finalDipMm),
-    waterDipMm: n(side === "initial" ? row.initialWaterDipMm : row.finalWaterDipMm),
-    tgvL: n(side === "initial" ? row.initialTgvL : row.finalTgvL),
-    waterVolumeL: n(side === "initial" ? row.initialWaterVolumeL : row.finalWaterVolumeL),
-    roofVolumeL: n(side === "initial" ? row.initialRoofVolumeL : row.finalRoofVolumeL),
-    temperatureC: n(side === "initial" ? row.initialTemperatureC : row.finalTemperatureC),
-    densityAt20: n(side === "initial" ? row.initialDensityAt20 : row.finalDensityAt20),
-    densityUnit: row.densityUnit as "kg_m3" | "g_cm3",
-    vcf: n(side === "initial" ? row.initialVcf : row.finalVcf),
-    swPercent: row.isCrudeOil ? n(side === "initial" ? row.initialSwPercent : row.finalSwPercent) : null,
-    airBuoyancyOverrideMt: n(side === "initial" ? row.initialAirBuoyancyOverrideMt : row.finalAirBuoyancyOverrideMt),
+    tankId: side === "initial" ? tank.initialTankId : tank.finalTankId,
+    dipMm: n(side === "initial" ? tank.initialDipMm : tank.finalDipMm),
+    waterDipMm: n(side === "initial" ? tank.initialWaterDipMm : tank.finalWaterDipMm),
+    tgvL: n(side === "initial" ? tank.initialTgvL : tank.finalTgvL),
+    waterVolumeL: n(side === "initial" ? tank.initialWaterVolumeL : tank.finalWaterVolumeL),
+    roofVolumeL: n(side === "initial" ? tank.initialRoofVolumeL : tank.finalRoofVolumeL),
+    temperatureC: n(side === "initial" ? tank.initialTemperatureC : tank.finalTemperatureC),
+    densityAt20: n(side === "initial" ? tank.initialDensityAt20 : tank.finalDensityAt20),
+    densityUnit: header.densityUnit as "kg_m3" | "g_cm3",
+    vcf: n(side === "initial" ? tank.initialVcf : tank.finalVcf),
+    swPercent: header.isCrudeOil ? n(side === "initial" ? tank.initialSwPercent : tank.finalSwPercent) : null,
+    airBuoyancyOverrideMt: n(side === "initial" ? tank.initialAirBuoyancyOverrideMt : tank.finalAirBuoyancyOverrideMt),
   };
 }
 
@@ -45,9 +48,10 @@ export type OutturnTrail = {
   warnings: string[];
 };
 
-export function buildOutturnTrail(row: OutturnRow, tankCapacityL?: number | null): OutturnTrail {
-  const initialInput = toInput(row, "initial");
-  const finalInput = toInput(row, "final");
+/** The full trail for one tank within a job's outturn. */
+export function buildOutturnTrail(header: OutturnHeaderRow, tank: OutturnTankRow, tankCapacityL?: number | null): OutturnTrail {
+  const initialInput = toInput(header, tank, "initial");
+  const finalInput = toInput(header, tank, "final");
   const initialEval = calculateReading(initialInput, "Initial");
   const finalEval = calculateReading(finalInput, "Final");
   const blockingErrors = [...initialEval.blockingErrors, ...finalEval.blockingErrors];
@@ -58,7 +62,7 @@ export function buildOutturnTrail(row: OutturnRow, tankCapacityL?: number | null
     const o = calculateOutturn(
       { ...initialInput, result: initialEval.result },
       { ...finalInput, result: finalEval.result },
-      row.movementType as MovementType,
+      header.movementType as MovementType,
       tankCapacityL,
     );
     outturn = o.result;
@@ -66,12 +70,50 @@ export function buildOutturnTrail(row: OutturnRow, tankCapacityL?: number | null
   }
 
   return {
-    movementType: row.movementType as MovementType,
-    isCrudeOil: row.isCrudeOil,
+    movementType: header.movementType as MovementType,
+    isCrudeOil: header.isCrudeOil,
     initial: { input: initialInput, result: initialEval.result },
     final: { input: finalInput, result: finalEval.result },
     outturn,
     blockingErrors,
     warnings,
   };
+}
+
+export type JobOutturnTotals = {
+  govOutturnL: number;
+  volumeOutturnL: number;
+  usBblOutturn: number;
+  mtVacOutturn: number;
+  mtAirOutturn: number;
+  netOutturnL: number | null;
+  /** Tanks whose trail couldn't be fully calculated (missing data) — excluded from the totals below. */
+  incompleteTankCount: number;
+};
+
+/** Sums every tank's outturn into one job-wide total — what actually feeds jobCompletionData. */
+export function sumOutturnTotals(header: OutturnHeaderRow, tankRows: OutturnTankRow[]): JobOutturnTotals {
+  const totals: JobOutturnTotals = {
+    govOutturnL: 0,
+    volumeOutturnL: 0,
+    usBblOutturn: 0,
+    mtVacOutturn: 0,
+    mtAirOutturn: 0,
+    netOutturnL: header.isCrudeOil ? 0 : null,
+    incompleteTankCount: 0,
+  };
+  for (const tank of tankRows) {
+    const trail = buildOutturnTrail(header, tank);
+    if (trail.blockingErrors.length > 0 || !trail.outturn) {
+      totals.incompleteTankCount += 1;
+      continue;
+    }
+    totals.govOutturnL += trail.outturn.govOutturnL;
+    totals.volumeOutturnL += trail.outturn.volumeOutturnL;
+    totals.usBblOutturn += trail.outturn.usBblOutturn;
+    totals.mtVacOutturn += trail.outturn.mtVacOutturn;
+    totals.mtAirOutturn += trail.outturn.mtAirOutturn;
+    if (totals.netOutturnL !== null && trail.outturn.netOutturnL !== null) totals.netOutturnL += trail.outturn.netOutturnL;
+  }
+  return totals;
 }

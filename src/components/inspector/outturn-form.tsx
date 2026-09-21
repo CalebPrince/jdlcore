@@ -1,11 +1,13 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { saveOutturnData } from "@/app/actions/inspector";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import type { FormState } from "@/app/actions/submissions";
 
 const initial: FormState = { ok: false, message: "" };
@@ -16,6 +18,7 @@ export type OutturnDefaults = {
   movementType: "receipt" | "delivery" | null;
   isCrudeOil: boolean;
   densityUnit: "kg_m3" | "g_cm3";
+  notes: string | null;
   initialTankId: number | null;
   finalTankId: number | null;
   initialDipMm: string | null;
@@ -124,10 +127,16 @@ export function OutturnForm({
   jobId,
   tanks,
   defaults,
+  editingTankRowId,
+  cancelEditHref,
 }: {
   jobId: number;
   tanks: Tank[];
   defaults: OutturnDefaults;
+  /** Present when editing an already-added tank; the save writes to that row instead of adding a new one. */
+  editingTankRowId?: number;
+  /** Where "Cancel" should go back to, when editing. */
+  cancelEditHref?: string;
 }) {
   const [state, action, pending] = useActionState(saveOutturnData, initial);
   const [isCrudeOil, setIsCrudeOil] = useState(defaults.isCrudeOil);
@@ -135,6 +144,7 @@ export function OutturnForm({
   return (
     <form action={action} className="flex flex-col gap-4">
       <input type="hidden" name="jobId" value={jobId} />
+      {editingTankRowId && <input type="hidden" name="tankRowId" value={editingTankRowId} />}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`ot-movement-${jobId}`}>Movement type</Label>
@@ -196,9 +206,21 @@ export function OutturnForm({
         defaults={defaults}
       />
 
-      <Button type="submit" disabled={pending} variant="outline" className="self-start">
-        {pending ? "Calculating…" : "Save Outturn"}
-      </Button>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`ot-notes-${jobId}`}>Notes (optional, shown on the Outturn Report summary)</Label>
+        <Textarea id={`ot-notes-${jobId}`} name="notes" rows={2} defaultValue={defaults.notes ?? undefined} />
+      </div>
+
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending} variant="outline" className="self-start">
+          {pending ? "Calculating…" : editingTankRowId ? "Save Changes" : "Add Tank"}
+        </Button>
+        {editingTankRowId && cancelEditHref && (
+          <Link href={cancelEditHref} className="text-sm text-muted-foreground hover:underline">
+            Cancel
+          </Link>
+        )}
+      </div>
       {!state.ok && state.message && (
         <Alert variant="destructive">
           <AlertDescription>{state.message}</AlertDescription>

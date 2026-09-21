@@ -232,13 +232,12 @@ export const jobCompletionData = pgTable(
 );
 
 /**
- * One row per job — the initial-vs-final tank reading pair behind a product outturn calculation.
- * Only the raw inputs plus TGV/Water Volume/Roof Volume are stored (they depend on a calibration
- * table that could itself change later, so they're retained at save time); GOV, GSV, mass, US BBL,
- * air buoyancy correction and the outturn itself are pure downstream math, computed live from these
- * by src/lib/outturn.ts wherever shown, never persisted. Saving this also writes the resulting
- * outturn quantities into jobCompletionData's gov/gsv/metricTonnesAir/metricTonnesVacuum, which is
- * what the client-facing report and the existing approval checks actually read.
+ * One row per job — the job-level header for a product outturn (movement direction applies to every
+ * tank in the job, per the report's single "Movement type" summary line). The actual initial/final
+ * tank readings live in jobOutturnTanks, one row per tank, since a single outturn can span several
+ * tanks (e.g. a vessel discharging into three tanks at once). Saving either this or a tank row
+ * recomputes the job-wide totals into jobCompletionData's gov/gsv/metricTonnesAir/metricTonnesVacuum,
+ * which is what the existing approval checks and the Certificate of Quantity actually read.
  */
 export const jobOutturns = pgTable(
   "job_outturns",
@@ -251,6 +250,27 @@ export const jobOutturns = pgTable(
     movementType: text("movement_type").notNull(), // receipt | delivery
     isCrudeOil: boolean("is_crude_oil").notNull().default(false),
     densityUnit: text("density_unit").notNull().default("kg_m3"), // kg_m3 | g_cm3
+    notes: text("notes"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("job_outturns_job_idx").on(table.jobId)],
+);
+
+/**
+ * One row per tank within a job's product outturn. Only the raw inputs plus TGV/Water Volume/Roof
+ * Volume are stored (they depend on a calibration table that could itself change later, so they're
+ * retained at save time); GOV, GSV, mass, US BBL, air buoyancy correction and the outturn itself are
+ * pure downstream math, computed live from these by src/lib/outturn.ts wherever shown, never persisted.
+ */
+export const jobOutturnTanks = pgTable(
+  "job_outturn_tanks",
+  {
+    id: serial("id").primaryKey(),
+    jobOutturnId: integer("job_outturn_id")
+      .notNull()
+      .references(() => jobOutturns.id, { onDelete: "cascade" }),
 
     initialTankId: integer("initial_tank_id")
       .notNull()
@@ -281,11 +301,10 @@ export const jobOutturns = pgTable(
     finalSwPercent: numeric("final_sw_percent", { precision: 6, scale: 3 }),
     finalAirBuoyancyOverrideMt: numeric("final_air_buoyancy_override_mt", { precision: 14, scale: 3 }),
 
-    submittedAt: timestamp("submitted_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => [index("job_outturns_job_idx").on(table.jobId)],
+  (table) => [index("job_outturn_tanks_outturn_idx").on(table.jobOutturnId)],
 );
 
 /** Static tank reference data for a client's site/depot (section 14). */

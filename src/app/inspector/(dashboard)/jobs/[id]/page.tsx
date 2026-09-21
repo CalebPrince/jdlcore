@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import { requireDb } from "@/db";
-import { clients, jobCompletionData, jobOutturns, jobUpdates, jobs, tanks } from "@/db/schema";
+import { clients, jobCompletionData, jobOutturns, jobOutturnTanks, jobUpdates, jobs, tanks } from "@/db/schema";
 import { getInspector } from "@/lib/inspector-auth";
 import { JOB_STATUS_META, SERVICE_TYPE_LABEL, type JobStatus, type ServiceType } from "@/lib/jobs";
 import { buildOutturnTrail } from "@/lib/outturn-trail";
@@ -18,6 +18,7 @@ import {
 } from "@/components/inspector/inspector-job-forms";
 import { OutturnForm, type OutturnDefaults } from "@/components/inspector/outturn-form";
 import { OutturnTrailDisplay } from "@/components/inspector/outturn-trail-display";
+import { OutturnSummaryCard, OutturnTanksList } from "@/components/inspector/outturn-summary";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -38,12 +39,15 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
 
 export default async function InspectorJobDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ editOutturnTank?: string }>;
 }) {
   const { id } = await params;
   const jobId = Number(id);
   if (!Number.isInteger(jobId)) notFound();
+  const { editOutturnTank } = await searchParams;
 
   const inspector = await getInspector();
   if (!inspector) return null;
@@ -59,7 +63,7 @@ export default async function InspectorJobDetailPage({
   const job = rows[0].job;
   const client = rows[0].client;
 
-  const [timeline, completion, tankList, outturnRows] = await Promise.all([
+  const [timeline, completion, tankList, outturnHeaderRows] = await Promise.all([
     database.select().from(jobUpdates).where(eq(jobUpdates.jobId, jobId)).orderBy(asc(jobUpdates.createdAt)),
     database.select().from(jobCompletionData).where(eq(jobCompletionData.jobId, jobId)).limit(1),
     database.select().from(tanks).where(eq(tanks.clientId, job.clientId)),
@@ -68,28 +72,36 @@ export default async function InspectorJobDetailPage({
 
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.assigned;
   const cd = completion[0];
-  const outturnRow = outturnRows[0];
-  const outturnTrail = outturnRow ? buildOutturnTrail(outturnRow) : null;
+  const outturnHeader = outturnHeaderRows[0];
+  const outturnTankRows = outturnHeader
+    ? await database.select().from(jobOutturnTanks).where(eq(jobOutturnTanks.jobOutturnId, outturnHeader.id))
+    : [];
+  const tankNames = new Map(tankList.map((t) => [t.id, t.name]));
   const lastRejection = [...timeline].reverse().find((u) => u.status === "rejected_amendment");
 
+  const editingTankRow = editOutturnTank
+    ? outturnTankRows.find((t) => t.id === Number(editOutturnTank))
+    : undefined;
+
   const outturnDefaults: OutturnDefaults = {
-    movementType: (outturnRow?.movementType as "receipt" | "delivery" | undefined) ?? null,
-    isCrudeOil: outturnRow?.isCrudeOil ?? false,
-    densityUnit: (outturnRow?.densityUnit as "kg_m3" | "g_cm3" | undefined) ?? "kg_m3",
-    initialTankId: outturnRow?.initialTankId ?? null,
-    finalTankId: outturnRow?.finalTankId ?? null,
-    initialDipMm: outturnRow?.initialDipMm ?? null,
-    initialWaterDipMm: outturnRow?.initialWaterDipMm ?? null,
-    initialTemperatureC: outturnRow?.initialTemperatureC ?? null,
-    initialDensityAt20: outturnRow?.initialDensityAt20 ?? null,
-    initialVcf: outturnRow?.initialVcf ?? null,
-    initialSwPercent: outturnRow?.initialSwPercent ?? null,
-    finalDipMm: outturnRow?.finalDipMm ?? null,
-    finalWaterDipMm: outturnRow?.finalWaterDipMm ?? null,
-    finalTemperatureC: outturnRow?.finalTemperatureC ?? null,
-    finalDensityAt20: outturnRow?.finalDensityAt20 ?? null,
-    finalVcf: outturnRow?.finalVcf ?? null,
-    finalSwPercent: outturnRow?.finalSwPercent ?? null,
+    movementType: (outturnHeader?.movementType as "receipt" | "delivery" | undefined) ?? null,
+    isCrudeOil: outturnHeader?.isCrudeOil ?? false,
+    densityUnit: (outturnHeader?.densityUnit as "kg_m3" | "g_cm3" | undefined) ?? "kg_m3",
+    notes: outturnHeader?.notes ?? null,
+    initialTankId: editingTankRow?.initialTankId ?? null,
+    finalTankId: editingTankRow?.finalTankId ?? null,
+    initialDipMm: editingTankRow?.initialDipMm ?? null,
+    initialWaterDipMm: editingTankRow?.initialWaterDipMm ?? null,
+    initialTemperatureC: editingTankRow?.initialTemperatureC ?? null,
+    initialDensityAt20: editingTankRow?.initialDensityAt20 ?? null,
+    initialVcf: editingTankRow?.initialVcf ?? null,
+    initialSwPercent: editingTankRow?.initialSwPercent ?? null,
+    finalDipMm: editingTankRow?.finalDipMm ?? null,
+    finalWaterDipMm: editingTankRow?.finalWaterDipMm ?? null,
+    finalTemperatureC: editingTankRow?.finalTemperatureC ?? null,
+    finalDensityAt20: editingTankRow?.finalDensityAt20 ?? null,
+    finalVcf: editingTankRow?.finalVcf ?? null,
+    finalSwPercent: editingTankRow?.finalSwPercent ?? null,
   };
 
   return (
@@ -156,8 +168,26 @@ export default async function InspectorJobDetailPage({
             <CardTitle className="font-display">Product Outturn</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
-            <OutturnForm jobId={job.id} tanks={tankList} defaults={outturnDefaults} />
-            {outturnTrail && <OutturnTrailDisplay trail={outturnTrail} />}
+            {outturnHeader && (
+              <OutturnTanksList jobId={job.id} header={outturnHeader} tankRows={outturnTankRows} tankNames={tankNames} editable />
+            )}
+            <div id="outturn-form">
+              <OutturnForm
+                jobId={job.id}
+                tanks={tankList}
+                defaults={outturnDefaults}
+                editingTankRowId={editingTankRow?.id}
+                cancelEditHref={`/inspector/jobs/${job.id}`}
+              />
+            </div>
+            {outturnHeader && outturnTankRows.length > 0 && (
+              <>
+                {outturnTankRows.map((t) => (
+                  <OutturnTrailDisplay key={t.id} trail={buildOutturnTrail(outturnHeader, t)} />
+                ))}
+                <OutturnSummaryCard header={outturnHeader} tankRows={outturnTankRows} tankNames={tankNames} />
+              </>
+            )}
           </CardContent>
         </Card>
       )}
