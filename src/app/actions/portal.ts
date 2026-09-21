@@ -17,6 +17,7 @@ import { makeRef } from "@/lib/jobs";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
+import { maybeAutoAssign } from "@/lib/automation/auto-assign";
 import { getPaystackConfig, initializeTransaction, isPaystackReady } from "@/lib/paystack";
 import type { FormState } from "./submissions";
 
@@ -152,6 +153,8 @@ export async function requestService(_prev: FormState, formData: FormData): Prom
     `New service request from ${client.name}`,
     `${client.name} requested ${f.service}. It's awaiting inspector assignment.`,
   );
+  // If auto-assignment is on and an eligible inspector exists, this assigns immediately.
+  await maybeAutoAssign(jobId);
 
   revalidatePath("/portal");
   revalidatePath("/admin/jobs");

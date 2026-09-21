@@ -7,6 +7,8 @@ import { runAutoClose } from "@/lib/automation/auto-close";
 import { runPaystackReconcile } from "@/lib/automation/paystack-reconcile";
 import { runSubscriptionSweep } from "@/lib/automation/subscription-sweep";
 import { runSchemaCheck } from "@/lib/automation/schema-check";
+import { runAutoAssignSweep } from "@/lib/automation/auto-assign";
+import { runAutoApprove } from "@/lib/automation/auto-approve";
 import { retryFailedEmails } from "@/lib/email";
 
 export const maxDuration = 60;
@@ -28,6 +30,8 @@ export async function GET(req: Request) {
     await runTask("schema-check", runSchemaCheck),
     await runTask("paystack-reconcile", runPaystackReconcile),
     await runTask("subscription-sweep", runSubscriptionSweep),
+    await runTask("auto-assign", runAutoAssignSweep),
+    await runTask("auto-approve", runAutoApprove),
     await runTask("invoice-reminders", runInvoiceReminders),
     await runTask("ops-digest", runOpsDigest),
     await runTask("auto-close", runAutoClose),

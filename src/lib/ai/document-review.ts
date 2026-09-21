@@ -18,16 +18,19 @@ const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 
 const SYSTEM_PROMPT = `You are a quality-control assistant for JDL Core Inspection Services, an independent stock/quantity inspection company. You review submitted inspection data, uploaded documents, and payment receipts for anything that looks off — inconsistent numbers, a receipt that doesn't match an invoice, a document that looks incomplete, altered, or unrelated to an inspection. You never make the final call — a human at JDL Core always decides. You are conservative: only flag something above "none" if there is a genuine, explainable reason a human should take a second look. Respond with ONLY a JSON object, no other text: {"severity": "none"|"low"|"medium"|"high", "summary": "one or two sentences explaining what you found, or empty string if severity is none"}.`;
 
-function parseReviewResponse(text: string): ReviewResult {
+/**
+ * Returns null when the model's answer can't be read as a valid review. That must NOT be stored as
+ * "severity none": a failed review and a clean one would look identical, and automatic approval
+ * relies on a stored "none" meaning "reviewed and found nothing".
+ */
+function parseReviewResponse(text: string): ReviewResult | null {
   try {
     const match = text.match(/\{[\s\S]*\}/);
     const parsed = JSON.parse(match ? match[0] : text) as { severity?: string; summary?: string };
-    const severity: Severity = ["none", "low", "medium", "high"].includes(parsed.severity ?? "")
-      ? (parsed.severity as Severity)
-      : "none";
-    return { severity, summary: (parsed.summary ?? "").trim().slice(0, 500) };
+    if (!["none", "low", "medium", "high"].includes(parsed.severity ?? "")) return null;
+    return { severity: parsed.severity as Severity, summary: (parsed.summary ?? "").trim().slice(0, 500) };
   } catch {
-    return { severity: "none", summary: "" };
+    return null;
   }
 }
 
@@ -94,6 +97,10 @@ async function safeRun(input: {
       attachment: input.attachment,
     });
     const result = parseReviewResponse(text);
+    if (!result) {
+      console.error("ai document-review: unreadable response, no review recorded");
+      return;
+    }
     await persistAndNotify(input.jobId, input.jobRef, input.targetType, input.targetId, result, provider);
   } catch (err) {
     if (!(err instanceof AiUnavailableError)) console.error("ai document-review:", err);

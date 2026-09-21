@@ -5,10 +5,12 @@ import { z } from "zod";
 import { requireStaffRole } from "@/lib/staff-auth";
 import {
   DEFAULT_SETTINGS,
+  saveAutomationSettings,
   saveContactSettings,
   saveInvoiceSettings,
   saveReportSettings,
 } from "@/lib/settings";
+import { SERVICE_TYPES } from "@/lib/jobs";
 import { logAudit } from "@/lib/audit";
 
 export type AdminState = { ok: boolean; message: string };
@@ -151,4 +153,51 @@ export async function updateReportSettings(
     summary: `Updated report template (prefix ${parsed.data.coqPrefix}).`,
   });
   return { ok: true, message: "Report template saved." };
+}
+
+/* ---------------- Assignment & approval automation ---------------- */
+
+const automationSchema = z.object({
+  autoAssign: z.string().optional(),
+  reassignHours: z.coerce.number().int().min(1).max(168),
+  approvalMode: z.enum(["off", "shadow", "auto"]),
+  approvalHoldHours: z.coerce.number().int().min(0).max(168),
+  approvalMinCleanJobs: z.coerce.number().int().min(1).max(50),
+});
+
+export async function updateAutomationSettings(
+  _prev: AdminState,
+  formData: FormData,
+): Promise<AdminState> {
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Not signed in." };
+  const parsed = automationSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Check the numbers entered." };
+  const allowed = formData
+    .getAll("approvalServiceTypes")
+    .map(String)
+    .filter((s): s is (typeof SERVICE_TYPES)[number] => (SERVICE_TYPES as readonly string[]).includes(s));
+  if (parsed.data.approvalMode === "auto" && allowed.length === 0) {
+    return { ok: false, message: "Pick at least one service type before turning on automatic approval." };
+  }
+  try {
+    await saveAutomationSettings({
+      autoAssign: parsed.data.autoAssign === "on" ? "1" : "0",
+      reassignHours: String(parsed.data.reassignHours),
+      approvalMode: parsed.data.approvalMode,
+      approvalHoldHours: String(parsed.data.approvalHoldHours),
+      approvalMinCleanJobs: String(parsed.data.approvalMinCleanJobs),
+      approvalServiceTypes: allowed.join(","),
+    });
+  } catch {
+    return { ok: false, message: "Could not save. Check your connection." };
+  }
+  revalidatePath("/admin/settings");
+  await logAudit({
+    actor: current,
+    action: "settings.automation_updated",
+    targetType: "settings",
+    summary: `Updated automation: auto-assign ${parsed.data.autoAssign === "on" ? "on" : "off"}, approval ${parsed.data.approvalMode}, ${allowed.length} service type(s) allowed.`,
+  });
+  return { ok: true, message: "Automation settings saved." };
 }

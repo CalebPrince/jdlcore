@@ -14,7 +14,7 @@ import { getReportSettings } from "@/lib/settings";
  */
 export async function generateCoq(
   jobId: number,
-  issuedByStaffId: number,
+  issuedByStaffId: number | null,
 ): Promise<{ certificateId: number; coqNumber: string }> {
   const database = requireDb();
 

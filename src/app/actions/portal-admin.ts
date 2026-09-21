@@ -25,6 +25,8 @@ import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { logAudit } from "@/lib/audit";
 import { issueInvoice, payOnlineLine } from "@/lib/invoicing";
 import { issuePortalSetupLink } from "@/lib/account-setup";
+import { resolveServiceType } from "@/lib/assignment";
+import { maybeAutoAssign } from "@/lib/automation/auto-assign";
 import type { FormState } from "./submissions";
 
 export type ConvertState = FormState & {
@@ -198,6 +200,7 @@ export async function createJob(
         ref: `PENDING-${Date.now()}`,
         clientId: f.clientId,
         service: f.service,
+        serviceType: await resolveServiceType(f.service),
         location: f.location || null,
         cargoType: f.cargoType || null,
         notes: f.notes || null,
@@ -213,6 +216,7 @@ export async function createJob(
       status: "submitted",
       note: "Request received.",
     });
+    await maybeAutoAssign(newId);
   } catch (err) {
     console.error("createJob:", err);
     return initialFail("Could not create job.");
@@ -490,6 +494,7 @@ export async function convertQuoteToJob(
         ref: `PENDING-${Date.now()}`,
         clientId,
         service: f.service,
+        serviceType: await resolveServiceType(f.service),
         location: f.location || null,
         cargoType: null,
         notes: f.notes || null,
@@ -508,6 +513,7 @@ export async function convertQuoteToJob(
       .update(submissions)
       .set({ convertedJobId: jobId })
       .where(eq(submissions.id, f.submissionId));
+    await maybeAutoAssign(jobId);
 
     revalidatePath("/admin/inbox");
     revalidatePath("/admin/jobs");

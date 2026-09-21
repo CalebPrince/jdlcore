@@ -8,8 +8,9 @@ import { clients, inspectors, invoices, jobComments, jobUpdates, jobs } from "@/
 import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
-import { generateCoq } from "@/lib/coq";
-import { maybeAutoIssueInvoice } from "@/lib/automation/auto-invoice";
+import { assignJobToInspector } from "@/lib/assignment";
+import { approveJobCore } from "@/lib/job-approval";
+import { recordApprovalDecision } from "@/lib/approval-checks";
 import { notifyBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import type { FormState } from "./submissions";
@@ -81,62 +82,21 @@ export async function assignInspector(_prev: FormState, formData: FormData): Pro
 
   const job = await loadJob(jobId);
   if (!job) return initialFail("Job not found.");
-  const isReassign = job.status === "assigned";
   const actor: Actor = { type: "staff", id: staff.id, name: staff.name, role: staff.role as Actor["role"] };
   if (!canTransition(job.status as JobStatus, "assigned", actor)) {
     return initialFail("This job can't be assigned right now.");
   }
 
-  const inspRows = await requireDb().select().from(inspectors).where(eq(inspectors.id, inspectorId)).limit(1);
-  const inspector = inspRows[0];
-  if (!inspector || !inspector.active || inspector.status !== "active") {
-    return initialFail("Inspector not found or inactive.");
-  }
-
-  const database = requireDb();
-  await database
-    .update(jobs)
-    .set({ status: "assigned", assignedInspectorId: inspectorId, assignedAt: new Date(), updatedAt: new Date() })
-    .where(eq(jobs.id, jobId));
-  await database.insert(jobUpdates).values({
+  const result = await assignJobToInspector({
     jobId,
-    status: "assigned",
-    note: isReassign ? `Reassigned to ${inspector.name}.` : `Assigned to ${inspector.name}.`,
-    actorType: "staff",
-    actorId: staff.id,
-    actorName: staff.name,
+    inspectorId,
+    actor: { type: "staff", id: staff.id, name: staff.name },
+    note: (name, reassign) => (reassign ? `Reassigned to ${name}.` : `Assigned to ${name}.`),
   });
-
-  await notifyBoth({
-    recipientType: "inspector",
-    recipientId: inspectorId,
-    email: inspector.email,
-    jobId,
-    type: "new_assignment",
-    title: `New assignment — ${job.ref}`,
-    body: `You've been assigned to ${job.service}.`,
-    link: `/inspector/jobs/${jobId}`,
-    emailSubject: `[${job.ref}] New assignment - JDL Core`,
-    emailHtml: inspectorEmail(`New assignment — ${job.ref}`, [`You've been assigned to ${job.service}.`], job.ref),
-  });
-
-  const recipient = await clientEmailForJob(jobId);
-  if (recipient) {
-    await notifyBoth({
-      recipientType: "client",
-      recipientId: recipient.clientId,
-      email: recipient.email,
-      jobId,
-      type: "inspector_assigned",
-      title: `Inspector assigned — ${job.ref}`,
-      link: `/portal/jobs/${jobId}`,
-      emailSubject: `[${recipient.ref}] Inspector assigned - JDL Core`,
-      emailHtml: clientEmail(`Inspector assigned — ${recipient.ref}`, ["An inspector has been assigned to your request."], recipient.ref),
-    });
-  }
+  if (!result.ok) return initialFail(result.reason);
 
   revalidateJob(jobId);
-  return { ok: true, message: isReassign ? "Job reassigned." : "Job assigned." };
+  return { ok: true, message: result.isReassign ? "Job reassigned." : "Job assigned." };
 }
 
 /* ---------------- Approve / Reject ---------------- */
@@ -157,26 +117,10 @@ export async function approveJob(_prev: FormState, formData: FormData): Promise<
     return initialFail("This job isn't awaiting approval.");
   }
 
-  const database = requireDb();
-  const now = new Date();
-  await database
-    .update(jobs)
-    .set({ status: "approved", approvedAt: now, approvedByStaffId: staff.id, updatedAt: now })
-    .where(eq(jobs.id, jobId));
-  for (const status of ["approved", "report_issued", "invoice_issued"] as const) {
-    await database.insert(jobUpdates).values({
-      jobId,
-      status,
-      note: status === "approved" ? `Approved by ${staff.name}.` : null,
-      actorType: status === "approved" ? "staff" : "system",
-      actorId: status === "approved" ? staff.id : null,
-      actorName: status === "approved" ? staff.name : "JDL Core",
-    });
-  }
-  await database.update(jobs).set({ status: "invoice_issued", updatedAt: new Date() }).where(eq(jobs.id, jobId));
-
-  await generateCoq(jobId, staff.id);
-  const auto = await maybeAutoIssueInvoice(jobId);
+  const result = await approveJobCore({ jobId, actor: { type: "staff", id: staff.id, name: staff.name } });
+  if (!result.ok) return initialFail(result.reason);
+  const auto = result.invoice;
+  await recordApprovalDecision(jobId, "approved");
 
   revalidateJob(jobId);
   if (auto.outcome === "issued") {
@@ -239,6 +183,8 @@ export async function rejectJob(_prev: FormState, formData: FormData): Promise<F
       });
     }
   }
+
+  await recordApprovalDecision(jobId, "rejected");
 
   revalidateJob(jobId);
   return { ok: true, message: "Job returned to the inspector for amendment." };

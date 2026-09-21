@@ -23,9 +23,10 @@ const STAFF_ANY: TransitionRole[] = ["operations", "administrator", "superadmin"
 const STAFF_ADMIN: TransitionRole[] = ["administrator", "superadmin"];
 
 const TRANSITIONS: Record<JobStatus, { to: JobStatus; roles: TransitionRole[] }[]> = {
-  awaiting_assignment: [{ to: "assigned", roles: STAFF_ANY }],
+  // "system" covers auto-assignment (src/lib/automation/auto-assign.ts).
+  awaiting_assignment: [{ to: "assigned", roles: [...STAFF_ANY, "system"] }],
   assigned: [
-    { to: "assigned", roles: STAFF_ANY }, // reassign
+    { to: "assigned", roles: [...STAFF_ANY, "system"] }, // reassign
     { to: "inspector_accepted", roles: ["inspector"] },
     { to: "awaiting_assignment", roles: ["inspector"] }, // decline
   ],
@@ -35,7 +36,8 @@ const TRANSITIONS: Record<JobStatus, { to: JobStatus; roles: TransitionRole[] }[
     { to: "awaiting_approval", roles: ["inspector"] },
   ],
   awaiting_approval: [
-    { to: "approved", roles: STAFF_ANY },
+    // "system" covers guarded auto-approval (src/lib/automation/auto-approve.ts); it can never reject.
+    { to: "approved", roles: [...STAFF_ANY, "system"] },
     { to: "rejected_amendment", roles: STAFF_ANY },
   ],
   rejected_amendment: [{ to: "in_progress", roles: ["inspector"] }],

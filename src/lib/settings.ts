@@ -199,3 +199,77 @@ export async function saveReportSettings(input: ReportSettings): Promise<void> {
       set: { value: sql`excluded.value`, updatedAt: new Date() },
     });
 }
+
+/* ---------------- Assignment & approval automation ---------------- */
+
+export type ApprovalMode = "off" | "shadow" | "auto";
+
+export type AutomationSettings = {
+  /** "1" = assign new jobs to a matching inspector automatically. */
+  autoAssign: string;
+  /** Hours an assigned inspector has to accept before the job moves to the next eligible inspector. */
+  reassignHours: string;
+  /** off = nothing; shadow = run the checks and record them, humans still approve; auto = also approve jobs that pass. */
+  approvalMode: ApprovalMode;
+  /** Hours a passing job waits after submission before it is auto-approved, so staff can step in. */
+  approvalHoldHours: string;
+  /** Inspector must have this many approved jobs in a row without an amendment to qualify. */
+  approvalMinCleanJobs: string;
+  /** Comma-separated service keys that may be auto-approved. Empty = none. */
+  approvalServiceTypes: string;
+};
+
+export const DEFAULT_AUTOMATION_SETTINGS: AutomationSettings = {
+  autoAssign: "0",
+  reassignHours: "24",
+  approvalMode: "off",
+  approvalHoldHours: "4",
+  approvalMinCleanJobs: "5",
+  approvalServiceTypes: "",
+};
+
+const AUTOMATION_KEY_BY_FIELD: Record<keyof AutomationSettings, string> = {
+  autoAssign: "automation_auto_assign",
+  reassignHours: "automation_reassign_hours",
+  approvalMode: "automation_approval_mode",
+  approvalHoldHours: "automation_approval_hold_hours",
+  approvalMinCleanJobs: "automation_approval_min_clean_jobs",
+  approvalServiceTypes: "automation_approval_service_types",
+};
+
+const AUTOMATION_FIELDS = Object.keys(AUTOMATION_KEY_BY_FIELD) as (keyof AutomationSettings)[];
+
+export async function getAutomationSettings(): Promise<AutomationSettings> {
+  if (!db) return DEFAULT_AUTOMATION_SETTINGS;
+  try {
+    const rows = await db.select().from(settings);
+    const map = new Map(rows.map((r) => [r.key, r.value]));
+    const out: AutomationSettings = { ...DEFAULT_AUTOMATION_SETTINGS };
+    for (const field of AUTOMATION_FIELDS) {
+      const value = map.get(AUTOMATION_KEY_BY_FIELD[field]);
+      // approvalServiceTypes may legitimately be saved empty, so only skip for undefined.
+      if (value !== undefined && (value !== "" || field === "approvalServiceTypes")) {
+        (out as Record<string, string>)[field] = value;
+      }
+    }
+    if (!["off", "shadow", "auto"].includes(out.approvalMode)) out.approvalMode = "off";
+    return out;
+  } catch {
+    return DEFAULT_AUTOMATION_SETTINGS;
+  }
+}
+
+export async function saveAutomationSettings(input: AutomationSettings): Promise<void> {
+  const database = requireDb();
+  const rows = AUTOMATION_FIELDS.map((field) => ({
+    key: AUTOMATION_KEY_BY_FIELD[field],
+    value: String(input[field]),
+  }));
+  await database
+    .insert(settings)
+    .values(rows)
+    .onConflictDoUpdate({
+      target: settings.key,
+      set: { value: sql`excluded.value`, updatedAt: new Date() },
+    });
+}

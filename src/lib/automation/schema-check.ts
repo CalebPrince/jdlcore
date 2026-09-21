@@ -14,6 +14,7 @@ export const REQUIRED_MIGRATIONS = [
   "0002_knowledge_source_date",
   "0003_invoice_tax_breakdown",
   "0004_automation_events_email_retry",
+  "0005_auto_assignment_and_approval",
 ] as const;
 
 const isoDay = () => new Date().toISOString().slice(0, 10);

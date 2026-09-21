@@ -94,6 +94,8 @@ Idempotency lives in the `automation_events` table (migration `0004`): a run "cl
   - `schema-check`: compares the migration ledger to the migrations this code requires and alerts administrators if the database is behind.
   - `paystack-reconcile`: re-checks online payments started in the last 7 days that never finalized (missed webhook) with Paystack; only Paystack-confirmed successes are finalized, mismatches still go to staff.
   - `subscription-sweep`: refreshes a stale billing period from Paystack, or alerts staff when a subscription has really ended. It never suspends anyone.
+  - `auto-assign`: (when switched on) retries jobs still waiting for an inspector and moves a job to the next eligible inspector if the first hasn't accepted within the configured hours.
+  - `auto-approve`: (only in Automatic mode) approves jobs whose checks passed at submission, still pass now, and have waited out the hold window. See [Assignment and approval automation](#assignment-and-approval-automation).
   - `invoice-reminders`: due-soon (3 days), 7 and 14 days overdue; the 14-day step also alerts Operations.
   - `ops-digest`: one daily list of stuck jobs, missing stock readings, approved-but-uninvoiced jobs, receipts waiting on verification and unconverted quotes; nudges an inspector once for an unanswered assignment or amendment.
   - `auto-close`: closes `paid` jobs 48h after payment once the CoQ exists and no invoice is open.
@@ -101,12 +103,28 @@ Idempotency lives in the `automation_events` table (migration `0004`): a run "cl
 Other workflow automation that runs on user actions rather than the schedule:
 
 - **Invoice on approval:** Admin > Settings > Invoice Settings has an "issue automatically" switch (off by default). When on, approving a job issues the invoice from the service's default price (Admin > Services). Jobs without a default price stay manual and appear in the daily digest.
-- **Suggested inspector:** the assign form on a job preselects the active inspector with the fewest open jobs, then the most history with that client. A person still confirms with Assign.
+- **Suggested inspector:** the manual assign form on a job preselects the active inspector with the fewest open jobs, then the most history with that client. A person still confirms with Assign. Fully automatic assignment is a separate, opt-in feature (below).
 - **Form acknowledgements:** quote and contact submissions send the submitter a confirmation email.
 - **Client account setup:** converting a quote to a job emails a one-time "choose your password" link (7 days) instead of a plaintext password; the temporary password is still shown to staff as a fallback.
 - **Email delivery:** a transient provider failure is retried once immediately, then by the daily `email-retry` task.
 
 Bank-transfer receipt verification (`verifyPayment` / `rejectPaymentSubmission`) is deliberately not automated: staff still verify or reject every receipt, and the digest only reminds them when one is waiting.
+
+## Assignment and approval automation
+
+Both are opt-in and off by default (Admin > Settings > Assignment & Approval Automation). They need migration `0005`; without it they stay inactive and the settings page says so. Every automatic action is written to the job timeline, listed in the next daily digest, and recorded in the audit log when a setting changes.
+
+**Inspector auto-assignment.** Each inspector has an *Assignment profile* (Admin > Inspectors): services they are qualified for, regions they cover, most open jobs at once, an "away until" date, and an on/off switch. Nobody is auto-assigned until their switch is on. When a job arrives (portal request, quote conversion, admin create) or an inspector declines, the rules in `src/lib/assignment-rules.ts` pick an inspector: qualified for the service, location matches a region (no regions = anywhere), not away, under their job limit, and not already declined or timed out on this job. The best local match wins, then the lightest load, then the most history with that client. The timeline records who was chosen and why. If nobody fits, that is recorded once and the job waits for Operations. A job not accepted within the configured hours moves to the next eligible inspector (at most twice, then a person takes over); this runs in the daily job, so the real delay is "the first run after the limit". Jobs need a service type; those created from a quote or the admin form get one resolved from the service name.
+
+**Approval, in three modes.**
+
+- *Off:* nothing changes.
+- *Shadow:* when an inspector submits work, the checks run and their verdict is stored; your team approves or returns the job as usual, and the decision is stored beside the verdict. Settings shows how often they agreed. Reviewers also see the checklist on the job page.
+- *Automatic:* as Shadow, and the daily `auto-approve` task then approves a job only if all of these hold: the checks passed at submission, it has waited out the hold window, the checks still all pass when re-run, and it is still awaiting approval. It can only approve, never reject; anything doubtful stays for a person.
+
+The checks (`src/lib/approval-checks.ts`): completion data submitted; required figures present; GSV within 10% of GOV and air/vacuum tonnes within 1%; first submission (never an amended resubmission); the AI quality review actually ran and raised nothing on the data or any document; an inspection report attached; the inspector's last N approved jobs (default 5) were never sent back; and the service is on the allowed list. Approving issues the Certificate of Quantity (and the invoice, if auto-invoicing is on), so the recommended path is Shadow for a few weeks, then Automatic for one or two low-risk services only. Switching Automatic off returns everything to manual immediately.
+
+An AI review response that cannot be parsed is no longer stored as a clean "none" result, so a stored clean review now always means the model answered validly. Run `node scripts/test-automation-rules.cjs` to test the assignment and figure rules without a database.
 
 ## Database migrations
 

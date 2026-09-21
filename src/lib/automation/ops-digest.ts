@@ -1,7 +1,7 @@
 import "server-only";
-import { and, eq, gt, inArray, isNull, lt, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNull, like, lt, or, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { inspectors, invoices, jobs, stockReadings, submissions } from "@/db/schema";
+import { inspectors, invoices, jobUpdates, jobs, stockReadings, submissions } from "@/db/schema";
 import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
@@ -181,20 +181,44 @@ export async function runOpsDigest() {
     });
   }
 
+  // ---- Handled automatically in the last 24 hours: information only, not counted as work ---
+  const info: Section[] = [];
+  const autoRows = await database
+    .select({ ref: jobs.ref, note: jobUpdates.note })
+    .from(jobUpdates)
+    .innerJoin(jobs, eq(jobUpdates.jobId, jobs.id))
+    .where(
+      and(
+        eq(jobUpdates.actorType, "system"),
+        or(like(jobUpdates.note, "Auto-assigned%"), like(jobUpdates.note, "Auto-approved%")),
+        gt(jobUpdates.createdAt, new Date(now - 24 * HOUR_MS)),
+      ),
+    );
+  const autoAssigned = autoRows
+    .filter((r) => r.note?.startsWith("Auto-assigned"))
+    .map((r) => `${r.ref} to ${r.note?.match(/^Auto-assigned to (.+?) because/)?.[1] ?? "an inspector"}`);
+  const autoApproved = autoRows.filter((r) => r.note?.startsWith("Auto-approved")).map((r) => r.ref);
+  if (autoAssigned.length) info.push({ heading: "Assigned automatically in the last 24 hours", items: autoAssigned });
+  if (autoApproved.length) info.push({ heading: "Approved automatically in the last 24 hours", items: autoApproved });
+
   const total = sections.reduce((n, s) => n + s.items.length, 0);
-  if (total > 0) {
-    const title = `Daily operations digest: ${total} item${total === 1 ? "" : "s"} need attention`;
+  // An automatic approval issues a certificate, so it is always reported even on a day with no other work.
+  if (total > 0 || autoApproved.length > 0) {
+    const title =
+      total > 0
+        ? `Daily operations digest: ${total} item${total === 1 ? "" : "s"} need attention`
+        : `Daily operations digest: ${autoApproved.length} job${autoApproved.length === 1 ? "" : "s"} approved automatically`;
     await notifyStaffBoth({
       roles: ["operations", "administrator", "superadmin"],
       type: "ops_digest",
       title,
-      body: sections.map((s) => `${s.heading}: ${s.items.length}`).join(" · "),
+      body: [...sections, ...info].map((s) => `${s.heading}: ${s.items.length}`).join(" · "),
       link: "/admin/jobs",
       emailSubject: title,
       emailHtml: brandedEmailHtml({
         label: "JDL CORE ADMIN",
         heading: title,
-        bodyLines: sections.map(renderSection),
+        bodyLines: [...sections.map(renderSection), ...info.map(renderSection)],
         ctaUrl: "https://jdlcore.com/admin/jobs",
         ctaLabel: "Open Jobs",
       }),

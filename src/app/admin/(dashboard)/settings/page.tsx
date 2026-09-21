@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import {
   getContactSettings,
+  getAutomationSettings,
   getInvoiceSettings,
   getReportSettings,
   DEFAULT_SETTINGS,
@@ -9,6 +10,10 @@ import { getAnalyticsPlans } from "@/lib/analytics-plans";
 import { getStaff } from "@/lib/staff-auth";
 import { ContactSettingsForm } from "@/components/admin/contact-settings-form";
 import { InvoiceSettingsForm } from "@/components/admin/invoice-settings-form";
+import { AutomationSettingsForm } from "@/components/admin/automation-settings-form";
+import { approvalStats, type ApprovalStats } from "@/lib/approval-checks";
+import { requireDb } from "@/db";
+import { inspectorAssignmentProfiles } from "@/db/schema";
 import { ReportSettingsForm } from "@/components/admin/report-settings-form";
 import { AnalyticsPlansForm } from "@/components/admin/analytics-plans-form";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +31,16 @@ export default async function AdminSettingsPage() {
     getAnalyticsPlans(),
   ]);
   const defaults: Record<string, string> = { ...DEFAULT_SETTINGS, ...contactSettings };
+  const automationSettings = await getAutomationSettings();
+  // The new tables come from migration 0005; if it hasn't been applied yet, say so instead of failing.
+  let stats: ApprovalStats | null = null;
+  let setupNeeded = false;
+  try {
+    await requireDb().select({ id: inspectorAssignmentProfiles.inspectorId }).from(inspectorAssignmentProfiles).limit(1);
+    stats = await approvalStats();
+  } catch {
+    setupNeeded = true;
+  }
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
@@ -41,6 +56,7 @@ export default async function AdminSettingsPage() {
       </div>
       <ContactSettingsForm defaults={defaults} />
       <InvoiceSettingsForm defaults={invoiceSettings} />
+      <AutomationSettingsForm defaults={automationSettings} stats={stats} setupNeeded={setupNeeded} />
       <ReportSettingsForm defaults={reportSettings} />
       <Card>
         <CardHeader>

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { asc, desc, eq, sql } from "drizzle-orm";
-import { ArrowLeft, FileUp } from "lucide-react";
+import { ArrowLeft, Check, FileUp, X } from "lucide-react";
 import { requireDb } from "@/db";
 import {
   certificates,
@@ -53,6 +53,8 @@ import {
 } from "@/lib/jobs";
 import { getInvoiceSettings } from "@/lib/settings";
 import { rankInspectorsForJob } from "@/lib/inspector-suggestions";
+import { evaluateApproval, type ApprovalEvaluation } from "@/lib/approval-checks";
+import { getAutomationSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -131,6 +133,19 @@ export default async function AdminJobDetailPage({
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
   const canAssign = job.status === "awaiting_assignment" || job.status === "assigned";
   const canApproveReject = job.status === "awaiting_approval";
+  // Approval checklist: shown to the reviewer whenever the approval automation is on (shadow or automatic).
+  let approvalEval: ApprovalEvaluation | null = null;
+  let approvalMode: string = "off";
+  if (canApproveReject) {
+    approvalMode = (await getAutomationSettings()).approvalMode;
+    if (approvalMode !== "off") {
+      try {
+        approvalEval = await evaluateApproval(job.id);
+      } catch {
+        approvalEval = null; // e.g. migration 0005 not applied yet; the panel just stays hidden
+      }
+    }
+  }
   const canClose = job.status === "paid";
   const isAdmin = staff.role === "administrator" || staff.role === "superadmin";
   const cd = completion[0];
@@ -199,6 +214,35 @@ export default async function AdminJobDetailPage({
             </CardHeader>
             <CardContent className="flex flex-col gap-3">
               <AiReviewBanner reviews={completionReviews} />
+              {approvalEval && (
+                <div className="rounded-xl border p-3" style={{ borderColor: "var(--border)" }}>
+                  <p className="m-0 text-sm font-semibold text-navy-950">
+                    Automatic checks: {approvalEval.verdict === "pass" ? "all passed" : `${approvalEval.checks.filter((c) => !c.ok).length} need a person`}
+                  </p>
+                  <ul className="m-0 mt-2 flex list-none flex-col gap-1.5 p-0">
+                    {approvalEval.checks.map((c) => (
+                      <li key={c.key} className="flex items-start gap-2 text-xs">
+                        {c.ok ? (
+                          <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-[#1f7a4d]" aria-label="Passed" />
+                        ) : (
+                          <X className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" aria-label="Needs attention" />
+                        )}
+                        <span>
+                          <span className="font-medium">{c.label}.</span>{" "}
+                          <span className="text-muted-foreground">{c.detail}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="m-0 mt-2 text-xs text-muted-foreground">
+                    {approvalMode === "auto" && approvalEval.verdict === "pass"
+                      ? "If nobody acts first, this job will be approved automatically after the waiting period."
+                      : approvalMode === "shadow"
+                        ? "Shadow mode: these checks are recorded for comparison only. You decide."
+                        : "A person needs to review this one."}
+                  </p>
+                </div>
+              )}
               <ApproveRejectPanel jobId={job.id} />
             </CardContent>
           </Card>

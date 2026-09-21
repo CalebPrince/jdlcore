@@ -12,6 +12,7 @@ import {
   numeric,
   type AnyPgColumn,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const settings = pgTable("settings", {
   key: text("key").primaryKey(),
@@ -537,6 +538,44 @@ export const paymentTransactions = pgTable(
     index("payment_transactions_created_idx").on(table.createdAt),
     index("payment_transactions_kind_idx").on(table.kind),
   ],
+);
+
+/**
+ * What an inspector is eligible for, used by auto-assignment (migrations/0005). A separate table
+ * rather than columns on `inspectors` so nothing that already reads inspectors can break if the
+ * code is deployed before the migration is applied.
+ */
+export const inspectorAssignmentProfiles = pgTable("inspector_assignment_profiles", {
+  inspectorId: integer("inspector_id")
+    .primaryKey()
+    .references(() => inspectors.id, { onDelete: "cascade" }),
+  regions: text("regions").array().notNull().default(sql`'{}'::text[]`),
+  serviceTypes: text("service_types").array().notNull().default(sql`'{}'::text[]`),
+  maxOpenJobs: integer("max_open_jobs").notNull().default(3),
+  unavailableUntil: timestamp("unavailable_until", { withTimezone: true }),
+  autoAssignEnabled: boolean("auto_assign_enabled").notNull().default(false),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export type ApprovalCheckItem = { key: string; label: string; ok: boolean; detail: string };
+
+/** One row per submission for approval: the automatic checks' verdict and what the human then decided. */
+export const jobApprovalChecks = pgTable(
+  "job_approval_checks",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }).notNull(),
+    mode: text("mode").notNull(), // shadow | auto
+    verdict: text("verdict").notNull(), // pass | fail
+    checks: jsonb("checks").$type<ApprovalCheckItem[]>().notNull().default(sql`'[]'::jsonb`),
+    humanDecision: text("human_decision"), // approved | rejected | auto_approved
+    decidedAt: timestamp("decided_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("job_approval_checks_job_submitted_idx").on(table.jobId, table.submittedAt)],
 );
 
 /**

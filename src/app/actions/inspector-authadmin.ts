@@ -5,7 +5,8 @@ import { headers } from "next/headers";
 import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { inspectors, jobs } from "@/db/schema";
+import { inspectorAssignmentProfiles, inspectors, jobs } from "@/db/schema";
+import { SERVICE_TYPES } from "@/lib/jobs";
 import { issueInspectorSetupToken } from "@/lib/inspector-auth";
 import { requireStaffRole } from "@/lib/staff-auth";
 import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email";
@@ -209,4 +210,70 @@ export async function deleteInspector(formData: FormData): Promise<void> {
     targetId: parsed.data.id,
     summary: `Deleted inspector account ${target[0].name} (${target[0].email}).`,
   });
+}
+
+/* ---------------- Assignment profile (used by auto-assignment) ---------------- */
+
+const profileSchema = z.object({
+  inspectorId: z.coerce.number().int().positive(),
+  regions: z.string().max(600).optional(),
+  maxOpenJobs: z.coerce.number().int().min(1).max(20),
+  unavailableUntil: z.string().optional(),
+  autoAssignEnabled: z.string().optional(),
+});
+
+export async function saveInspectorAssignmentProfile(_prev: FormState, formData: FormData): Promise<FormState> {
+  const current = await requireStaffRole([...ADMIN_ROLES]);
+  if (!current) return { ok: false, message: "Unauthorized" };
+  const parsed = profileSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: "Check the numbers and dates entered." };
+
+  const serviceTypes = formData
+    .getAll("serviceTypes")
+    .map(String)
+    .filter((s) => (SERVICE_TYPES as readonly string[]).includes(s));
+  const regions = [
+    ...new Set(
+      (parsed.data.regions ?? "")
+        .split(/[,\n]/)
+        .map((r) => r.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 30);
+  const enabled = parsed.data.autoAssignEnabled === "on";
+  if (enabled && serviceTypes.length === 0) {
+    return { ok: false, message: "Pick at least one service this inspector is qualified for before switching them on." };
+  }
+  const away = parsed.data.unavailableUntil ? new Date(`${parsed.data.unavailableUntil}T00:00:00.000Z`) : null;
+  if (away && Number.isNaN(away.getTime())) return { ok: false, message: "That date isn't valid." };
+
+  try {
+    const values = {
+      inspectorId: parsed.data.inspectorId,
+      regions,
+      serviceTypes,
+      maxOpenJobs: parsed.data.maxOpenJobs,
+      unavailableUntil: away,
+      autoAssignEnabled: enabled,
+      updatedAt: new Date(),
+    };
+    await requireDb()
+      .insert(inspectorAssignmentProfiles)
+      .values(values)
+      .onConflictDoUpdate({ target: inspectorAssignmentProfiles.inspectorId, set: values });
+  } catch {
+    return {
+      ok: false,
+      message: "Could not save. If this keeps happening, migration 0005 may not have been applied yet.",
+    };
+  }
+  revalidatePath("/admin/inspectors");
+  await logAudit({
+    actor: current,
+    action: "inspector.assignment_profile_updated",
+    targetType: "inspector",
+    targetId: parsed.data.inspectorId,
+    summary: `Updated assignment profile for inspector #${parsed.data.inspectorId} (auto-assign ${enabled ? "on" : "off"}, ${serviceTypes.length} service(s), ${regions.length} region(s), max ${parsed.data.maxOpenJobs} open).`,
+  });
+  return { ok: true, message: "Assignment profile saved." };
 }

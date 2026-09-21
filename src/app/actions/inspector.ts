@@ -18,6 +18,8 @@ import type { JobStatus } from "@/lib/jobs";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewCompletionData, reviewUploadedFile } from "@/lib/ai/document-review";
+import { maybeAutoAssign } from "@/lib/automation/auto-assign";
+import { recordApprovalCheck } from "@/lib/approval-checks";
 import { parseDecimal3, parseDecimalN } from "@/lib/decimal";
 import type { FormState } from "./submissions";
 
@@ -249,6 +251,8 @@ export async function declineAssignment(_prev: FormState, formData: FormData): P
     `Reason: ${parsed.data.reason}`,
     job.id,
   );
+  // If auto-assignment is on, offer it to the next eligible inspector straight away.
+  await maybeAutoAssign(job.id);
 
   revalidateJob(job.id);
   return { ok: true, message: "Assignment declined — sent back to Operations." };
@@ -571,6 +575,7 @@ export async function submitForApproval(_prev: FormState, formData: FormData): P
   });
 
   await triggerCompletionReview(job);
+  await recordApprovalCheck(job.id);
 
   const recipient = await database
     .select({ email: clients.email, ref: jobs.ref, clientId: jobs.clientId })
@@ -630,6 +635,7 @@ export async function amendAndResubmit(_prev: FormState, formData: FormData): Pr
   });
 
   await triggerCompletionReview(job);
+  await recordApprovalCheck(job.id);
 
   const recipient = await database
     .select({ email: clients.email, ref: jobs.ref, clientId: jobs.clientId })

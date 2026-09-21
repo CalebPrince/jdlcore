@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { desc } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { inspectors } from "@/db/schema";
+import { inspectorAssignmentProfiles, inspectors } from "@/db/schema";
 import { getStaff } from "@/lib/staff-auth";
 import {
   Card,
@@ -15,6 +15,11 @@ import { deleteInspector, toggleInspectorActive, updateInspectorEmail } from "@/
 import { InviteInspectorForm } from "@/components/admin/inspector-forms";
 import { EditEmailInline } from "@/components/admin/edit-email-inline";
 import { ConfirmDeleteButton } from "@/components/admin/confirm-delete-button";
+import {
+  EMPTY_PROFILE,
+  InspectorAssignmentForm,
+  type AssignmentProfileView,
+} from "@/components/admin/inspector-assignment-form";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +45,25 @@ export default async function AdminInspectorsPage() {
     list = await loadInspectors();
   } catch {
     dbError = true;
+  }
+  // Assignment profiles come from migration 0005; if it isn't applied yet, the page still works.
+  const profiles = new Map<number, AssignmentProfileView>();
+  let profilesUnavailable = false;
+  if (!dbError) {
+    try {
+      const rows = await requireDb().select().from(inspectorAssignmentProfiles);
+      for (const r of rows) {
+        profiles.set(r.inspectorId, {
+          regions: r.regions,
+          serviceTypes: r.serviceTypes,
+          maxOpenJobs: r.maxOpenJobs,
+          unavailableUntil: r.unavailableUntil ? r.unavailableUntil.toISOString().slice(0, 10) : "",
+          autoAssignEnabled: r.autoAssignEnabled,
+        });
+      }
+    } catch {
+      profilesUnavailable = true;
+    }
   }
 
   return (
@@ -104,6 +128,21 @@ export default async function AdminInspectorsPage() {
                       confirmMessage={`Permanently delete ${i.name} (${i.email})? This cannot be undone. Inspectors with jobs still in progress can't be deleted.`}
                     />
                   )}
+                  <details className="basis-full">
+                    <summary className="cursor-pointer text-xs font-semibold text-navy-950">
+                      Assignment profile
+                      <span className="ml-2 font-normal text-muted-foreground">
+                        {profiles.get(i.id)?.autoAssignEnabled ? "Auto-assign on" : "Auto-assign off"}
+                      </span>
+                    </summary>
+                    {profilesUnavailable ? (
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        Needs database migration 0005 before assignment profiles can be saved.
+                      </p>
+                    ) : (
+                      <InspectorAssignmentForm inspectorId={i.id} profile={profiles.get(i.id) ?? EMPTY_PROFILE} />
+                    )}
+                  </details>
                 </div>
               );
             })}
