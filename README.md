@@ -79,16 +79,18 @@ These are planned steps, not currently available agent features:
 3. ~~**Add authorized read tools.**~~ Done — an Admin operations assistant with independently access-checked read tools for jobs, AI review flags, stock readings, and reference documents, evidence-linked citations, and per-staff conversation history; see the Admin operations assistant section above. Not yet live-verified in the running application the way step 1 was.
 4. **Build a bounded agent runner.** Extend the provider gateway with structured tool calls and results, persist runs and steps, and enforce time, step, and spending limits. Validate provider tool support before enabling failover for agent runs.
 5. **Introduce reviewed actions.** Reuse business services and job transition rules to prepare exact proposed changes. Recheck permissions and record state at approval time, prevent duplicate execution on retries, and retain durable action records. Keep inspection approval, payment verification, report issuance, and external messages under explicit staff control initially.
-6. **Add reliable background monitoring.** Introduce a durable worker and scheduler for job follow-ups and stock exceptions, with retries, deduplication, and actionable notifications. Expand to client and learner assistance after access controls and accuracy are verified.
+6. **Add reliable background monitoring.** Partly delivered: a daily scheduled job now covers job follow-ups, stock-reading gaps, invoice reminders, email retries, and deduplicated staff and client notifications; see [Scheduled automations](#scheduled-automations). Still open: a durable worker for sub-daily monitoring and event-driven retries, and expanding to client and learner assistance after access controls and accuracy are verified.
 
 Before relying on automated inspection review, distinguish invalid or failed AI reviews from a successful review with severity `none`. Improve document retrieval beyond the current keyword-ranked chunk sample before using it for broad investigations.
 
 ## Scheduled automations
 
-Two Vercel crons (see `vercel.json`) run behind `CRON_SECRET` (`Authorization: Bearer`). Database changes are tracked by the migration ledger (see [migrations/README.md](migrations/README.md)); apply `0001` to `0004` in the Supabase SQL Editor. Until `0004` is applied the tasks that need `automation_events` report an error in the cron response and email retry stays off, and the daily `schema-check` task emails administrators whenever the database is behind the code.
+Two Vercel crons (see `vercel.json`, times are UTC, which is also Ghana local time) call routes protected by `CRON_SECRET`; Vercel sends it as `Authorization: Bearer <value>`, and the routes return 500 if it is not configured. Crons are Vercel-only, so a Netlify deployment would not run them.
+
+Idempotency lives in the `automation_events` table (migration `0004`): a run "claims" a `(kind, ref)` pair before sending, so re-runs and overlapping runs never double-notify. Until `0004` is applied the tasks that need it report an error in the cron response and email retry stays off.
 
 - `/api/cron/npa-sync` (06:00): NPA knowledge crawl, then a health check that alerts staff on failed documents, unlistable sources, or a week with nothing new.
-- `/api/cron/daily` (07:00): each task is isolated and idempotent (`src/lib/automation/`), and the JSON response lists every task's outcome.
+- `/api/cron/daily` (07:00): each task is isolated and idempotent (`src/lib/automation/`), and the JSON response lists every task's outcome. To run it by hand, send the secret in the `Authorization` header; note that this sends real emails.
   - `schema-check`: compares the migration ledger to the migrations this code requires and alerts administrators if the database is behind.
   - `paystack-reconcile`: re-checks online payments started in the last 7 days that never finalized (missed webhook) with Paystack; only Paystack-confirmed successes are finalized, mismatches still go to staff.
   - `subscription-sweep`: refreshes a stale billing period from Paystack, or alerts staff when a subscription has really ended. It never suspends anyone.
@@ -96,9 +98,28 @@ Two Vercel crons (see `vercel.json`) run behind `CRON_SECRET` (`Authorization: B
   - `ops-digest`: one daily list of stuck jobs, missing stock readings, approved-but-uninvoiced jobs, receipts waiting on verification and unconverted quotes; nudges an inspector once for an unanswered assignment or amendment.
   - `auto-close`: closes `paid` jobs 48h after payment once the CoQ exists and no invoice is open.
   - `email-retry`: re-sends transient email failures (body kept in `email_log`).
-- Invoice on approval: Admin > Settings > Invoice Settings has an "issue automatically" switch (off by default) that uses the service's default price.
+Other workflow automation that runs on user actions rather than the schedule:
 
-Bank-transfer receipt verification (`verifyPayment` / `rejectPaymentSubmission`) is deliberately not automated.
+- **Invoice on approval:** Admin > Settings > Invoice Settings has an "issue automatically" switch (off by default). When on, approving a job issues the invoice from the service's default price (Admin > Services). Jobs without a default price stay manual and appear in the daily digest.
+- **Suggested inspector:** the assign form on a job preselects the active inspector with the fewest open jobs, then the most history with that client. A person still confirms with Assign.
+- **Form acknowledgements:** quote and contact submissions send the submitter a confirmation email.
+- **Client account setup:** converting a quote to a job emails a one-time "choose your password" link (7 days) instead of a plaintext password; the temporary password is still shown to staff as a fallback.
+- **Email delivery:** a transient provider failure is retried once immediately, then by the daily `email-retry` task.
+
+Bank-transfer receipt verification (`verifyPayment` / `rejectPaymentSubmission`) is deliberately not automated: staff still verify or reject every receipt, and the digest only reminds them when one is waiting.
+
+## Database migrations
+
+Schema changes are plain, idempotent SQL files in [`migrations/`](migrations/README.md), tracked in a `schema_migrations` ledger. The live database is changed through the Supabase SQL Editor, so each file records itself when pasted there. For a database you can reach from your machine:
+
+```bash
+npm run db:migrate                 # status: applied / PENDING / MODIFIED
+npm run db:migrate -- up           # dry run
+npm run db:migrate -- up --yes     # apply pending migrations
+npm run db:migrate -- check        # lint the migrations folder (no database needed)
+```
+
+`DATABASE_URL` is often the live database, so `up` does nothing without `--yes`. The daily `schema-check` task emails administrators if the deployed code needs a migration the database does not have, so apply migrations before (or right after) deploying code that needs them. See [migrations/README.md](migrations/README.md) for how to add one.
 
 ## Apple-inspired UI system
 
@@ -166,13 +187,19 @@ Cards, tables, fields, navigation states, page gutters, and responsive behavior 
    DATABASE_URL=
    ADMIN_PASSWORD=
    SESSION_SECRET=
+   CRON_SECRET=        # only needed to call the scheduled routes yourself
    ```
 
-3. Create or update the database tables:
+   Paystack, email and AI provider keys can be set from the Admin Command Center; see `.env.example` for the optional environment fallbacks.
+
+3. Create the database tables for a **new, empty** database, then install the migration ledger:
 
    ```bash
    npm run db:push
+   npm run db:migrate -- up --yes
    ```
+
+   For an existing database, use `npm run db:migrate` to see what is pending instead; see [Database migrations](#database-migrations). Do not run `db:push` against the live database.
 
 4. Start the development server:
 
@@ -209,7 +236,9 @@ src/components/
 
 src/db/                    Drizzle client and schema
 src/lib/                   Authentication, business logic, reporting, and settings
-scripts/                   Migrations, seeds, and maintenance scripts
+src/lib/automation/        Scheduled tasks, idempotency ledger, and cron auth
+migrations/                Ordered, idempotent SQL migrations and the ledger
+scripts/                   Migration runner (migrate.cjs), legacy migrations, and seeds
 _legacy/                   Original static site retained for reference
 ```
 
@@ -218,15 +247,16 @@ _legacy/                   Original static site retained for reference
 ```bash
 npm run lint
 npm run build
+npm run db:migrate -- check
 ```
 
 The production build performs compilation, type checking, route generation, and page optimization. The repository-wide lint command may also scan generated Netlify or temporary browser artifacts if those directories exist locally; targeted source linting can be run with `npx eslint src`.
 
 ## Deployment
 
-- Configure production environment variables on the hosting provider.
-- Run the required migrations against the production database.
-- The project includes Netlify configuration, but the Next.js application can be deployed to any compatible host.
+- Configure production environment variables on the hosting provider, including `CRON_SECRET`.
+- Apply any pending migrations to the production database (see [Database migrations](#database-migrations)), ideally before the deploy that needs them.
+- The scheduled jobs are configured in `vercel.json` and only run on Vercel. The project also includes Netlify configuration, and the Next.js application can be deployed to any compatible host, but without Vercel Cron the automations do not run unless something else calls `/api/cron/daily` and `/api/cron/npa-sync` with the `CRON_SECRET` header.
 - Do not commit `.env`, `.env.local`, temporary browser data, generated platform output, or private client documents.
 
 ## Current asset note
