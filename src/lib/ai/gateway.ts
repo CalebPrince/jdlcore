@@ -44,14 +44,24 @@ function buildLegs(s: AiSettings, hasAttachment: boolean): Leg[] {
     legs.push({ name: "gemini", key: s.geminiKey, model: s.geminiModel, call: callGemini });
   if (s.anthropicEnabled && s.anthropicKey)
     legs.push({ name: "anthropic", key: s.anthropicKey, model: s.anthropicModel, call: callAnthropic });
-  // Groq's configured models here are text-only — skip it for attachment (vision/document) calls.
+  // Groq, OpenAI, OpenRouter, and DeepSeek legs below are treated as text-only and
+  // skipped for attachment (vision/document) calls, since the model field is
+  // admin-editable and we can't guarantee whatever model is configured supports
+  // vision. Only Gemini and Anthropic are attempted for attachment calls.
   if (!hasAttachment && s.groqEnabled && s.groqKey)
     legs.push({ name: "groq", key: s.groqKey, model: s.groqModel, call: callGroq });
+  if (!hasAttachment && s.openaiEnabled && s.openaiKey)
+    legs.push({ name: "openai", key: s.openaiKey, model: s.openaiModel, call: callOpenAI });
+  if (!hasAttachment && s.openrouterEnabled && s.openrouterKey)
+    legs.push({ name: "openrouter", key: s.openrouterKey, model: s.openrouterModel, call: callOpenRouter });
+  if (!hasAttachment && s.deepseekEnabled && s.deepseekKey)
+    legs.push({ name: "deepseek", key: s.deepseekKey, model: s.deepseekModel, call: callDeepseek });
   return legs;
 }
 
 /**
- * Run a completion, trying each configured provider in order (Gemini -> Anthropic -> Groq).
+ * Run a completion, trying each configured provider in order (Gemini -> Anthropic ->
+ * Groq -> OpenAI -> OpenRouter -> DeepSeek).
  * The total timeout is a shared budget across the whole chain so worst-case latency stays bounded.
  * Empty responses and truncated replies are treated as failures so we fall through to the next provider.
  */
@@ -241,4 +251,72 @@ async function callGroq(opts: CallOpts): Promise<string> {
   if (!text.trim()) throw new Error("empty response");
   if (choice?.finish_reason === "length") throw new Error("truncated (length)");
   return text;
+}
+
+type ChatCompletionsResponse = {
+  choices?: { message?: { content?: string }; finish_reason?: string }[];
+};
+
+async function callOpenAiCompatible(
+  url: string,
+  headers: Record<string, string>,
+  opts: CallOpts,
+  label: string,
+): Promise<string> {
+  const json = (await withHardTimeout(
+    fetchJson(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({
+        model: opts.model,
+        max_tokens: opts.maxTokens,
+        temperature: opts.temperature,
+        messages: [
+          { role: "system", content: opts.system },
+          ...opts.turns.map((t) => ({ role: t.role, content: t.content })),
+        ],
+      }),
+    }),
+    opts.timeoutMs,
+    label,
+  )) as ChatCompletionsResponse;
+
+  const choice = json.choices?.[0];
+  const text = choice?.message?.content ?? "";
+  if (!text.trim()) throw new Error("empty response");
+  if (choice?.finish_reason === "length") throw new Error("truncated (length)");
+  return text;
+}
+
+async function callOpenAI(opts: CallOpts): Promise<string> {
+  return callOpenAiCompatible(
+    "https://api.openai.com/v1/chat/completions",
+    { authorization: `Bearer ${opts.key}` },
+    opts,
+    "OpenAI",
+  );
+}
+
+async function callOpenRouter(opts: CallOpts): Promise<string> {
+  return callOpenAiCompatible(
+    "https://openrouter.ai/api/v1/chat/completions",
+    {
+      authorization: `Bearer ${opts.key}`,
+      // Recommended attribution headers per OpenRouter's docs; not required but
+      // helps with their own abuse monitoring and app-level analytics.
+      "http-referer": "https://jdlcore.com",
+      "x-title": "JDL Core",
+    },
+    opts,
+    "OpenRouter",
+  );
+}
+
+async function callDeepseek(opts: CallOpts): Promise<string> {
+  return callOpenAiCompatible(
+    "https://api.deepseek.com/chat/completions",
+    { authorization: `Bearer ${opts.key}` },
+    opts,
+    "DeepSeek",
+  );
 }

@@ -20,6 +20,18 @@ const schema = z.object({
   groqModel: z.string().max(120),
   groqKey: z.string().max(400),
   clearGroqKey: z.optional(z.string()),
+  openaiEnabled: z.string(),
+  openaiModel: z.string().max(120),
+  openaiKey: z.string().max(400),
+  clearOpenaiKey: z.optional(z.string()),
+  openrouterEnabled: z.string(),
+  openrouterModel: z.string().max(120),
+  openrouterKey: z.string().max(400),
+  clearOpenrouterKey: z.optional(z.string()),
+  deepseekEnabled: z.string(),
+  deepseekModel: z.string().max(120),
+  deepseekKey: z.string().max(400),
+  clearDeepseekKey: z.optional(z.string()),
   chatPersona: z.string().max(4000),
 });
 
@@ -50,6 +62,18 @@ export async function saveAiSettings(
       groqModel: f.groqModel,
       groqKey: f.groqKey,
       clearGroqKey: f.clearGroqKey === "on",
+      openaiEnabled: f.openaiEnabled === "on",
+      openaiModel: f.openaiModel,
+      openaiKey: f.openaiKey,
+      clearOpenaiKey: f.clearOpenaiKey === "on",
+      openrouterEnabled: f.openrouterEnabled === "on",
+      openrouterModel: f.openrouterModel,
+      openrouterKey: f.openrouterKey,
+      clearOpenrouterKey: f.clearOpenrouterKey === "on",
+      deepseekEnabled: f.deepseekEnabled === "on",
+      deepseekModel: f.deepseekModel,
+      deepseekKey: f.deepseekKey,
+      clearDeepseekKey: f.clearDeepseekKey === "on",
       chatPersona: f.chatPersona,
     });
   } catch (err) {
@@ -62,6 +86,9 @@ export async function saveAiSettings(
     f.geminiKey || f.clearGeminiKey === "on" ? "Gemini" : null,
     f.anthropicKey || f.clearAnthropicKey === "on" ? "Anthropic" : null,
     f.groqKey || f.clearGroqKey === "on" ? "Groq" : null,
+    f.openaiKey || f.clearOpenaiKey === "on" ? "OpenAI" : null,
+    f.openrouterKey || f.clearOpenrouterKey === "on" ? "OpenRouter" : null,
+    f.deepseekKey || f.clearDeepseekKey === "on" ? "DeepSeek" : null,
   ].filter(Boolean);
   await logAudit({
     actor: current,

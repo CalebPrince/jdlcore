@@ -44,8 +44,23 @@ const PROVIDER_FIELDS: ProviderFields[] = [
   },
   {
     name: "groq",
-    blurb: "Groq Cloud key. Last resort, very fast.",
+    blurb: "Groq Cloud key. Very fast.",
     keyPlaceholder: "gsk_...",
+  },
+  {
+    name: "openai",
+    blurb: "OpenAI platform key.",
+    keyPlaceholder: "sk-...",
+  },
+  {
+    name: "openrouter",
+    blurb: "OpenRouter key. Routes to many providers through one key.",
+    keyPlaceholder: "sk-or-v1-...",
+  },
+  {
+    name: "deepseek",
+    blurb: "DeepSeek platform key. Last resort, low cost.",
+    keyPlaceholder: "sk-...",
   },
 ];
 

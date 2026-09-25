@@ -3,19 +3,32 @@ import { inArray, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 
-export const PROVIDER_ORDER = ["gemini", "anthropic", "groq"] as const;
+export const PROVIDER_ORDER = [
+  "gemini",
+  "anthropic",
+  "groq",
+  "openai",
+  "openrouter",
+  "deepseek",
+] as const;
 export type ProviderName = (typeof PROVIDER_ORDER)[number];
 
 export const PROVIDER_LABELS: Record<ProviderName, string> = {
   gemini: "Google Gemini",
   anthropic: "Anthropic Claude",
   groq: "Groq",
+  openai: "OpenAI",
+  openrouter: "OpenRouter",
+  deepseek: "DeepSeek",
 };
 
 export const DEFAULT_MODELS: Record<ProviderName, string> = {
   gemini: "gemini-flash-latest",
   anthropic: "claude-sonnet-4-5",
   groq: "openai/gpt-oss-120b",
+  openai: "gpt-4o-mini",
+  openrouter: "openai/gpt-4o-mini",
+  deepseek: "deepseek-chat",
 };
 
 export type AiSettings = {
@@ -28,6 +41,15 @@ export type AiSettings = {
   groqKey: string | null;
   groqModel: string;
   groqEnabled: boolean;
+  openaiKey: string | null;
+  openaiModel: string;
+  openaiEnabled: boolean;
+  openrouterKey: string | null;
+  openrouterModel: string;
+  openrouterEnabled: boolean;
+  deepseekKey: string | null;
+  deepseekModel: string;
+  deepseekEnabled: boolean;
   chatPersona: string;
 };
 
@@ -35,6 +57,9 @@ const ENV_KEYS: Record<ProviderName, string> = {
   gemini: "GEMINI_API_KEY",
   anthropic: "ANTHROPIC_API_KEY",
   groq: "GROQ_API_KEY",
+  openai: "OPENAI_API_KEY",
+  openrouter: "OPENROUTER_API_KEY",
+  deepseek: "DEEPSEEK_API_KEY",
 };
 
 const DB_KEYS = {
@@ -47,6 +72,15 @@ const DB_KEYS = {
   groqKey: "ai_groq_key",
   groqModel: "ai_groq_model",
   groqEnabled: "ai_groq_enabled",
+  openaiKey: "ai_openai_key",
+  openaiModel: "ai_openai_model",
+  openaiEnabled: "ai_openai_enabled",
+  openrouterKey: "ai_openrouter_key",
+  openrouterModel: "ai_openrouter_model",
+  openrouterEnabled: "ai_openrouter_enabled",
+  deepseekKey: "ai_deepseek_key",
+  deepseekModel: "ai_deepseek_model",
+  deepseekEnabled: "ai_deepseek_enabled",
   chatPersona: "chat_persona",
 } as const;
 
@@ -70,6 +104,15 @@ export async function getAiSettings(): Promise<AiSettings> {
           DB_KEYS.groqKey,
           DB_KEYS.groqModel,
           DB_KEYS.groqEnabled,
+          DB_KEYS.openaiKey,
+          DB_KEYS.openaiModel,
+          DB_KEYS.openaiEnabled,
+          DB_KEYS.openrouterKey,
+          DB_KEYS.openrouterModel,
+          DB_KEYS.openrouterEnabled,
+          DB_KEYS.deepseekKey,
+          DB_KEYS.deepseekModel,
+          DB_KEYS.deepseekEnabled,
           DB_KEYS.chatPersona,
         ]),
       );
@@ -96,6 +139,15 @@ function fallbackSettings(): AiSettings {
     groqKey: envOrNull(ENV_KEYS.groq),
     groqModel: DEFAULT_MODELS.groq,
     groqEnabled: true,
+    openaiKey: envOrNull(ENV_KEYS.openai),
+    openaiModel: DEFAULT_MODELS.openai,
+    openaiEnabled: true,
+    openrouterKey: envOrNull(ENV_KEYS.openrouter),
+    openrouterModel: DEFAULT_MODELS.openrouter,
+    openrouterEnabled: true,
+    deepseekKey: envOrNull(ENV_KEYS.deepseek),
+    deepseekModel: DEFAULT_MODELS.deepseek,
+    deepseekEnabled: true,
     chatPersona: "",
   };
 }
@@ -126,6 +178,15 @@ function buildSettings(map: Map<string, string>): AiSettings {
     groqKey: dbOrEnv(DB_KEYS.groqKey, "groq"),
     groqModel: model(DB_KEYS.groqModel, "groq"),
     groqEnabled: enabled(DB_KEYS.groqEnabled),
+    openaiKey: dbOrEnv(DB_KEYS.openaiKey, "openai"),
+    openaiModel: model(DB_KEYS.openaiModel, "openai"),
+    openaiEnabled: enabled(DB_KEYS.openaiEnabled),
+    openrouterKey: dbOrEnv(DB_KEYS.openrouterKey, "openrouter"),
+    openrouterModel: model(DB_KEYS.openrouterModel, "openrouter"),
+    openrouterEnabled: enabled(DB_KEYS.openrouterEnabled),
+    deepseekKey: dbOrEnv(DB_KEYS.deepseekKey, "deepseek"),
+    deepseekModel: model(DB_KEYS.deepseekModel, "deepseek"),
+    deepseekEnabled: enabled(DB_KEYS.deepseekEnabled),
     chatPersona: persona,
   };
 }
@@ -144,6 +205,18 @@ export async function saveAiSettingsValues(values: {
   clearGroqKey?: boolean;
   groqModel?: string;
   groqEnabled?: boolean;
+  openaiKey?: string | null;
+  clearOpenaiKey?: boolean;
+  openaiModel?: string;
+  openaiEnabled?: boolean;
+  openrouterKey?: string | null;
+  clearOpenrouterKey?: boolean;
+  openrouterModel?: string;
+  openrouterEnabled?: boolean;
+  deepseekKey?: string | null;
+  clearDeepseekKey?: boolean;
+  deepseekModel?: string;
+  deepseekEnabled?: boolean;
   chatPersona?: string;
 }): Promise<void> {
   if (!db) throw new Error("Database not configured");
@@ -171,6 +244,27 @@ export async function saveAiSettingsValues(values: {
     push(DB_KEYS.groqModel, values.groqModel.trim() || DEFAULT_MODELS.groq);
   if (values.groqEnabled !== undefined)
     push(DB_KEYS.groqEnabled, values.groqEnabled ? "1" : "0");
+
+  if (values.clearOpenaiKey) push(DB_KEYS.openaiKey, "");
+  else if (values.openaiKey?.trim()) push(DB_KEYS.openaiKey, values.openaiKey.trim());
+  if (values.openaiModel !== undefined)
+    push(DB_KEYS.openaiModel, values.openaiModel.trim() || DEFAULT_MODELS.openai);
+  if (values.openaiEnabled !== undefined)
+    push(DB_KEYS.openaiEnabled, values.openaiEnabled ? "1" : "0");
+
+  if (values.clearOpenrouterKey) push(DB_KEYS.openrouterKey, "");
+  else if (values.openrouterKey?.trim()) push(DB_KEYS.openrouterKey, values.openrouterKey.trim());
+  if (values.openrouterModel !== undefined)
+    push(DB_KEYS.openrouterModel, values.openrouterModel.trim() || DEFAULT_MODELS.openrouter);
+  if (values.openrouterEnabled !== undefined)
+    push(DB_KEYS.openrouterEnabled, values.openrouterEnabled ? "1" : "0");
+
+  if (values.clearDeepseekKey) push(DB_KEYS.deepseekKey, "");
+  else if (values.deepseekKey?.trim()) push(DB_KEYS.deepseekKey, values.deepseekKey.trim());
+  if (values.deepseekModel !== undefined)
+    push(DB_KEYS.deepseekModel, values.deepseekModel.trim() || DEFAULT_MODELS.deepseek);
+  if (values.deepseekEnabled !== undefined)
+    push(DB_KEYS.deepseekEnabled, values.deepseekEnabled ? "1" : "0");
 
   if (values.chatPersona !== undefined)
     push(DB_KEYS.chatPersona, values.chatPersona);
