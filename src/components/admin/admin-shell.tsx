@@ -25,6 +25,7 @@ import {
   CreditCard,
   Sparkles,
   KeyRound,
+  LockKeyhole,
 } from "lucide-react";
 import {
   Sheet,
@@ -45,6 +46,7 @@ const NAV: {
   icon: React.ElementType;
   exact?: boolean;
   roles?: StaffRole[]; // omit = visible to every role
+  superadminOnly?: boolean;
 }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/jobs", label: "Jobs", icon: ClipboardList },
@@ -56,9 +58,9 @@ const NAV: {
   { href: "/admin/inspectors", label: "Inspectors", icon: Users, roles: ["administrator", "superadmin"] },
   { href: "/admin/services", label: "Services", icon: ClipboardList, roles: ["administrator", "superadmin"] },
   { href: "/admin/tanks", label: "Tanks", icon: Droplets, roles: ["administrator", "superadmin"] },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, roles: ["administrator", "superadmin"] },
-  { href: "/admin/academy", label: "Academy", icon: GraduationCap, roles: ["administrator", "superadmin"] },
-  { href: "/admin/academy/credentials", label: "Credentials", icon: Award, roles: ["administrator", "superadmin"] },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, superadminOnly: true },
+  { href: "/admin/academy", label: "Academy", icon: GraduationCap, superadminOnly: true },
+  { href: "/admin/academy/credentials", label: "Credentials", icon: Award, roles: ["superadmin"] },
   { href: "/admin/settings", label: "Site Settings", icon: Settings2, roles: ["administrator", "superadmin"] },
   { href: "/admin/automations", label: "Automations", icon: Zap, roles: ["administrator", "superadmin"] },
   { href: "/admin/audit", label: "Audit Log", icon: History, roles: ["administrator", "superadmin"] },
@@ -75,10 +77,22 @@ function NavLinks({ role, onNavigate }: { role: StaffRole; onNavigate?: () => vo
   return (
     <nav className="flex flex-col gap-1">
       {visible.map((item) => {
+        const locked = item.superadminOnly && role !== "superadmin";
         const active = item.exact
           ? pathname === item.href
           : pathname.startsWith(item.href);
-        return (
+        return locked ? (
+          <div
+            key={item.href}
+            aria-disabled="true"
+            title={`${item.label} is locked`}
+            className="flex cursor-not-allowed items-center gap-3 rounded-lg px-3.5 py-2.5 text-sm font-medium text-[rgba(248,247,243,0.32)]"
+          >
+            <item.icon className="h-4 w-4 shrink-0" />
+            {item.label}
+            <LockKeyhole aria-hidden="true" className="ml-auto h-3.5 w-3.5" />
+          </div>
+        ) : (
           <Link
             key={item.href}
             href={item.href}

@@ -5,7 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireStaffRole } from "@/lib/staff-auth";
 
-const STAFF_ROLES = ["administrator", "superadmin"] as const;
+const STAFF_ROLES = ["superadmin"] as const;
 import { requireDb } from "@/db";
 import { analyticsUsers, knowledgeDocumentChunks, knowledgeDocuments } from "@/db/schema";
 import { chunkDocument, extractDocumentText } from "@/lib/analytics-knowledge";

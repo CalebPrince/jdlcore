@@ -9,7 +9,7 @@ import { requireStaffRole } from "@/lib/staff-auth";
 import type { FormState } from "./submissions";
 
 async function requireAdmin() {
-  if (!(await requireStaffRole(["administrator", "superadmin"]))) throw new Error("Unauthorized");
+  if (!(await requireStaffRole(["superadmin"]))) throw new Error("Unauthorized");
 }
 
 export async function updateAcademySubscriptionPrices(formData: FormData) {

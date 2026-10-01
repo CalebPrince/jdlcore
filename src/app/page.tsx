@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, ExternalLink } from "lucide-react";
+import { ArrowUpRight, Ban, ExternalLink } from "lucide-react";
 import { SiApple } from "react-icons/si";
 import { Icon } from "@iconify/react";
 import googlePlayIcon from "@iconify-icons/logos/google-play-icon";
@@ -76,11 +76,12 @@ const DIVISIONS = [
       "Certificates of Quantity built to hold up under scrutiny",
     ],
     cta: "Visit Inspection Services",
+    comingSoon: false,
   },
   {
     href: "https://analytics.jdlcore.com",
     name: "Analytics",
-    tag: "Live Beta",
+    tag: "Coming Soon",
     logo: "/logo-analytics.png",
     logoAlt: "JDL Core Analytics",
     blurb:
@@ -90,12 +91,13 @@ const DIVISIONS = [
       "Answers grounded in field data",
       "Track variance and trends over time",
     ],
-    cta: "Visit Analytics",
+    cta: "Coming Soon",
+    comingSoon: true,
   },
   {
     href: "https://academy.jdlcore.com",
     name: "Academy",
-    tag: "Now Enrolling",
+    tag: "Coming Soon",
     logo: "/logo-academy.png",
     logoAlt: "JDL Core Academy",
     blurb:
@@ -105,7 +107,8 @@ const DIVISIONS = [
       "Tank gauging & quantity verification",
       "Verifiable certificates on completion",
     ],
-    cta: "Visit Academy",
+    cta: "Coming Soon",
+    comingSoon: true,
   },
 ] as const;
 
@@ -225,29 +228,22 @@ export default async function HomePage() {
                 Pick the Division You Need
               </h2>
               <p className="text-ink-soft">
-                Each division runs as its own business with its own site and
-                login. Choose the one that fits. Each link opens in a new tab so
-                you don&apos;t lose your place here.
+                Each division runs as its own business. Inspection Services is
+                available now; Analytics and Academy are coming soon.
               </p>
               <div className="group-home-hint mt-5">
                 <ExternalLink aria-hidden="true" size={14} strokeWidth={1.8} />
-                Selecting a division opens its site in a new tab
+                Available divisions open their site in a new tab
               </div>
             </Reveal>
 
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               {DIVISIONS.map((d, i) => (
                 <Reveal key={d.href} className="h-full">
-                  <a
-                    href={d.href}
-                    target="_blank"
-                    rel="noreferrer"
-                    title={d.name}
-                    className="group flex h-full flex-col rounded-[var(--radius)] border bg-white p-6"
-                    style={{ borderColor: "var(--border)" }}
-                  >
+                  {(() => {
+                    const content = <>
                     <div className="flex items-center justify-between">
-                      <span className="rounded-full bg-navy-100 px-3 py-1 text-[0.64rem] font-bold uppercase tracking-[0.08em] text-navy-800">
+                      <span className={`rounded-full px-3 py-1 text-[0.64rem] font-bold uppercase tracking-[0.08em] ${d.comingSoon ? "bg-red-50 text-red-700" : "bg-navy-100 text-navy-800"}`}>
                         {d.tag}
                       </span>
                       <span className="font-display text-[0.72rem] font-semibold tracking-[0.08em] text-ink-faint">
@@ -287,14 +283,16 @@ export default async function HomePage() {
                       style={{ borderColor: "var(--border)" }}
                     >
                       {d.cta}
-                      <ArrowUpRight
-                        aria-hidden="true"
-                        size={17}
-                        strokeWidth={1.8}
-                        className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5"
-                      />
+                      {d.comingSoon ? <Ban aria-hidden="true" size={17} strokeWidth={2} className="text-red-600" /> : <ArrowUpRight aria-hidden="true" size={17} strokeWidth={1.8} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />}
                     </span>
-                  </a>
+                    {d.comingSoon ? <span className="pointer-events-none absolute inset-0 grid place-items-center rounded-[var(--radius)] bg-white/75 opacity-0 backdrop-blur-[1px] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100"><span className="flex flex-col items-center gap-2 font-display text-sm font-bold uppercase tracking-[0.12em] text-red-700"><Ban aria-hidden="true" className="h-12 w-12" strokeWidth={1.8} />Coming Soon</span></span> : null}
+                    </>;
+                    return d.comingSoon ? (
+                      <div role="link" aria-disabled="true" tabIndex={0} title={`${d.name} — Coming Soon`} className="group relative flex h-full cursor-not-allowed flex-col overflow-hidden rounded-[var(--radius)] border bg-white p-6" style={{ borderColor: "var(--border)" }}>{content}</div>
+                    ) : (
+                      <a href={d.href} target="_blank" rel="noreferrer" title={d.name} className="group relative flex h-full flex-col rounded-[var(--radius)] border bg-white p-6" style={{ borderColor: "var(--border)" }}>{content}</a>
+                    );
+                  })()}
                 </Reveal>
               ))}
             </div>
@@ -356,9 +354,8 @@ export default async function HomePage() {
               >
                 <h4 className="font-display font-bold">The Group</h4>
                 <p className="m-0 text-[0.92rem] text-ink-soft">
-                  Inspection Services (flagship), Analytics (live beta), and the
-                  Academy (now enrolling), run as separate businesses under a
-                  shared standard.
+                  Inspection Services (flagship), with Analytics and the Academy
+                  coming soon, all built around a shared operating standard.
                 </p>
               </div>
             </Reveal>
@@ -403,29 +400,19 @@ export default async function HomePage() {
                 The Same Field Data, Put to Work Two Ways
               </h2>
               <p className="mt-4 max-w-[560px] text-ink-soft">
-                Analytics lets you interrogate verified inspection data in plain
-                language. The Academy turns the methods behind that data into
-                courses. Open either division to see the full picture.
+                Analytics will let you interrogate verified inspection data in
+                plain language. The Academy will turn the methods behind that
+                data into courses. Both divisions are coming soon.
               </p>
               <div className="mt-6 flex flex-wrap gap-3.5">
-                <a
-                  href="https://analytics.jdlcore.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-ghost px-7 py-3.5 text-base"
-                >
-                  Open Analytics
-                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={1.8} />
-                </a>
-                <a
-                  href="https://academy.jdlcore.com"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="btn-ghost px-7 py-3.5 text-base"
-                >
-                  Open Academy
-                  <ArrowUpRight aria-hidden="true" size={16} strokeWidth={1.8} />
-                </a>
+                <span aria-disabled="true" className="btn-ghost cursor-not-allowed px-7 py-3.5 text-base opacity-60">
+                  Analytics — Coming Soon
+                  <Ban aria-hidden="true" size={16} strokeWidth={1.8} className="text-red-600" />
+                </span>
+                <span aria-disabled="true" className="btn-ghost cursor-not-allowed px-7 py-3.5 text-base opacity-60">
+                  Academy — Coming Soon
+                  <Ban aria-hidden="true" size={16} strokeWidth={1.8} className="text-red-600" />
+                </span>
               </div>
             </Reveal>
             <Reveal className="grid gap-5 sm:grid-cols-2 max-lg:max-w-[560px] max-lg:mx-auto">

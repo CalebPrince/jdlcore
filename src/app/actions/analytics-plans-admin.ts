@@ -7,7 +7,7 @@ import { invalidatePlanCode } from "@/lib/analytics-billing";
 import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
-const ADMIN_ROLES = ["administrator", "superadmin"] as const;
+const ADMIN_ROLES = ["superadmin"] as const;
 const PLAN_IDS: AnalyticsPlanId[] = ["depot", "trader", "enterprise"];
 
 function field(raw: Record<string, FormDataEntryValue>, key: string): string {
