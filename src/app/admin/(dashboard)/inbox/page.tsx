@@ -33,6 +33,9 @@ const TYPE_LABELS: Record<string, string> = {
   waitlist_mobile_app: "Mobile app waitlist",
 };
 
+/** Submission types that represent a real request and can become a job (waitlists can't). */
+const CONVERTIBLE_TYPES = new Set(["quote", "contact", "chat_handoff"]);
+
 const FILTERS = [
   { value: "all", label: "All" },
   { value: "quote", label: "Quote requests" },
@@ -161,7 +164,7 @@ export default async function AdminInboxPage({
                       {r.message ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {r.type === "quote" &&
+                      {CONVERTIBLE_TYPES.has(r.type) &&
                         (r.convertedJobId ? (
                           <Link
                             href={`/admin/jobs/${r.convertedJobId}`}

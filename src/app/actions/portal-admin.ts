@@ -410,14 +410,21 @@ const convertSchema = z.object({
   submissionId: z.coerce.number().int().positive(),
   mode: z.enum(["new", "existing"]),
   clientId: z.coerce.number().int().positive().optional(),
-  name: z.string().trim().min(2).max(120),
+  // name/email are only sent when creating a new client; checked below for that mode.
+  name: z.string().trim().max(120).optional(),
   company: z.string().trim().max(160).optional(),
-  email: z.string().trim().email().max(200),
+  email: z.string().trim().max(200).optional(),
   phone: z.string().trim().max(40).optional(),
   serviceType: z.string().trim().min(1).max(60),
   location: z.string().trim().max(200).optional(),
   notes: z.string().trim().max(4000).optional(),
 });
+
+const SOURCE_LABELS: Record<string, string> = {
+  quote: "website quote request",
+  contact: "website contact message",
+  chat_handoff: "chat handoff",
+};
 
 export async function convertQuoteToJob(
   _prev: ConvertState,
@@ -432,6 +439,16 @@ export async function convertQuoteToJob(
     };
   }
   const f = parsed.data;
+  const newClientEmail = f.email ?? "";
+  if (
+    f.mode === "new" &&
+    ((f.name ?? "").length < 2 || !z.string().email().safeParse(newClientEmail).success)
+  ) {
+    return {
+      ok: false,
+      message: "Check the fields: name, email, and service are required.",
+    };
+  }
   const serviceOption = (await listServiceOptions()).find((o) => o.key === f.serviceType);
   if (!serviceOption) return { ok: false, message: "Pick a service from the list." };
 
@@ -444,7 +461,11 @@ export async function convertQuoteToJob(
 
   // Guard: not already converted
   const existingSub = await database
-    .select({ id: submissions.id, convertedJobId: submissions.convertedJobId })
+    .select({
+      id: submissions.id,
+      type: submissions.type,
+      convertedJobId: submissions.convertedJobId,
+    })
     .from(submissions)
     .where(eq(submissions.id, f.submissionId))
     .limit(1);
@@ -452,6 +473,7 @@ export async function convertQuoteToJob(
   if (existingSub[0].convertedJobId) {
     return { ok: false, message: "This request was already converted." };
   }
+  const sourceLabel = SOURCE_LABELS[existingSub[0].type] ?? "website request";
 
   // Resolve client
   let clientId: number;
@@ -472,7 +494,7 @@ export async function convertQuoteToJob(
       const dupe = await database
         .select({ id: clients.id })
         .from(clients)
-        .where(eq(clients.email, f.email.toLowerCase()))
+        .where(eq(clients.email, newClientEmail.toLowerCase()))
         .limit(1);
       if (dupe[0]) {
         clientId = dupe[0].id;
@@ -481,9 +503,9 @@ export async function convertQuoteToJob(
         const created = await database
           .insert(clients)
           .values({
-            name: f.name,
+            name: f.name ?? "",
             company: f.company || null,
-            email: f.email.toLowerCase(),
+            email: newClientEmail.toLowerCase(),
             phone: f.phone || null,
             passwordHash: hashPassword(tempPassword),
           })
@@ -513,7 +535,7 @@ export async function convertQuoteToJob(
     await database.insert(jobUpdates).values({
       jobId,
       status: "awaiting_assignment",
-      note: "Converted from website quote request.",
+      note: `Converted from ${sourceLabel}.`,
     });
     await database
       .update(submissions)
@@ -534,7 +556,7 @@ export async function convertQuoteToJob(
         jobId,
         type: "portal_account_created",
         title: `Welcome to the JDL Core Client Portal`,
-        body: `Your quote request has been converted into job ${jobRef}. Sign in to view it.`,
+        body: `Your request has been converted into job ${jobRef}. Sign in to view it.`,
         link: "/portal",
       });
       const config = await getEmailConfig();
@@ -543,14 +565,14 @@ export async function convertQuoteToJob(
         // password. The temp password is still shown to staff below as a manual fallback.
         const setupLink = await issuePortalSetupLink(clientId);
         const result = await sendNotification({
-          to: f.email,
+          to: newClientEmail,
           subject: `Your JDL Core portal account - Job ${jobRef}`,
           html: brandedEmailHtml({
             label: "JDL CORE CLIENT PORTAL",
             heading: "Welcome to the JDL Core Client Portal",
             bodyLines: [
-              `Your quote request has been converted into job <strong>${jobRef}</strong>.`,
-              `Your sign-in email is <strong>${f.email}</strong>. Use the button below to choose your password (the link works once and expires in 7 days).`,
+              `Your request has been converted into job <strong>${jobRef}</strong>.`,
+              `Your sign-in email is <strong>${newClientEmail}</strong>. Use the button below to choose your password (the link works once and expires in 7 days).`,
               "If the link expires, use “Forgot password” on the sign-in page to get a new one.",
             ],
             ctaUrl: setupLink,

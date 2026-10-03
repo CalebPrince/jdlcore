@@ -55,9 +55,7 @@ export function ConvertQuoteSheet({
   defaultServiceType: string | null;
 }) {
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<"new" | "existing">(
-    clients.length > 0 ? "new" : "new",
-  );
+  const [mode, setMode] = useState<"new" | "existing">("new");
   const [clientId, setClientId] = useState<string>("");
   const [state, action, pending] = useActionState(convertQuoteToJob, initial);
 
@@ -168,7 +166,7 @@ export function ConvertQuoteSheet({
                   <Input value={submission.email ?? ""} disabled className="bg-muted/40" />
                   {!submission.email && (
                     <p className="m-0 text-xs text-red-600">
-                      This request has no email — a portal login can&apos;t be created.
+                      This request has no email, so a portal login can&apos;t be created. Switch to “Existing client” to attach it to one.
                     </p>
                   )}
                 </div>
@@ -221,7 +219,7 @@ export function ConvertQuoteSheet({
               </Alert>
             )}
 
-            <Button type="submit" disabled={pending || !submission.email} className="btn-gold">
+            <Button type="submit" disabled={pending || (mode === "new" && !submission.email)} className="btn-gold">
               {pending ? "Converting…" : "Create Client + Job"}
             </Button>
           </form>
