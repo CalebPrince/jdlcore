@@ -79,12 +79,79 @@ function Row({
   );
 }
 
+/** Refinery and petroleum storage depot, drawn in code, with the tank calculation readouts. */
+function DepotVector() {
+  const tanks = [
+    { x: 128, level: 0.78, tag: "T-01" },
+    { x: 168, level: 0.55, tag: "T-02" },
+    { x: 208, level: 0.4, tag: "T-03" },
+  ];
+  return (
+    <svg
+      viewBox="0 0 340 128"
+      role="presentation"
+      className="w-full rounded-[var(--radius-sm)] bg-paper-deep"
+    >
+      {/* ground */}
+      <line x1="0" y1="112" x2="340" y2="112" className="stroke-navy-950" strokeWidth="1.5" />
+
+      {/* refinery: columns, furnace, pipe rack, flare */}
+      <g className="fill-navy-800">
+        <rect x="14" y="30" width="16" height="82" rx="3" />
+        <rect x="38" y="48" width="14" height="64" rx="3" />
+        <rect x="60" y="84" width="30" height="28" rx="2" />
+      </g>
+      <g className="stroke-navy-950" strokeWidth="1.5" fill="none">
+        <path d="M30 60 H38 M52 72 H98 M22 30 V22 M45 48 V40" />
+        <path d="M75 84 V70" />
+      </g>
+      <g className="fill-navy-950">
+        <rect x="96" y="26" width="3" height="86" />
+      </g>
+      <path
+        d="M97.5 8 C103 14 104 18 100.5 24 C99 21 98 22 97.5 24 C94 19 95 14 97.5 8 Z"
+        className="fill-gold-500"
+      />
+
+      {/* storage tanks with liquid level */}
+      {tanks.map((t) => {
+        const h = 44;
+        const top = 68;
+        const fill = h * t.level;
+        return (
+          <g key={t.tag}>
+            <rect x={t.x} y={top} width="30" height={h} className="fill-white stroke-navy-950" strokeWidth="1.5" />
+            <rect x={t.x} y={top + h - fill} width="30" height={fill} className="fill-gold-500" opacity="0.85" />
+            <path d={`M${t.x} ${top} Q${t.x + 15} ${top - 12} ${t.x + 30} ${top}`} className="fill-navy-100 stroke-navy-950" strokeWidth="1.5" />
+            <text x={t.x + 15} y={top + h + 11} textAnchor="middle" className="fill-ink-soft" fontSize="7" fontWeight="700">
+              {t.tag}
+            </text>
+          </g>
+        );
+      })}
+
+      {/* calculation callout */}
+      <path d="M158 68 Q158 40 246 40" className="stroke-gold-600" strokeWidth="1" strokeDasharray="3 2" fill="none" />
+      <rect x="246" y="22" width="88" height="62" rx="4" className="fill-navy-950" />
+      <g fontSize="8" className="fill-paper">
+        <text x="254" y="37" className="fill-gold-300" fontWeight="700" fontSize="7">
+          T-02 CALCULATION
+        </text>
+        <text x="254" y="52">GSV 1.20M L</text>
+        <text x="254" y="65">Net 1,031 MT</text>
+        <text x="254" y="78">Temp 27.4°C</text>
+      </g>
+    </svg>
+  );
+}
+
 export function OverviewMockup() {
   return (
     <MockupFrame url="overview.jdlcore.com">
       <p className="m-0 font-display text-[0.95rem] font-bold leading-snug text-navy-950">
         Independent Oil and Gas Inspection, Collateral Management, Analytics &amp; Training
       </p>
+      <DepotVector />
       <div className="flex gap-2.5">
         <Stat num="Live" lbl="Inspection" />
         <Stat num="Beta" lbl="Analytics" />
