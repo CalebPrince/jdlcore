@@ -187,7 +187,7 @@ export default async function HomePage() {
           <div className="wrap relative grid items-center gap-12 lg:grid-cols-[1.05fr_0.95fr]">
             <Reveal className="max-w-[720px]">
               <p className="eyebrow">The JDL Core Group</p>
-              <h1 className="text-[clamp(2.2rem,4.6vw,3.5rem)] font-bold">
+              <h1 className="text-[clamp(1.75rem,3.4vw,2.6rem)] font-bold">
                 Independent Oil and Gas{" "}
                 <span className="text-gold-600">Inspection</span>, Collateral
                 Management, Analytics &amp; Training
