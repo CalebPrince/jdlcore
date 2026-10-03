@@ -200,11 +200,11 @@ export default async function HomePage() {
                 runs through all three.
               </p>
               <div className="mt-7 mb-2 flex flex-wrap gap-3.5">
-                <Link href="#divisions" className="btn-gold btn-gold-lg">
-                  Explore the Divisions
+                <Link href="/inspection#quote" className="btn-gold btn-gold-lg">
+                  Request an Inspection
                 </Link>
-                <Link href="#contact" className="btn-ghost px-8 py-4 text-base">
-                  Talk to the Team
+                <Link href="#divisions" className="btn-ghost px-8 py-4 text-base">
+                  Explore the Divisions
                 </Link>
               </div>
               <p className="mt-3 text-[0.85rem] text-ink-faint">
