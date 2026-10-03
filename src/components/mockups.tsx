@@ -145,6 +145,61 @@ function DepotVector() {
   );
 }
 
+/** Weekly verified quantity (bars) with the stock variance trend (line). Sample data. */
+function StockChart() {
+  const weeks = ["W1", "W2", "W3", "W4", "W5", "W6"];
+  const qty = [620, 740, 690, 880, 960, 1031]; // MT
+  const variance = [1.4, 1.2, 1.1, 0.9, 0.7, 0.6]; // %
+  const base = 74;
+  const barW = 22;
+  const gap = 14;
+  const x0 = 28;
+  const maxQty = 1100;
+  const bars = qty.map((q, i) => ({
+    x: x0 + i * (barW + gap),
+    h: (q / maxQty) * 58,
+  }));
+  const line = variance
+    .map((v, i) => {
+      const x = x0 + i * (barW + gap) + barW / 2;
+      const y = base - ((v - 0.4) / 1.2) * 52 - 6;
+      return `${i === 0 ? "M" : "L"}${x} ${y}`;
+    })
+    .join(" ");
+  return (
+    <div className="rounded-[var(--radius-sm)] border px-3 pt-2.5 pb-1.5" style={{ borderColor: "var(--border)" }}>
+      <div className="mb-1 flex items-center justify-between text-[0.68rem] uppercase tracking-[0.05em] text-ink-faint">
+        <span>Verified quantity (MT)</span>
+        <span className="flex items-center gap-1 normal-case tracking-normal">
+          <span className="h-0.5 w-3 bg-navy-950" /> Variance %
+        </span>
+      </div>
+      <svg viewBox="0 0 280 92" role="presentation" className="w-full">
+        {[0, 1, 2].map((g) => (
+          <line key={g} x1="20" x2="276" y1={base - g * 26} y2={base - g * 26} className="stroke-navy-100" strokeWidth="1" />
+        ))}
+        {bars.map((b, i) => (
+          <rect key={i} x={b.x} y={base - b.h} width={barW} height={b.h} rx="2" className="fill-gold-500" />
+        ))}
+        <path d={line} fill="none" className="stroke-navy-950" strokeWidth="1.8" strokeLinejoin="round" />
+        {variance.map((_, i) => {
+          const x = x0 + i * (barW + gap) + barW / 2;
+          const y = base - ((variance[i] - 0.4) / 1.2) * 52 - 6;
+          return <circle key={i} cx={x} cy={y} r="2.4" className="fill-navy-950" />;
+        })}
+        {weeks.map((w, i) => (
+          <text key={w} x={x0 + i * (barW + gap) + barW / 2} y="88" textAnchor="middle" fontSize="7.5" className="fill-ink-faint">
+            {w}
+          </text>
+        ))}
+        <text x="276" y="12" textAnchor="end" fontSize="8" fontWeight="700" className="fill-[#1f7a4d]">
+          1.4% to 0.6%
+        </text>
+      </svg>
+    </div>
+  );
+}
+
 export function OverviewMockup() {
   return (
     <MockupFrame url="overview.jdlcore.com">
@@ -152,14 +207,12 @@ export function OverviewMockup() {
         Independent Oil and Gas Inspection, Collateral Management, Analytics &amp; Training
       </p>
       <DepotVector />
+      <StockChart />
       <div className="flex gap-2.5">
         <Stat num="Live" lbl="Inspection" />
-        <Stat num="Beta" lbl="Analytics" />
-        <Stat num="Open" lbl="Academy" />
+        <Stat num="Closed" lbl="Analytics" />
+        <Stat num="Closed" lbl="Academy" />
       </div>
-      <Row label="JDL-2026-00041" pill="done" />
-      <Row label="Analytics queries" pill="progress" />
-      <Row label="Academy enrolment" pill="review" />
     </MockupFrame>
   );
 }
