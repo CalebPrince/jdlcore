@@ -36,7 +36,7 @@ function ComingSoonBadge({ icon, store }: { icon: React.ReactNode; store: string
 }
 
 export const metadata: Metadata = {
-  title: "JDL Core | Independent Oil & Gas Inspection, Analytics & Training",
+  title: "JDL Core | Independent Oil and Gas Inspection, Collateral Management, Analytics & Training",
   description:
     "JDL Core is a West African oil & gas group with three divisions: independent inspection and quantity verification, an on-demand industry-data analytics platform, and a technical training academy, held to one standard of integrity.",
   keywords: [
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://jdlcore.com",
     siteName: "JDL Core",
-    title: "JDL Core | Independent Oil & Gas Inspection, Analytics & Training",
+    title: "JDL Core | Independent Oil and Gas Inspection, Collateral Management, Analytics & Training",
     description:
       "One oil & gas group, three divisions: independent inspection and quantity verification, on-demand industry-data analytics, and a technical training academy.",
   },
@@ -188,9 +188,9 @@ export default async function HomePage() {
             <Reveal className="max-w-[720px]">
               <p className="eyebrow">The JDL Core Group</p>
               <h1 className="text-[clamp(2.2rem,4.6vw,3.5rem)] font-bold">
-                Independent Oil &amp; Gas{" "}
-                <span className="text-gold-600">Inspection</span>, Analytics &amp;
-                Training
+                Independent Oil and Gas{" "}
+                <span className="text-gold-600">Inspection</span>, Collateral
+                Management, Analytics &amp; Training
               </h1>
               <p className="mt-4 max-w-[560px] text-[1.1rem] text-ink-soft">
                 JDL Core is one group with three divisions: a flagship inspection

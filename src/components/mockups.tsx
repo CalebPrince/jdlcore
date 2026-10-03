@@ -82,6 +82,9 @@ function Row({
 export function OverviewMockup() {
   return (
     <MockupFrame url="overview.jdlcore.com">
+      <p className="m-0 font-display text-[0.95rem] font-bold leading-snug text-navy-950">
+        Independent Oil and Gas Inspection, Collateral Management, Analytics &amp; Training
+      </p>
       <div className="flex gap-2.5">
         <Stat num="Live" lbl="Inspection" />
         <Stat num="Beta" lbl="Analytics" />
