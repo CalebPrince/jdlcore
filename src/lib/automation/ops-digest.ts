@@ -10,6 +10,12 @@ import { claimEvent } from "./events";
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_LISTED = 12;
 
+const INBOX_TYPE_LABELS: Record<string, string> = {
+  quote: "quote",
+  contact: "message",
+  chat_handoff: "chat handoff",
+};
+
 /** How long a job may sit in a status before it counts as stuck. */
 const STUCK_AFTER_HOURS: Partial<Record<JobStatus, number>> = {
   awaiting_assignment: 24,
@@ -36,7 +42,7 @@ function renderSection(s: Section): string {
 /**
  * One daily "what needs a human" digest to Operations: jobs sitting too long in a status,
  * stock-monitoring jobs missing daily tank readings, approved jobs still without an invoice, bank-transfer receipts waiting on verification,
- * and quote requests nobody has converted. It only lists work; it never approves, assigns,
+ * and inbox requests (quotes, messages, chat handoffs) nobody has converted. It only lists work; it never approves, assigns,
  * verifies or converts anything. Also nudges an inspector once when their assignment (or a
  * returned amendment) has been sitting unanswered.
  */
@@ -162,13 +168,13 @@ export async function runOpsDigest() {
     });
   }
 
-  // ---- Quote requests nobody converted ---------------------------------------------------
+  // ---- Inbox requests nobody converted (quotes, contact messages, chat handoffs) ----------
   const quotes = await database
-    .select({ name: submissions.name, createdAt: submissions.createdAt })
+    .select({ name: submissions.name, type: submissions.type, createdAt: submissions.createdAt })
     .from(submissions)
     .where(
       and(
-        eq(submissions.type, "quote"),
+        inArray(submissions.type, ["quote", "contact", "chat_handoff"]),
         isNull(submissions.convertedJobId),
         lt(submissions.createdAt, new Date(now - 24 * HOUR_MS)),
         gt(submissions.createdAt, new Date(now - 7 * 24 * HOUR_MS)),
@@ -176,8 +182,11 @@ export async function runOpsDigest() {
     );
   if (quotes.length) {
     sections.push({
-      heading: "Quote requests not yet converted (last 7 days)",
-      items: quotes.map((q) => `${escapeHtml(q.name)} (${age(now - q.createdAt.getTime())})`),
+      heading: "Inbox requests not yet converted to jobs (last 7 days)",
+      items: quotes.map(
+        (q) =>
+          `${escapeHtml(q.name)}, ${INBOX_TYPE_LABELS[q.type] ?? q.type} (${age(now - q.createdAt.getTime())})`,
+      ),
     });
   }
 
