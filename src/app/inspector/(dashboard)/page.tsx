@@ -8,6 +8,10 @@ import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { Card, CardContent } from "@/components/ui/card";
 import { AvailabilityCard } from "@/components/inspector/availability-card";
 
+import { UnreadChatBadge } from "@/components/chat/unread-chat-badge";
+import { ChatInboxRefresher } from "@/components/chat/chat-inbox-refresher";
+import { inboxRealtimeProps, unreadChatCounts } from "@/lib/job-chat";
+
 export const dynamic = "force-dynamic";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -43,6 +47,7 @@ export default async function InspectorDashboardPage() {
   } catch {
     /* render empty state */
   }
+  const unread = await unreadChatCounts("inspector", inspector.id, jobList.map((j) => j.id));
   let awayUntil: string | null = null;
   try {
     const rows = await requireDb()
@@ -57,6 +62,7 @@ export default async function InspectorDashboardPage() {
 
   return (
     <div className="flex flex-col gap-8">
+      <ChatInboxRefresher realtime={inboxRealtimeProps("inspector", inspector.id)} />
       <div>
         <h1 className="font-display text-[1.6rem] font-bold text-navy-950">
           Welcome back, {inspector.name.split(" ")[0]}
@@ -101,6 +107,7 @@ export default async function InspectorDashboardPage() {
                           <span className={`rounded-full px-3 py-0.5 text-xs font-bold ${meta.badgeClass}`}>
                             {meta.label}
                           </span>
+                          <UnreadChatBadge count={unread.get(job.id)} />
                           <span className="ml-auto text-xs text-ink-faint">
                             Updated {dateFmt.format(new Date(job.updatedAt))}
                           </span>

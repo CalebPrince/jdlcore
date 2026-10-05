@@ -33,7 +33,7 @@ import { OutturnForm, type OutturnDefaults } from "@/components/inspector/outtur
 import { OutturnTrailDisplay } from "@/components/inspector/outturn-trail-display";
 import { OutturnSummaryCard, OutturnTanksList } from "@/components/inspector/outturn-summary";
 import { JobChat } from "@/components/chat/job-chat";
-import { listJobMessages } from "@/lib/job-chat";
+import { chatRealtimeProps, listJobMessages, unreadChatCounts } from "@/lib/job-chat";
 import { StockReadingsList } from "@/components/inspector/stock-readings-list";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -121,6 +121,7 @@ export default async function InspectorJobDetailPage({
   ]);
 
   const chatMessages = await listJobMessages(jobId);
+  const unreadChat = (await unreadChatCounts("inspector", inspector.id, [jobId])).get(jobId) ?? 0;
   const jobDocs = await database
     .select({ id: documents.id, title: documents.title, fileName: documents.fileName, createdAt: documents.createdAt })
     .from(documents)
@@ -236,6 +237,15 @@ export default async function InspectorJobDetailPage({
       >
         <ArrowLeft className="h-4 w-4" /> My Jobs
       </Link>
+
+      {unreadChat > 0 && (
+        <a
+          href="#chat"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-gold-600 px-3.5 py-1.5 text-sm font-bold text-navy-950 transition-opacity hover:opacity-90"
+        >
+          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: jump to the chat
+        </a>
+      )}
 
       <div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -476,6 +486,7 @@ export default async function InspectorJobDetailPage({
             viewerRole="inspector"
             viewerId={inspector.id}
             initialMessages={chatMessages}
+            realtime={chatRealtimeProps(job.id)}
             participantsNote={`Shared with the client (${client.name}) and JDL Core Operations. Both see everything posted here.`}
           />
         </CardContent>

@@ -449,6 +449,28 @@ export const jobComments = pgTable(
 );
 
 /**
+ * How far each person has read each job's group chat (drives the unread-message badges). One row
+ * per (job, reader); readerId is that person's id in their own table.
+ */
+export const jobChatReads = pgTable(
+  "job_chat_reads",
+  {
+    id: serial("id").primaryKey(),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobs.id, { onDelete: "cascade" }),
+    readerType: text("reader_type").notNull(), // client | staff | inspector
+    readerId: integer("reader_id").notNull(),
+    lastReadMessageId: integer("last_read_message_id").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("job_chat_reads_reader_unique").on(table.jobId, table.readerType, table.readerId),
+    index("job_chat_reads_reader_idx").on(table.readerType, table.readerId),
+  ],
+);
+
+/**
  * AI second-opinion checks run against submitted completion data, uploaded
  * documents, and payment receipts — surfaced to Operations alongside (never
  * instead of) their own manual approval/verification decision.

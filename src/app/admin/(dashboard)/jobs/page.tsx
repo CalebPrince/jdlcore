@@ -14,6 +14,10 @@ import { JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
 import { getStaff } from "@/lib/staff-auth";
 import { flagOverdueInvoices } from "@/lib/overdue-invoices";
 
+import { UnreadChatBadge } from "@/components/chat/unread-chat-badge";
+import { ChatInboxRefresher } from "@/components/chat/chat-inbox-refresher";
+import { inboxRealtimeProps, unreadChatCounts } from "@/lib/job-chat";
+
 export const dynamic = "force-dynamic";
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
@@ -56,6 +60,7 @@ export default async function AdminJobsPage({
   }
 
   const serviceOptions = await listServiceOptions();
+  const unread = staff ? await unreadChatCounts("staff", staff.id, jobRows.map((j) => j.id)) : new Map<number, number>();
 
   const active = BUCKETS.find((b) => b.key === bucket) ?? BUCKETS[0];
   const filtered =
@@ -65,6 +70,7 @@ export default async function AdminJobsPage({
 
   return (
     <div className="flex flex-col gap-6 p-4 sm:p-6 lg:p-8">
+      {staff && <ChatInboxRefresher realtime={inboxRealtimeProps("staff", staff.id)} />}
       <div>
         <h1 className="font-display text-2xl font-bold text-navy-950">Inspection Jobs</h1>
         <p className="text-sm text-muted-foreground">
@@ -124,6 +130,7 @@ export default async function AdminJobsPage({
                     <span className={`rounded-full px-3 py-0.5 text-xs font-bold ${meta.badgeClass}`}>
                       {meta.label}
                     </span>
+                    <UnreadChatBadge count={unread.get(j.id)} />
                     {j.inspectorName && (
                       <span className="text-xs text-ink-faint">Inspector: {j.inspectorName}</span>
                     )}

@@ -19,7 +19,7 @@ import { DocumentPreviewDialog } from "@/components/portal/document-preview-dial
 import { PortalPaystackButton } from "@/components/portal/portal-paystack-button";
 import { JobChat } from "@/components/chat/job-chat";
 import { RejectReportForm } from "@/components/portal/reject-report-form";
-import { listJobMessages } from "@/lib/job-chat";
+import { chatRealtimeProps, listJobMessages, unreadChatCounts } from "@/lib/job-chat";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { isPaystackReady, getPaystackConfig } from "@/lib/paystack";
 
@@ -94,6 +94,7 @@ export default async function PortalJobDetailPage({
   const meta =
     JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
   const paystackReady = isPaystackReady(await getPaystackConfig());
+  const unreadChat = (await unreadChatCounts("client", client.id, [job.id])).get(job.id) ?? 0;
   const reportRejected = job.status === "report_rejected";
   const canRejectReport = !!coq[0] && (job.status === "report_issued" || job.status === "invoice_issued");
   const lastRejection = [...timeline].reverse().find((u) => u.status === "report_rejected");
@@ -132,6 +133,15 @@ export default async function PortalJobDetailPage({
             That payment attempt wasn&apos;t completed. No charge was made — you can try again below.
           </AlertDescription>
         </Alert>
+      )}
+
+      {unreadChat > 0 && (
+        <a
+          href="#chat"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-gold-600 px-3.5 py-1.5 text-sm font-bold text-navy-950 transition-opacity hover:opacity-90"
+        >
+          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: jump to the chat
+        </a>
       )}
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -347,6 +357,7 @@ export default async function PortalJobDetailPage({
           viewerRole="client"
           viewerId={client.id}
           initialMessages={comments}
+          realtime={chatRealtimeProps(job.id)}
           participantsNote={
             job.assignedInspectorId
               ? "You, JDL Core Operations and your inspector can all see and reply here."

@@ -17,6 +17,10 @@ import { flagOverdueInvoices } from "@/lib/overdue-invoices";
 import { GaugeBoard } from "@/components/reports/gauge-board";
 import { TankTrendGrid } from "@/components/reports/tank-trend-grid";
 
+import { UnreadChatBadge } from "@/components/chat/unread-chat-badge";
+import { ChatInboxRefresher } from "@/components/chat/chat-inbox-refresher";
+import { inboxRealtimeProps, unreadChatCounts } from "@/lib/job-chat";
+
 export const dynamic = "force-dynamic";
 
 const timeFmt = new Intl.DateTimeFormat("en-GB", {
@@ -50,6 +54,8 @@ export default async function PortalDashboardPage({
     /* render empty state */
   }
 
+  const unread = await unreadChatCounts("client", client.id, jobList.map((j) => j.id));
+
   let board: Awaited<ReturnType<typeof loadGaugeBoard>> = [];
   let trends: Awaited<ReturnType<typeof loadTankTrendSeries>> = [];
   try {
@@ -68,6 +74,7 @@ export default async function PortalDashboardPage({
 
   return (
     <div className="flex flex-col gap-7">
+      <ChatInboxRefresher realtime={inboxRealtimeProps("client", client.id)} />
       {payment === "failed" && (
         <Alert variant="destructive">
           <AlertDescription>
@@ -159,6 +166,7 @@ export default async function PortalDashboardPage({
                       >
                         {meta.label}
                       </span>
+                      <UnreadChatBadge count={unread.get(job.id)} />
                       <span className="ml-auto text-xs text-ink-faint">
                         Updated {timeFmt.format(new Date(job.updatedAt))}
                       </span>

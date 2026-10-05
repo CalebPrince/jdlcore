@@ -43,7 +43,7 @@ import {
   PaymentActionPanel,
 } from "@/components/admin/workflow-forms";
 import { JobChat } from "@/components/chat/job-chat";
-import { listJobMessages } from "@/lib/job-chat";
+import { chatRealtimeProps, listJobMessages, unreadChatCounts } from "@/lib/job-chat";
 import { AiReviewBanner } from "@/components/admin/ai-review-banner";
 import { ApprovalChecklist } from "@/components/admin/approval-checklist";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
@@ -134,6 +134,7 @@ export default async function AdminJobDetailPage({
   const readingCount = readingCountRows[0]?.n ?? readings.length;
   const coq = await database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1);
   const comments = await listJobMessages(jobId);
+  const unreadChat = (await unreadChatCounts("staff", staff.id, [jobId])).get(jobId) ?? 0;
   const invoiceSettings = await getInvoiceSettings();
   const aiReviews = await loadJobReviews(jobId);
 
@@ -179,6 +180,15 @@ export default async function AdminJobDetailPage({
       >
         <ArrowLeft className="h-4 w-4" /> All Jobs
       </Link>
+
+      {unreadChat > 0 && (
+        <a
+          href="#chat"
+          className="inline-flex w-fit items-center gap-2 rounded-full bg-gold-600 px-3.5 py-1.5 text-sm font-bold text-navy-950 transition-opacity hover:opacity-90"
+        >
+          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: jump to the chat
+        </a>
+      )}
 
       <div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
@@ -541,6 +551,7 @@ export default async function AdminJobDetailPage({
             viewerRole="staff"
             viewerId={staff.id}
             initialMessages={comments}
+            realtime={chatRealtimeProps(job.id)}
             participantsNote={
               assignedInspector[0]
                 ? `Shared with the client (${client.name}) and the inspector (${assignedInspector[0].name}). Both see everything posted here.`

@@ -1,13 +1,14 @@
 import "server-only";
-import { and, asc, desc, eq, gt } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { clients, inspectors, jobComments, jobs } from "@/db/schema";
+import { clients, inspectors, jobChatReads, jobComments, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import { getInspector } from "@/lib/inspector-auth";
 import { getStaff } from "@/lib/staff-auth";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import type { StoredUpload } from "@/lib/uploads";
+import { chatTopic, inboxTopic, realtimeConfig, ring } from "@/lib/realtime";
 
 /**
  * The job chat: one group thread per job, shared by the client, Operations and the assigned
@@ -142,6 +143,67 @@ export async function getJobMessageAttachment(jobId: number, messageId: number) 
   return { data: row.data, name: row.name, mimeType: row.mimeType };
 }
 
+/* ---------------- Unread tracking ---------------- */
+
+/** Records that this person has read the job's chat up to `lastMessageId`. Only ever moves forward. */
+export async function markChatRead(reader: ChatParticipant, lastMessageId: number): Promise<void> {
+  if (!Number.isInteger(lastMessageId) || lastMessageId <= 0) return;
+  await requireDb()
+    .insert(jobChatReads)
+    .values({ jobId: reader.job.id, readerType: reader.role, readerId: reader.id, lastReadMessageId: lastMessageId })
+    .onConflictDoUpdate({
+      target: [jobChatReads.jobId, jobChatReads.readerType, jobChatReads.readerId],
+      set: {
+        lastReadMessageId: sql`greatest(${jobChatReads.lastReadMessageId}, ${lastMessageId})`,
+        updatedAt: new Date(),
+      },
+    });
+}
+
+/**
+ * Unread chat messages per job for one person: messages newer than the last one they read, not
+ * counting their own. The caller passes only jobs this person is allowed to see. Jobs with nothing
+ * unread are simply absent from the map. Returns an empty map if the lookup fails, so a job list
+ * never breaks over a badge.
+ */
+export async function unreadChatCounts(role: ChatRole, readerId: number, jobIds: number[]): Promise<Map<number, number>> {
+  const counts = new Map<number, number>();
+  if (jobIds.length === 0) return counts;
+  try {
+    const rows = await requireDb()
+      .select({ jobId: jobComments.jobId, n: sql<number>`count(*)::int` })
+      .from(jobComments)
+      .leftJoin(
+        jobChatReads,
+        and(eq(jobChatReads.jobId, jobComments.jobId), eq(jobChatReads.readerType, role), eq(jobChatReads.readerId, readerId)),
+      )
+      .where(
+        and(
+          inArray(jobComments.jobId, jobIds),
+          sql`${jobComments.id} > coalesce(${jobChatReads.lastReadMessageId}, 0)`,
+          sql`not (${jobComments.authorType} = ${role} and ${jobComments.authorId} is not distinct from ${readerId})`,
+        ),
+      )
+      .groupBy(jobComments.jobId);
+    for (const row of rows) counts.set(row.jobId, row.n);
+  } catch (err) {
+    console.error("unreadChatCounts:", err);
+  }
+  return counts;
+}
+
+/** What an open chat needs to listen live: the public connection details and this job's channel. Null when Realtime isn't set up. */
+export function chatRealtimeProps(jobId: number): { url: string; anonKey: string; topic: string } | null {
+  const config = realtimeConfig();
+  return config ? { ...config, topic: chatTopic(jobId) } : null;
+}
+
+/** The same, for a person's job lists (their unread badges). */
+export function inboxRealtimeProps(role: ChatRole, id: number): { url: string; anonKey: string; topic: string } | null {
+  const config = realtimeConfig();
+  return config ? { ...config, topic: inboxTopic(role, id) } : null;
+}
+
 const ROLE_LABEL: Record<ChatRole, string> = { client: "the client", staff: "Operations", inspector: "the inspector" };
 
 async function notifyOthers(sender: ChatParticipant, body: string): Promise<void> {
@@ -260,6 +322,21 @@ export async function postJobMessage(sender: ChatParticipant, rawBody: string, u
       attachmentSize: upload?.sizeBytes ?? null,
     })
     .returning(MESSAGE_COLUMNS);
+
+  // Sending a message means you have seen everything up to it.
+  try {
+    await markChatRead(sender, inserted[0].id);
+  } catch (err) {
+    console.error("job chat mark read:", err);
+  }
+
+  // Ring the open chats and everyone's job lists straight away; the bell and email come after.
+  await ring([
+    chatTopic(sender.job.id),
+    inboxTopic("client", sender.job.clientId),
+    inboxTopic("staff", 0),
+    ...(sender.job.assignedInspectorId ? [inboxTopic("inspector", sender.job.assignedInspectorId)] : []),
+  ]);
 
   const quiet = previous[0] && Date.now() - new Date(previous[0].createdAt).getTime() < NOTIFY_QUIET_MS;
   if (!quiet) {

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Download, FileText, Mic, Paperclip, SendHorizontal, Square, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { listenForRing } from "@/lib/realtime-client";
 
 export type JobChatRole = "client" | "staff" | "inspector";
 
@@ -19,7 +20,10 @@ export type JobChatMessage = {
   attachment: JobChatAttachment | null;
 };
 
+/** How often to check for new messages when the live connection isn't available. */
 const POLL_MS = 4000;
+/** With the live connection up, a slow check remains as a safety net for a missed ring. */
+const LIVE_SAFETY_POLL_MS = 30000;
 const MAX_LENGTH = 2000;
 const MAX_FILE_BYTES = 4 * 1024 * 1024;
 const MAX_RECORDING_SECONDS = 300;
@@ -61,8 +65,11 @@ const formatClock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(s
 
 /**
  * The job's group chat between the client, Operations and the assigned inspector. Starts from the
- * server-rendered messages, then keeps itself current by asking for anything newer every few
- * seconds while the tab is visible. A message can carry one document, picture or voice note.
+ * server-rendered messages and stays current through Supabase Realtime: the server rings this
+ * job's channel when anyone posts, and the chat then fetches the new messages through the app's
+ * own signed-in API. If the live connection isn't set up or drops, it checks every few seconds
+ * instead. A message can carry one document, picture or voice note. While the chat is on screen
+ * it also records how far the viewer has read, which clears their unread badge.
  */
 export function JobChat({
   jobId,
@@ -70,6 +77,7 @@ export function JobChat({
   viewerId,
   initialMessages,
   participantsNote,
+  realtime,
 }: {
   jobId: number;
   viewerRole: JobChatRole;
@@ -77,6 +85,8 @@ export function JobChat({
   initialMessages: JobChatMessage[];
   /** One line telling the viewer who else is in this chat. */
   participantsNote: string;
+  /** Live connection details for this job's channel; null when Realtime isn't configured. */
+  realtime?: { url: string; anonKey: string; topic: string } | null;
 }) {
   const [messages, setMessages] = useState<JobChatMessage[]>(initialMessages);
   const [draft, setDraft] = useState("");
@@ -94,6 +104,12 @@ export function JobChat({
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const discardRecordingRef = useRef(false);
+  const liveRef = useRef(false);
+  const realtimeUrl = realtime?.url;
+  const realtimeKey = realtime?.anonKey;
+  const realtimeTopic = realtime?.topic;
+  const inViewRef = useRef(false);
+  const markedReadRef = useRef(0);
 
   const merge = useCallback((incoming: JobChatMessage[]) => {
     if (incoming.length === 0) return;
@@ -106,49 +122,105 @@ export function JobChat({
     lastIdRef.current = Math.max(lastIdRef.current, ...incoming.map((m) => m.id));
   }, []);
 
+  // Tells the server how far this viewer has read, but only while the chat is actually on screen.
+  const markRead = useCallback(() => {
+    const lastId = lastIdRef.current;
+    if (!inViewRef.current || document.visibilityState !== "visible" || lastId <= markedReadRef.current) return;
+    markedReadRef.current = lastId;
+    void fetch(`/api/jobs/${jobId}/messages/read`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ as: viewerRole, lastId }),
+      keepalive: true,
+    }).catch(() => {
+      markedReadRef.current = 0;
+    });
+  }, [jobId, viewerRole]);
+
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout>;
+    let inFlight = false;
 
-    async function poll() {
-      if (document.visibilityState === "visible") {
-        try {
-          const res = await fetch(`/api/jobs/${jobId}/messages?as=${viewerRole}&after=${lastIdRef.current}`, {
-            cache: "no-store",
-          });
-          if (!res.ok) throw new Error(String(res.status));
-          const data = (await res.json()) as { messages: JobChatMessage[] };
-          if (!cancelled) {
-            merge(data.messages);
-            setOffline(false);
-          }
-        } catch {
-          if (!cancelled) setOffline(true);
+    async function fetchNew() {
+      if (inFlight || document.visibilityState !== "visible") return;
+      inFlight = true;
+      try {
+        const res = await fetch(`/api/jobs/${jobId}/messages?as=${viewerRole}&after=${lastIdRef.current}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(String(res.status));
+        const data = (await res.json()) as { messages: JobChatMessage[] };
+        if (!cancelled) {
+          merge(data.messages);
+          setOffline(false);
         }
+      } catch {
+        if (!cancelled) setOffline(true);
+      } finally {
+        inFlight = false;
       }
-      if (!cancelled) timer = setTimeout(poll, POLL_MS);
     }
 
-    timer = setTimeout(poll, POLL_MS);
+    function schedule() {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        await fetchNew();
+        if (!cancelled) schedule();
+      }, liveRef.current ? LIVE_SAFETY_POLL_MS : POLL_MS);
+    }
+
+    schedule();
+    const stopListening = realtimeUrl && realtimeKey && realtimeTopic
+      ? listenForRing(
+          { url: realtimeUrl, anonKey: realtimeKey },
+          realtimeTopic,
+          () => void fetchNew(),
+          (connected) => {
+            if (cancelled || liveRef.current === connected) return;
+            liveRef.current = connected;
+            // Just connected: catch anything posted while connecting. Just dropped: back to fast checks.
+            if (connected) void fetchNew();
+            schedule();
+          },
+        )
+      : () => {};
     const onVisible = () => {
       if (document.visibilityState === "visible") {
-        clearTimeout(timer);
-        void poll();
+        void fetchNew();
+        schedule();
+        markRead();
       }
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      stopListening();
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [jobId, viewerRole, merge]);
+  }, [jobId, viewerRole, merge, markRead, realtimeUrl, realtimeKey, realtimeTopic]);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        inViewRef.current = entry.isIntersecting;
+        if (entry.isIntersecting) markRead();
+      },
+      { threshold: 0.5 },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [markRead]);
 
   // Follow new messages, unless the reader has scrolled up to read older ones.
   useEffect(() => {
     const el = scrollRef.current;
     if (el && stickToBottomRef.current) el.scrollTop = el.scrollHeight;
-  }, [messages]);
+    markRead();
+  }, [messages, markRead]);
 
   // Leaving the page mid-recording must release the microphone.
   useEffect(() => {

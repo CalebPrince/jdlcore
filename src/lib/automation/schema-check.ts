@@ -21,6 +21,7 @@ export const REQUIRED_MIGRATIONS = [
   "0012_clear_payment_transactions",
   "0013_fix_invoice_issued_without_invoice",
   "0014_upload_file_names_and_chat_attachments",
+  "0015_job_chat_reads",
 ] as const;
 
 function isMissingTable(err: unknown): boolean {
