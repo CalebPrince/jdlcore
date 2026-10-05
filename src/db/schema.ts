@@ -436,7 +436,13 @@ export const jobComments = pgTable(
     authorType: text("author_type").notNull(), // client | inspector | staff
     authorId: integer("author_id"),
     authorName: text("author_name").notNull(),
-    body: text("body").notNull(),
+    body: text("body").notNull(), // '' for a message that is only an attachment
+    // One optional attachment per chat message (document, picture or voice note). Never select
+    // attachmentData when listing messages; it is served on its own by the attachment route.
+    attachmentData: text("attachment_data"), // base64 data URL, same pattern as documents.fileData
+    attachmentName: text("attachment_name"),
+    attachmentMime: text("attachment_mime"),
+    attachmentSize: integer("attachment_size"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [index("job_comments_job_idx").on(table.jobId)],
@@ -543,6 +549,7 @@ export const documents = pgTable(
     url: text("url"),
     fileData: text("file_data"), // base64 data URL for small uploads
     mimeType: text("mime_type"),
+    fileName: text("file_name"), // original upload name, so it downloads as the same file
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -576,6 +583,7 @@ export const invoices = pgTable(
     paidAt: timestamp("paid_at", { withTimezone: true }),
     receiptFileData: text("receipt_file_data"), // base64 data URL, same pattern as documents.fileData
     receiptMimeType: text("receipt_mime_type"),
+    receiptFileName: text("receipt_file_name"),
     paymentReference: text("payment_reference"),
     clientComment: text("client_comment"),
     paymentSubmittedAt: timestamp("payment_submitted_at", { withTimezone: true }),

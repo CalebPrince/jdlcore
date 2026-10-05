@@ -28,7 +28,7 @@ const BUCKETS: { key: string; label: string; statuses: JobStatus[] }[] = [
   { key: "assigned", label: "Assigned", statuses: ["assigned"] },
   { key: "in_progress", label: "In Progress", statuses: ["inspector_accepted", "in_progress"] },
   { key: "awaiting_approval", label: "Awaiting Approval", statuses: ["awaiting_approval"] },
-  { key: "rejected", label: "Rejected", statuses: ["rejected_amendment"] },
+  { key: "rejected", label: "Rejected", statuses: ["rejected_amendment", "report_rejected"] },
   {
     key: "approved",
     label: "Approved / Billed",

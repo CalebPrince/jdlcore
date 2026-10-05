@@ -24,7 +24,7 @@ const BUCKETS: { key: string; label: string; statuses: JobStatus[] }[] = [
   {
     key: "history",
     label: "History",
-    statuses: ["approved", "report_issued", "invoice_issued", "paid", "closed"],
+    statuses: ["approved", "report_issued", "invoice_issued", "report_rejected", "paid", "closed"],
   },
 ];
 

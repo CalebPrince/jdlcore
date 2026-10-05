@@ -36,6 +36,7 @@ import { parseDecimal3, parseDecimalN } from "@/lib/decimal";
 import { lookupVolumeForDip } from "@/lib/tank-calibration";
 import { calculateOutturn, calculateReading, type MovementType, type ReadingInput } from "@/lib/outturn";
 import { sumOutturnTotals } from "@/lib/outturn-trail";
+import { MAX_UPLOAD_BYTES, readUpload } from "@/lib/uploads";
 import type { FormState } from "./submissions";
 
 const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
@@ -193,6 +194,9 @@ async function notifyOperationsRole(jobRef: string, title: string, body: string 
 
 const jobIdSchema = z.object({ jobId: z.coerce.number().int().positive() });
 
+/** The statuses in which an inspector can still enter or change a job's figures. */
+const EDITABLE_STATUSES = ["inspector_accepted", "in_progress", "rejected_amendment"];
+
 /* ---------------- Accept / Decline ---------------- */
 
 export async function acceptAssignment(_prev: FormState, formData: FormData): Promise<FormState> {
@@ -336,7 +340,7 @@ export async function saveCompletionData(_prev: FormState, formData: FormData): 
   const f = parsed.data;
   const job = await loadOwnJob(f.jobId, inspector.id);
   if (!job) return initialFail("Job not found.");
-  if (!["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status)) {
+  if (!EDITABLE_STATUSES.includes(job.status)) {
     return initialFail("This job isn't open for completion data right now.");
   }
 
@@ -560,7 +564,7 @@ export async function saveOutturnData(_prev: FormState, formData: FormData): Pro
   const f = parsed.data;
   const job = await loadOwnJob(f.jobId, inspector.id);
   if (!job) return initialFail("Job not found.");
-  if (!["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status)) {
+  if (!EDITABLE_STATUSES.includes(job.status)) {
     return initialFail("This job isn't open for outturn data right now.");
   }
 
@@ -658,7 +662,7 @@ export async function removeOutturnTankReading(formData: FormData): Promise<void
   const tankRowId = Number(formData.get("tankRowId"));
   if (!jobId || !tankRowId) return;
   const job = await loadOwnJob(jobId, inspector.id);
-  if (!job) return;
+  if (!job || !EDITABLE_STATUSES.includes(job.status)) return;
 
   const database = requireDb();
   const headerRows = await database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1);
@@ -674,6 +678,8 @@ export async function removeOutturnTankReading(formData: FormData): Promise<void
 
 const stockReadingSchema = z.object({
   jobId: z.coerce.number().int().positive(),
+  /** Present when editing an existing reading; absent when logging a new one. */
+  readingId: z.coerce.number().int().positive().optional(),
   tankId: z.coerce.number().int().positive(),
   readingDate: z.string().min(1, "Pick a date."),
   openingStock: z.string().optional(),
@@ -694,7 +700,8 @@ const stockReadingSchema = z.object({
   notes: z.string().trim().max(2000).optional(),
 });
 
-export async function addStockReading(_prev: FormState, formData: FormData): Promise<FormState> {
+/** Logs a new stock reading, or updates one (when readingId is given). */
+export async function saveStockReading(_prev: FormState, formData: FormData): Promise<FormState> {
   const inspector = await getInspector();
   if (!inspector) return initialFail("Unauthorized");
   const parsed = stockReadingSchema.safeParse(Object.fromEntries(formData));
@@ -705,6 +712,17 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
   if (job.serviceType !== "stock_monitoring") {
     return initialFail("Stock readings are only for Stock Monitoring jobs.");
   }
+  if (!EDITABLE_STATUSES.includes(job.status)) {
+    return initialFail("This job isn't open for stock readings right now.");
+  }
+  const ownTank = await requireDb()
+    .select({ id: tanks.id })
+    .from(tanks)
+    .where(and(eq(tanks.id, f.tankId), eq(tanks.clientId, job.clientId)))
+    .limit(1);
+  if (!ownTank[0]) return initialFail("Pick a tank that belongs to this client.");
+  const readingDate = new Date(f.readingDate);
+  if (Number.isNaN(readingDate.getTime())) return initialFail("That reading date isn't valid.");
 
   const fields = [
     ["openingStock", f.openingStock] as const,
@@ -733,10 +751,9 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
   const vcf = parseDecimalN(f.vcf, 5);
   if (!vcf.ok) return initialFail(`vcf: ${vcf.message}`);
 
-  await requireDb().insert(stockReadings).values({
-    jobId: f.jobId,
+  const values = {
     tankId: f.tankId,
-    readingDate: new Date(f.readingDate),
+    readingDate,
     openingStock: parsedValues.openingStock,
     receipts: parsedValues.receipts,
     transfers: parsedValues.transfers,
@@ -753,17 +770,42 @@ export async function addStockReading(_prev: FormState, formData: FormData): Pro
     pumpableStock: parsedValues.pumpableStock,
     statusRemark: f.statusRemark || null,
     notes: f.notes || null,
-    recordedByInspectorId: inspector.id,
-  });
+  };
+
+  const database = requireDb();
+  if (f.readingId) {
+    const updated = await database
+      .update(stockReadings)
+      .set(values)
+      .where(and(eq(stockReadings.id, f.readingId), eq(stockReadings.jobId, f.jobId)))
+      .returning({ id: stockReadings.id });
+    if (!updated[0]) return initialFail("That stock reading no longer exists.");
+  } else {
+    await database.insert(stockReadings).values({ jobId: f.jobId, ...values, recordedByInspectorId: inspector.id });
+  }
 
   revalidatePath(`/inspector/jobs/${f.jobId}`);
   revalidatePath(`/admin/jobs/${f.jobId}`);
-  return { ok: true, message: "Stock reading logged." };
+  return { ok: true, message: f.readingId ? "Stock reading updated." : "Stock reading logged." };
+}
+
+/** Removes one stock reading from the inspector's own job. */
+export async function removeStockReading(formData: FormData): Promise<void> {
+  const inspector = await getInspector();
+  if (!inspector) return;
+  const jobId = Number(formData.get("jobId"));
+  const readingId = Number(formData.get("readingId"));
+  if (!jobId || !readingId) return;
+  const job = await loadOwnJob(jobId, inspector.id);
+  if (!job || !EDITABLE_STATUSES.includes(job.status)) return;
+
+  await requireDb().delete(stockReadings).where(and(eq(stockReadings.id, readingId), eq(stockReadings.jobId, jobId)));
+
+  revalidatePath(`/inspector/jobs/${jobId}`);
+  revalidatePath(`/admin/jobs/${jobId}`);
 }
 
 /* ---------------- Documents ---------------- */
-
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
 
 const inspectorDocSchema = z.object({
   jobId: z.coerce.number().int().positive(),
@@ -784,16 +826,16 @@ export async function addInspectorDocument(_prev: FormState, formData: FormData)
   if (!(file instanceof File) || file.size === 0) return initialFail("Attach a file.");
   if (file.size > MAX_UPLOAD_BYTES) return initialFail("File is larger than 4 MB.");
 
-  const buf = Buffer.from(await file.arrayBuffer());
-  const mimeType = file.type || "application/octet-stream";
-  const fileData = `data:${mimeType};base64,${buf.toString("base64")}`;
+  const upload = await readUpload(file);
+  const fileData = upload.dataUrl;
+  const mimeType = upload.mimeType;
 
   const database = requireDb();
   let insertedId: number | null = null;
   try {
     const inserted = await database
       .insert(documents)
-      .values({ jobId: f.jobId, kind: f.kind, title: f.title, fileData, mimeType })
+      .values({ jobId: f.jobId, kind: f.kind, title: f.title, fileData, mimeType, fileName: upload.fileName || null })
       .returning({ id: documents.id });
     insertedId = inserted[0]?.id ?? null;
   } catch (err) {

@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { clients, inspectors, invoices, jobComments, jobUpdates, jobs } from "@/db/schema";
+import { clients, inspectors, invoices, jobUpdates, jobs } from "@/db/schema";
 import { requireStaffRole } from "@/lib/staff-auth";
 import { canTransition, canOverrideStatus, type Actor } from "@/lib/job-workflow";
 import { JOB_STATUSES, JOB_STATUS_META, type JobStatus } from "@/lib/jobs";
@@ -198,7 +198,7 @@ export async function approveJob(_prev: FormState, formData: FormData): Promise<
   if (auto.outcome === "issued") {
     return { ok: true, message: `Job approved. Certificate of Quantity and invoice ${auto.number} issued automatically.` };
   }
-  return { ok: true, message: "Job approved. Certificate of Quantity issued. Issue the invoice from this page when the amount is ready." };
+  return { ok: true, message: "Job approved. Certificate of Quantity issued. No invoice has been sent yet: issue it from the Invoices section on this page when the amount is ready." };
 }
 
 const rejectSchema = z.object({
@@ -260,6 +260,162 @@ export async function rejectJob(_prev: FormState, formData: FormData): Promise<F
 
   revalidateJob(jobId);
   return { ok: true, message: "Job returned to the inspector for amendment." };
+}
+
+/* ---------------- Client rejected the issued report ---------------- */
+
+const reportDecisionSchema = z.object({
+  jobId: z.coerce.number().int().positive(),
+  comment: z.string().trim().min(3, "A comment is required.").max(2000),
+});
+
+/** The client's own words from the latest rejection, for passing on to the inspector. */
+async function latestClientRejection(jobId: number): Promise<string | null> {
+  const rows = await requireDb()
+    .select({ note: jobUpdates.note })
+    .from(jobUpdates)
+    .where(and(eq(jobUpdates.jobId, jobId), eq(jobUpdates.status, "report_rejected")))
+    .orderBy(desc(jobUpdates.id))
+    .limit(1);
+  return rows[0]?.note ?? null;
+}
+
+/** Operations agrees the report needs work: sends the job back to the inspector for amendment. */
+export async function returnRejectedReport(_prev: FormState, formData: FormData): Promise<FormState> {
+  const staff = await requireStaffRole([...OPS_ROLES]);
+  if (!staff) return initialFail("Unauthorized");
+  const parsed = reportDecisionSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { jobId, comment } = parsed.data;
+
+  const job = await loadJob(jobId);
+  if (!job) return initialFail("Job not found.");
+  const actor: Actor = { type: "staff", id: staff.id, name: staff.name, role: staff.role as Actor["role"] };
+  if (job.status !== "report_rejected" || !canTransition(job.status as JobStatus, "rejected_amendment", actor)) {
+    return initialFail("This job isn't waiting on a rejected report.");
+  }
+  if (!job.assignedInspectorId) return initialFail("This job has no inspector to return it to.");
+
+  const database = requireDb();
+  const clientReason = await latestClientRejection(jobId);
+  const updated = await database
+    .update(jobs)
+    .set({ status: "rejected_amendment", updatedAt: new Date() })
+    .where(and(eq(jobs.id, jobId), eq(jobs.status, "report_rejected")))
+    .returning({ id: jobs.id });
+  if (updated.length === 0) return initialFail("This job has just changed. Refresh and try again.");
+  await database.insert(jobUpdates).values({
+    jobId,
+    status: "rejected_amendment",
+    note: `Returned for amendment after the client rejected the report. ${comment}`,
+    actorType: "staff",
+    actorId: staff.id,
+    actorName: staff.name,
+  });
+
+  const inspRows = await database
+    .select({ email: inspectors.email })
+    .from(inspectors)
+    .where(eq(inspectors.id, job.assignedInspectorId))
+    .limit(1);
+  if (inspRows[0]) {
+    await notifyBoth({
+      recipientType: "inspector",
+      recipientId: job.assignedInspectorId,
+      email: inspRows[0].email,
+      jobId,
+      type: "amendment_required",
+      title: `Amendment required: ${job.ref}`,
+      body: comment,
+      link: `/inspector/jobs/${jobId}`,
+      emailSubject: `[${job.ref}] Amendment required - JDL Core`,
+      emailHtml: inspectorEmail(
+        `Amendment required: ${job.ref}`,
+        ["The client rejected the issued report, and Operations has returned the job to you.", comment, clientReason ?? ""].filter(Boolean),
+        job.ref,
+      ),
+    });
+  }
+
+  const recipient = await clientEmailForJob(jobId);
+  if (recipient) {
+    await notifyBoth({
+      recipientType: "client",
+      recipientId: recipient.clientId,
+      email: recipient.email,
+      jobId,
+      type: "report_rejection_accepted",
+      title: `Your report is being amended: ${job.ref}`,
+      body: comment,
+      link: `/portal/jobs/${jobId}`,
+      emailSubject: `[${recipient.ref}] Your report is being amended - JDL Core`,
+      emailHtml: clientEmail(
+        `Your report on ${recipient.ref} is being amended`,
+        ["Operations reviewed your rejection and has returned the report to the inspector for amendment.", comment, "You will be notified when the amended report is issued."],
+        recipient.ref,
+      ),
+    });
+  }
+
+  revalidateJob(jobId);
+  return { ok: true, message: "Job returned to the inspector for amendment. The client has been told." };
+}
+
+/** Operations stands by the report: explains why to the client and puts the job back where it was. */
+export async function upholdRejectedReport(_prev: FormState, formData: FormData): Promise<FormState> {
+  const staff = await requireStaffRole([...OPS_ROLES]);
+  if (!staff) return initialFail("Unauthorized");
+  const parsed = reportDecisionSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return initialFail(parsed.error.issues[0]?.message ?? "Invalid input.");
+  const { jobId, comment } = parsed.data;
+
+  const job = await loadJob(jobId);
+  if (!job) return initialFail("Job not found.");
+  if (job.status !== "report_rejected") return initialFail("This job isn't waiting on a rejected report.");
+
+  const database = requireDb();
+  const invoiced = await database.select({ id: invoices.id }).from(invoices).where(eq(invoices.jobId, jobId)).limit(1);
+  const backTo: JobStatus = invoiced[0] ? "invoice_issued" : "report_issued";
+  const actor: Actor = { type: "staff", id: staff.id, name: staff.name, role: staff.role as Actor["role"] };
+  if (!canTransition("report_rejected", backTo, actor)) return initialFail("Unauthorized");
+
+  const updated = await database
+    .update(jobs)
+    .set({ status: backTo, updatedAt: new Date() })
+    .where(and(eq(jobs.id, jobId), eq(jobs.status, "report_rejected")))
+    .returning({ id: jobs.id });
+  if (updated.length === 0) return initialFail("This job has just changed. Refresh and try again.");
+  await database.insert(jobUpdates).values({
+    jobId,
+    status: backTo,
+    note: `Report upheld by ${staff.name} after the client's rejection. ${comment}`,
+    actorType: "staff",
+    actorId: staff.id,
+    actorName: staff.name,
+  });
+
+  const recipient = await clientEmailForJob(jobId);
+  if (recipient) {
+    await notifyBoth({
+      recipientType: "client",
+      recipientId: recipient.clientId,
+      email: recipient.email,
+      jobId,
+      type: "report_upheld",
+      title: `Report upheld: ${job.ref}`,
+      body: comment,
+      link: `/portal/jobs/${jobId}`,
+      emailSubject: `[${recipient.ref}] Response to your report rejection - JDL Core`,
+      emailHtml: clientEmail(
+        `Operations reviewed your rejection on ${recipient.ref}`,
+        ["After review, the report stands as issued. Operations' response:", comment, "You can reply in the job's group chat if you want to discuss it further."],
+        recipient.ref,
+      ),
+    });
+  }
+
+  revalidateJob(jobId);
+  return { ok: true, message: "Report upheld. The client has been sent your explanation." };
 }
 
 /* ---------------- Payments ---------------- */
@@ -431,50 +587,4 @@ export async function overrideJobStatus(_prev: FormState, formData: FormData): P
 
   revalidateJob(jobId);
   return { ok: true, message: `Status manually set to ${JOB_STATUS_META[status as JobStatus].label}.` };
-}
-
-/* ---------------- Comments (staff reply) ---------------- */
-
-const staffCommentSchema = z.object({
-  jobId: z.coerce.number().int().positive(),
-  body: z.string().trim().min(1).max(2000),
-});
-
-export async function addStaffJobComment(_prev: FormState, formData: FormData): Promise<FormState> {
-  const staff = await requireStaffRole([...OPS_ROLES]);
-  if (!staff) return initialFail("Unauthorized");
-  const parsed = staffCommentSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return initialFail("Enter a comment.");
-  const { jobId, body } = parsed.data;
-
-  const job = await loadJob(jobId);
-  if (!job) return initialFail("Job not found.");
-
-  await requireDb().insert(jobComments).values({
-    jobId,
-    authorType: "staff",
-    authorId: staff.id,
-    authorName: staff.name,
-    body,
-  });
-
-  const recipient = await clientEmailForJob(jobId);
-  if (recipient) {
-    await notifyBoth({
-      recipientType: "client",
-      recipientId: recipient.clientId,
-      email: recipient.email,
-      jobId,
-      type: "job_comment",
-      title: `New reply on ${job.ref}`,
-      body: body.slice(0, 140),
-      link: `/portal/jobs/${jobId}`,
-      emailSubject: `[${job.ref}] New reply on your job - JDL Core`,
-      emailHtml: clientEmail(`New reply on ${job.ref}`, [body.slice(0, 500)], job.ref),
-    });
-  }
-
-  revalidatePath(`/admin/jobs/${jobId}`);
-  revalidatePath(`/portal/jobs/${jobId}`);
-  return { ok: true, message: "Comment added." };
 }

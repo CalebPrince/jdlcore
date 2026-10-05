@@ -1,24 +1,40 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, sql } from "drizzle-orm";
 import { ArrowLeft } from "lucide-react";
 import { requireDb } from "@/db";
-import { clients, jobCompletionData, jobOutturns, jobOutturnTanks, jobUpdates, jobs, tanks } from "@/db/schema";
+import {
+  clients,
+  documents,
+  jobCompletionData,
+  jobOutturns,
+  jobOutturnTanks,
+  jobUpdates,
+  jobs,
+  stockReadings,
+  tanks,
+  type StockReading,
+} from "@/db/schema";
 import { getInspector } from "@/lib/inspector-auth";
 import { JOB_STATUS_META, SERVICE_TYPE_LABEL, type JobStatus, type ServiceType } from "@/lib/jobs";
-import { buildOutturnTrail } from "@/lib/outturn-trail";
+import { buildOutturnTrail, type OutturnTankRow } from "@/lib/outturn-trail";
+import { lookupVolumeForDip } from "@/lib/tank-calibration";
 import {
   AcceptDeclineForms,
   AmendResubmitForm,
   CompletionDataForm,
   ProgressUpdateForm,
   StockReadingForm,
+  type StockReadingDefaults,
   SubmitForApprovalForm,
   UploadDocumentForm,
 } from "@/components/inspector/inspector-job-forms";
 import { OutturnForm, type OutturnDefaults } from "@/components/inspector/outturn-form";
 import { OutturnTrailDisplay } from "@/components/inspector/outturn-trail-display";
 import { OutturnSummaryCard, OutturnTanksList } from "@/components/inspector/outturn-summary";
+import { JobChat } from "@/components/chat/job-chat";
+import { listJobMessages } from "@/lib/job-chat";
+import { StockReadingsList } from "@/components/inspector/stock-readings-list";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -37,17 +53,51 @@ const dateTimeFmt = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
+const EDITABLE_STATUSES = ["inspector_accepted", "in_progress", "rejected_amendment"];
+const STOCK_READINGS_SHOWN = 60;
+
+const fixed3 = (n: number) => n.toFixed(3);
+
+/**
+ * The saved TGV/water/roof volumes that did NOT come from the tank's calibration table, so the edit
+ * form can put them back in the manual-override fields. Without this, re-saving a tank that was
+ * entered with manual figures would fail (or silently swap them for a calibration lookup).
+ */
+async function manualOverridesFor(row: OutturnTankRow, side: "initial" | "final") {
+  const tankId = row[`${side}TankId`];
+  const dip = row[`${side}DipMm`];
+  const waterDip = row[`${side}WaterDipMm`];
+  const tgv = row[`${side}TgvL`];
+  const water = row[`${side}WaterVolumeL`];
+  const roof = row[`${side}RoofVolumeL`];
+
+  const looked = dip !== null ? await lookupVolumeForDip(tankId, Number(dip)) : null;
+  const expectedTgv = looked ? fixed3(looked.tgvL) : null;
+  const expectedRoof = fixed3(looked?.roofVolumeL ?? 0);
+  let expectedWater: string | null = fixed3(0);
+  if (waterDip !== null && Number(waterDip) !== 0) {
+    const lookedWater = await lookupVolumeForDip(tankId, Number(waterDip));
+    expectedWater = lookedWater ? fixed3(lookedWater.tgvL) : null;
+  }
+
+  return {
+    tgv: tgv !== null && tgv !== expectedTgv ? tgv : null,
+    water: water !== null && water !== expectedWater ? water : null,
+    roof: roof !== null && roof !== expectedRoof ? roof : null,
+  };
+}
+
 export default async function InspectorJobDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ editOutturnTank?: string }>;
+  searchParams: Promise<{ editOutturnTank?: string; editStockReading?: string }>;
 }) {
   const { id } = await params;
   const jobId = Number(id);
   if (!Number.isInteger(jobId)) notFound();
-  const { editOutturnTank } = await searchParams;
+  const { editOutturnTank, editStockReading } = await searchParams;
 
   const inspector = await getInspector();
   if (!inspector) return null;
@@ -70,6 +120,13 @@ export default async function InspectorJobDetailPage({
     database.select().from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1),
   ]);
 
+  const chatMessages = await listJobMessages(jobId);
+  const jobDocs = await database
+    .select({ id: documents.id, title: documents.title, fileName: documents.fileName, createdAt: documents.createdAt })
+    .from(documents)
+    .where(eq(documents.jobId, jobId))
+    .orderBy(desc(documents.createdAt));
+
   const meta = JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.assigned;
   const cd = completion[0];
   const outturnHeader = outturnHeaderRows[0];
@@ -79,8 +136,67 @@ export default async function InspectorJobDetailPage({
   const tankNames = new Map(tankList.map((t) => [t.id, t.name]));
   const lastRejection = [...timeline].reverse().find((u) => u.status === "rejected_amendment");
 
-  const editingTankRow = editOutturnTank
-    ? outturnTankRows.find((t) => t.id === Number(editOutturnTank))
+  const editable = EDITABLE_STATUSES.includes(job.status);
+
+  const editingTankRow =
+    editable && editOutturnTank ? outturnTankRows.find((t) => t.id === Number(editOutturnTank)) : undefined;
+  const [initialManual, finalManual] = editingTankRow
+    ? await Promise.all([manualOverridesFor(editingTankRow, "initial"), manualOverridesFor(editingTankRow, "final")])
+    : [null, null];
+  const editingTankName = editingTankRow
+    ? (tankNames.get(editingTankRow.initialTankId) ?? `Tank #${editingTankRow.initialTankId}`)
+    : null;
+
+  const isStockJob = job.serviceType === "stock_monitoring";
+  let stockRows: StockReading[] = [];
+  let stockCount = 0;
+  let editingReading: StockReading | undefined;
+  if (isStockJob) {
+    stockRows = await database
+      .select()
+      .from(stockReadings)
+      .where(eq(stockReadings.jobId, jobId))
+      .orderBy(desc(stockReadings.readingDate), desc(stockReadings.id))
+      .limit(STOCK_READINGS_SHOWN);
+    const countRows = await database
+      .select({ n: sql<number>`count(*)::int` })
+      .from(stockReadings)
+      .where(eq(stockReadings.jobId, jobId));
+    stockCount = countRows[0]?.n ?? stockRows.length;
+    const editingId = Number(editStockReading);
+    if (editable && Number.isInteger(editingId) && editingId > 0) {
+      editingReading =
+        stockRows.find((r) => r.id === editingId) ??
+        (
+          await database
+            .select()
+            .from(stockReadings)
+            .where(and(eq(stockReadings.id, editingId), eq(stockReadings.jobId, jobId)))
+            .limit(1)
+        )[0];
+    }
+  }
+  const stockDefaults: StockReadingDefaults | undefined = editingReading
+    ? {
+        tankId: String(editingReading.tankId),
+        readingDate: new Date(editingReading.readingDate).toISOString().slice(0, 10),
+        openingStock: editingReading.openingStock,
+        receipts: editingReading.receipts,
+        transfers: editingReading.transfers,
+        dischargesLoads: editingReading.dischargesLoads,
+        closingStock: editingReading.closingStock,
+        gsv: editingReading.gsv,
+        dipHeightMm: editingReading.dipHeightMm,
+        temperatureC: editingReading.temperatureC,
+        densityAt20: editingReading.densityAt20,
+        vcf: editingReading.vcf,
+        gov: editingReading.gov,
+        netWeightAir: editingReading.netWeightAir,
+        netWeightVacuum: editingReading.netWeightVacuum,
+        pumpableStock: editingReading.pumpableStock,
+        statusRemark: editingReading.statusRemark,
+        notes: editingReading.notes,
+      }
     : undefined;
 
   const outturnDefaults: OutturnDefaults = {
@@ -102,6 +218,14 @@ export default async function InspectorJobDetailPage({
     finalDensityAt20: editingTankRow?.finalDensityAt20 ?? null,
     finalVcf: editingTankRow?.finalVcf ?? null,
     finalSwPercent: editingTankRow?.finalSwPercent ?? null,
+    initialManualTgvL: initialManual?.tgv ?? null,
+    initialManualWaterVolumeL: initialManual?.water ?? null,
+    initialManualRoofVolumeL: initialManual?.roof ?? null,
+    initialAirBuoyancyOverrideMt: editingTankRow?.initialAirBuoyancyOverrideMt ?? null,
+    finalManualTgvL: finalManual?.tgv ?? null,
+    finalManualWaterVolumeL: finalManual?.water ?? null,
+    finalManualRoofVolumeL: finalManual?.roof ?? null,
+    finalAirBuoyancyOverrideMt: editingTankRow?.finalAirBuoyancyOverrideMt ?? null,
   };
 
   return (
@@ -162,24 +286,44 @@ export default async function InspectorJobDetailPage({
         </Card>
       )}
 
-      {["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status) && (
+      {(editable || (outturnHeader && outturnTankRows.length > 0)) && (
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Product Outturn</CardTitle>
           </CardHeader>
           <CardContent className="flex flex-col gap-5">
-            {outturnHeader && (
-              <OutturnTanksList jobId={job.id} header={outturnHeader} tankRows={outturnTankRows} tankNames={tankNames} editable />
+            {!editable && (
+              <p className="m-0 rounded-lg bg-muted/50 p-3 text-sm text-muted-foreground">
+                {job.status === "awaiting_approval"
+                  ? "These figures are with Operations for review and can't be changed right now. If something is wrong, ask Operations to return the job for amendment."
+                  : "These figures are final and can no longer be changed."}
+              </p>
             )}
-            <div id="outturn-form">
-              <OutturnForm
+            {outturnHeader && (
+              <OutturnTanksList
                 jobId={job.id}
-                tanks={tankList}
-                defaults={outturnDefaults}
-                editingTankRowId={editingTankRow?.id}
-                cancelEditHref={`/inspector/jobs/${job.id}`}
+                header={outturnHeader}
+                tankRows={outturnTankRows}
+                tankNames={tankNames}
+                editable={editable}
               />
-            </div>
+            )}
+            {editable && (
+              <div id="outturn-form" className="flex scroll-mt-24 flex-col gap-3">
+                <p className="m-0 text-sm font-semibold text-navy-950">
+                  {editingTankName ? `Editing ${editingTankName}` : "Add a tank"}
+                </p>
+                {/* Keyed so the fields reload with the chosen tank's saved figures when Edit is clicked. */}
+                <OutturnForm
+                  key={editingTankRow?.id ?? "new"}
+                  jobId={job.id}
+                  tanks={tankList}
+                  defaults={outturnDefaults}
+                  editingTankRowId={editingTankRow?.id}
+                  cancelEditHref={`/inspector/jobs/${job.id}`}
+                />
+              </div>
+            )}
             {outturnHeader && outturnTankRows.length > 0 && (
               <>
                 {outturnTankRows.map((t) => (
@@ -192,7 +336,7 @@ export default async function InspectorJobDetailPage({
         </Card>
       )}
 
-      {["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status) && (
+      {editable && (
         <Card>
           <CardHeader>
             <CardTitle className="font-display">Completion Data</CardTitle>
@@ -229,36 +373,82 @@ export default async function InspectorJobDetailPage({
         </Card>
       )}
 
-      {["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status) && (
+      {editable && (
         <Card>
           <CardHeader>
-            <CardTitle className="font-display">Upload Document</CardTitle>
+            <CardTitle className="font-display">Documents</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="flex flex-col gap-4">
+            {jobDocs.length > 0 && (
+              <ul className="m-0 flex list-none flex-col gap-2 p-0">
+                {jobDocs.map((d) => (
+                  <li key={d.id} className="flex items-center gap-3 rounded-lg border p-3" style={{ borderColor: "var(--border)" }}>
+                    <div className="min-w-0 flex-1">
+                      <p className="m-0 truncate text-sm font-medium text-navy-950">{d.title}</p>
+                      <p className="m-0 truncate text-xs text-muted-foreground">
+                        {d.fileName ? `${d.fileName} · ` : ""}
+                        {dateFmt.format(new Date(d.createdAt))}
+                      </p>
+                    </div>
+                    <a
+                      href={`/api/portal/documents/${d.id}`}
+                      className="shrink-0 text-xs font-semibold text-navy-700 underline-offset-2 hover:underline"
+                    >
+                      Download
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            )}
             <UploadDocumentForm jobId={job.id} />
           </CardContent>
         </Card>
       )}
 
-      {job.serviceType === "stock_monitoring" &&
-        ["inspector_accepted", "in_progress", "rejected_amendment"].includes(job.status) && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="font-display">Stock Readings</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              <details className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)" }}>
-                <summary className="cursor-pointer text-sm font-semibold text-navy-950">
-                  Import from stock sheet
-                </summary>
-                <div className="mt-3">
-                  <StockSheetImport jobId={job.id} tanks={tankList} />
+      {isStockJob && (editable || stockRows.length > 0) && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="font-display">Stock Readings</CardTitle>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            <StockReadingsList
+              jobId={job.id}
+              readings={stockRows}
+              totalCount={stockCount}
+              tankNames={tankNames}
+              editable={editable}
+              editingReadingId={editingReading?.id}
+            />
+            {editable && (
+              <>
+                <details className="rounded-xl border px-4 py-3" style={{ borderColor: "var(--border)" }}>
+                  <summary className="cursor-pointer text-sm font-semibold text-navy-950">
+                    Import from stock sheet
+                  </summary>
+                  <div className="mt-3">
+                    <StockSheetImport jobId={job.id} tanks={tankList} />
+                  </div>
+                </details>
+                <div id="stock-reading-form" className="flex scroll-mt-24 flex-col gap-3">
+                  <p className="m-0 text-sm font-semibold text-navy-950">
+                    {editingReading
+                      ? `Editing the reading for ${tankNames.get(editingReading.tankId) ?? `Tank #${editingReading.tankId}`}`
+                      : "Log a reading"}
+                  </p>
+                  <StockReadingForm
+                    key={editingReading?.id ?? "new"}
+                    jobId={job.id}
+                    tanks={tankList}
+                    defaults={stockDefaults}
+                    editingReadingId={editingReading?.id}
+                    cancelEditHref={`/inspector/jobs/${job.id}`}
+                  />
                 </div>
-              </details>
-              <StockReadingForm jobId={job.id} tanks={tankList} />
-            </CardContent>
-          </Card>
-        )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {(job.status === "inspector_accepted" || job.status === "in_progress") && (
         <Card>
@@ -275,6 +465,21 @@ export default async function InspectorJobDetailPage({
           </CardContent>
         </Card>
       )}
+
+      <Card id="chat" className="scroll-mt-24">
+        <CardHeader>
+          <CardTitle className="font-display">Group Chat</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <JobChat
+            jobId={job.id}
+            viewerRole="inspector"
+            viewerId={inspector.id}
+            initialMessages={chatMessages}
+            participantsNote={`Shared with the client (${client.name}) and JDL Core Operations. Both see everything posted here.`}
+          />
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader>

@@ -62,7 +62,7 @@ export function AddDocumentForm({ jobId }: { jobId: number }) {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`df-${jobId}`}>Upload file (max 4 MB)</Label>
-          <Input id={`df-${jobId}`} name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" />
+          <Input id={`df-${jobId}`} name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`du-${jobId}`}>…or paste a link</Label>

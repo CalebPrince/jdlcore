@@ -8,6 +8,7 @@ export const JOB_STATUSES = [
   "approved",
   "report_issued",
   "invoice_issued",
+  "report_rejected",
   "paid",
   "closed",
 ] as const;
@@ -55,13 +56,18 @@ export const JOB_STATUS_META: Record<
   },
   report_issued: {
     label: "Report Issued",
-    description: "The Certificate of Quantity is available for download.",
+    description: "The Certificate of Quantity is available for download. Your invoice will follow from Operations.",
     badgeClass: "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]",
   },
   invoice_issued: {
     label: "Invoice Issued",
     description: "An invoice has been issued and is awaiting payment.",
     badgeClass: "bg-[rgba(31,122,77,0.12)] text-[#1f7a4d]",
+  },
+  report_rejected: {
+    label: "Report Rejected by Client",
+    description: "The client rejected the issued report. Operations is reviewing the reason given.",
+    badgeClass: "bg-red-500/10 text-red-700",
   },
   paid: {
     label: "Paid",

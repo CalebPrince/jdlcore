@@ -1,14 +1,16 @@
 "use client";
 
 import { useActionState, useEffect, useRef } from "react";
+import Link from "next/link";
 import {
   acceptAssignment,
   addInspectorDocument,
-  addStockReading,
   amendAndResubmit,
   declineAssignment,
   postProgressUpdate,
+  removeStockReading,
   saveCompletionData,
+  saveStockReading,
   submitForApproval,
 } from "@/app/actions/inspector";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -167,15 +169,69 @@ export function CompletionDataForm({
   );
 }
 
-export function StockReadingForm({ jobId, tanks }: { jobId: number; tanks: { id: number; name: string }[] }) {
-  const [state, action, pending] = useActionState(addStockReading, initial);
+/** Stored values of the reading being edited, as form-ready strings. */
+export type StockReadingDefaults = Partial<
+  Record<
+    | "tankId"
+    | "readingDate"
+    | "openingStock"
+    | "receipts"
+    | "transfers"
+    | "dischargesLoads"
+    | "closingStock"
+    | "gsv"
+    | "dipHeightMm"
+    | "temperatureC"
+    | "densityAt20"
+    | "vcf"
+    | "gov"
+    | "netWeightAir"
+    | "netWeightVacuum"
+    | "pumpableStock"
+    | "statusRemark"
+    | "notes",
+    string | null
+  >
+>;
+
+const GAUGING_FIELDS = [
+  "dipHeightMm",
+  "temperatureC",
+  "densityAt20",
+  "vcf",
+  "gov",
+  "netWeightAir",
+  "netWeightVacuum",
+  "pumpableStock",
+  "statusRemark",
+] as const;
+
+export function StockReadingForm({
+  jobId,
+  tanks,
+  defaults,
+  editingReadingId,
+  cancelEditHref,
+}: {
+  jobId: number;
+  tanks: { id: number; name: string }[];
+  defaults?: StockReadingDefaults;
+  /** Present when editing an already-logged reading; the save writes to that row instead of adding a new one. */
+  editingReadingId?: number;
+  /** Where "Cancel" should go back to, when editing. */
+  cancelEditHref?: string;
+}) {
+  const [state, action, pending] = useActionState(saveStockReading, initial);
+  const d = defaults ?? {};
+  const hasGaugingDetail = GAUGING_FIELDS.some((k) => d[k] != null && d[k] !== "");
   return (
     <form action={action} className="flex flex-col gap-3">
       <input type="hidden" name="jobId" value={jobId} />
+      {editingReadingId && <input type="hidden" name="readingId" value={editingReadingId} />}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1.5">
           <Label>Tank</Label>
-          <Select name="tankId" required>
+          <Select name="tankId" required defaultValue={d.tankId ?? undefined}>
             <SelectTrigger className="w-full">
               <SelectValue placeholder={tanks.length === 0 ? "No tanks on file" : "Select tank"} />
             </SelectTrigger>
@@ -190,84 +246,110 @@ export function StockReadingForm({ jobId, tanks }: { jobId: number; tanks: { id:
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-date-${jobId}`}>Reading date</Label>
-          <Input id={`sr-date-${jobId}`} name="readingDate" type="date" required />
+          <Input id={`sr-date-${jobId}`} name="readingDate" type="date" required defaultValue={d.readingDate ?? undefined} />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-open-${jobId}`}>Opening stock</Label>
-          <Input id={`sr-open-${jobId}`} name="openingStock" inputMode="decimal" placeholder="0.000" />
+          <Input id={`sr-open-${jobId}`} name="openingStock" defaultValue={d.openingStock ?? undefined} inputMode="decimal" placeholder="0.000" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-recv-${jobId}`}>Receipts</Label>
-          <Input id={`sr-recv-${jobId}`} name="receipts" inputMode="decimal" placeholder="0.000" />
+          <Input id={`sr-recv-${jobId}`} name="receipts" defaultValue={d.receipts ?? undefined} inputMode="decimal" placeholder="0.000" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-tran-${jobId}`}>Transfers</Label>
-          <Input id={`sr-tran-${jobId}`} name="transfers" inputMode="decimal" placeholder="0.000" />
+          <Input id={`sr-tran-${jobId}`} name="transfers" defaultValue={d.transfers ?? undefined} inputMode="decimal" placeholder="0.000" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-disc-${jobId}`}>Discharges/Loads</Label>
-          <Input id={`sr-disc-${jobId}`} name="dischargesLoads" inputMode="decimal" placeholder="0.000" />
+          <Input id={`sr-disc-${jobId}`} name="dischargesLoads" defaultValue={d.dischargesLoads ?? undefined} inputMode="decimal" placeholder="0.000" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-close-${jobId}`}>Closing stock</Label>
-          <Input id={`sr-close-${jobId}`} name="closingStock" inputMode="decimal" placeholder="0.000" />
+          <Input id={`sr-close-${jobId}`} name="closingStock" defaultValue={d.closingStock ?? undefined} inputMode="decimal" placeholder="0.000" />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor={`sr-gsv-${jobId}`}>GSV</Label>
-          <Input id={`sr-gsv-${jobId}`} name="gsv" inputMode="decimal" placeholder="0.000" />
+          <Input id={`sr-gsv-${jobId}`} name="gsv" defaultValue={d.gsv ?? undefined} inputMode="decimal" placeholder="0.000" />
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor={`sr-notes-${jobId}`}>Notes</Label>
-          <Textarea id={`sr-notes-${jobId}`} name="notes" rows={2} />
+          <Textarea id={`sr-notes-${jobId}`} name="notes" rows={2} defaultValue={d.notes ?? undefined} />
         </div>
       </div>
 
-      <details className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
+      <details open={hasGaugingDetail || undefined} className="rounded-lg border px-3 py-2 text-sm" style={{ borderColor: "var(--border)" }}>
         <summary className="cursor-pointer font-medium text-navy-950">Gauging detail (optional)</summary>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-dip-${jobId}`}>Dip height (mm)</Label>
-            <Input id={`sr-dip-${jobId}`} name="dipHeightMm" inputMode="decimal" placeholder="0.000" />
+            <Input id={`sr-dip-${jobId}`} name="dipHeightMm" defaultValue={d.dipHeightMm ?? undefined} inputMode="decimal" placeholder="0.000" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-temp-${jobId}`}>Temperature (°C)</Label>
-            <Input id={`sr-temp-${jobId}`} name="temperatureC" inputMode="decimal" placeholder="0.00" />
+            <Input id={`sr-temp-${jobId}`} name="temperatureC" defaultValue={d.temperatureC ?? undefined} inputMode="decimal" placeholder="0.00" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-den-${jobId}`}>Density @ 20°C</Label>
-            <Input id={`sr-den-${jobId}`} name="densityAt20" inputMode="decimal" placeholder="0.0000" />
+            <Input id={`sr-den-${jobId}`} name="densityAt20" defaultValue={d.densityAt20 ?? undefined} inputMode="decimal" placeholder="0.0000" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-vcf-${jobId}`}>VCF</Label>
-            <Input id={`sr-vcf-${jobId}`} name="vcf" inputMode="decimal" placeholder="0.00000" />
+            <Input id={`sr-vcf-${jobId}`} name="vcf" defaultValue={d.vcf ?? undefined} inputMode="decimal" placeholder="0.00000" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-gov-${jobId}`}>GOV</Label>
-            <Input id={`sr-gov-${jobId}`} name="gov" inputMode="decimal" placeholder="0.000" />
+            <Input id={`sr-gov-${jobId}`} name="gov" defaultValue={d.gov ?? undefined} inputMode="decimal" placeholder="0.000" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-nwa-${jobId}`}>Net weight — air (MT)</Label>
-            <Input id={`sr-nwa-${jobId}`} name="netWeightAir" inputMode="decimal" placeholder="0.000" />
+            <Input id={`sr-nwa-${jobId}`} name="netWeightAir" defaultValue={d.netWeightAir ?? undefined} inputMode="decimal" placeholder="0.000" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-nwv-${jobId}`}>Net weight — vacuum (MT)</Label>
-            <Input id={`sr-nwv-${jobId}`} name="netWeightVacuum" inputMode="decimal" placeholder="0.000" />
+            <Input id={`sr-nwv-${jobId}`} name="netWeightVacuum" defaultValue={d.netWeightVacuum ?? undefined} inputMode="decimal" placeholder="0.000" />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor={`sr-pump-${jobId}`}>Pumpable stock (MT)</Label>
-            <Input id={`sr-pump-${jobId}`} name="pumpableStock" inputMode="decimal" placeholder="0.000" />
+            <Input id={`sr-pump-${jobId}`} name="pumpableStock" defaultValue={d.pumpableStock ?? undefined} inputMode="decimal" placeholder="0.000" />
           </div>
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <Label htmlFor={`sr-remark-${jobId}`}>Status remark</Label>
-            <Input id={`sr-remark-${jobId}`} name="statusRemark" maxLength={40} placeholder="FEEDING, PLANT SUCTION, GOOD…" />
+            <Input id={`sr-remark-${jobId}`} name="statusRemark" defaultValue={d.statusRemark ?? undefined} maxLength={40} placeholder="FEEDING, PLANT SUCTION, GOOD…" />
           </div>
         </div>
       </details>
 
-      <Button type="submit" disabled={pending || tanks.length === 0} variant="outline" className="self-start">
-        {pending ? "Logging…" : "Log Stock Reading"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending || tanks.length === 0} variant="outline" className="self-start">
+          {pending ? "Saving…" : editingReadingId ? "Save Changes" : "Log Stock Reading"}
+        </Button>
+        {editingReadingId && cancelEditHref && (
+          <Link href={cancelEditHref} className="text-sm text-muted-foreground hover:underline">
+            Cancel
+          </Link>
+        )}
+      </div>
       <Feedback state={state} />
+    </form>
+  );
+}
+
+export function RemoveStockReadingButton({ jobId, readingId }: { jobId: number; readingId: number }) {
+  return (
+    <form
+      action={removeStockReading}
+      onSubmit={(e) => {
+        if (!window.confirm("Remove this stock reading? This can't be undone.")) {
+          e.preventDefault();
+        }
+      }}
+    >
+      <input type="hidden" name="jobId" value={jobId} />
+      <input type="hidden" name="readingId" value={readingId} />
+      <Button type="submit" variant="ghost" size="sm">
+        Remove
+      </Button>
     </form>
   );
 }
@@ -302,7 +384,7 @@ export function UploadDocumentForm({ jobId }: { jobId: number }) {
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor={`ud-file-${jobId}`}>File (max 4 MB)</Label>
-          <Input id={`ud-file-${jobId}`} name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx" required />
+          <Input id={`ud-file-${jobId}`} name="file" type="file" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.csv" required />
         </div>
       </div>
       <Button type="submit" disabled={pending} variant="outline" className="self-start">

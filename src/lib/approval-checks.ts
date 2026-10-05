@@ -14,7 +14,7 @@ import { loadJobReviews } from "@/lib/ai/document-review";
 import { getAutomationSettings } from "@/lib/settings";
 import { checkReconcile, checkRequired } from "@/lib/approval-rules";
 
-const DONE_STATUSES = ["approved", "report_issued", "invoice_issued", "paid", "closed"];
+const DONE_STATUSES = ["approved", "report_issued", "invoice_issued", "report_rejected", "paid", "closed"];
 
 export type ApprovalEvaluation = {
   verdict: "pass" | "fail";

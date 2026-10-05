@@ -142,12 +142,30 @@ export async function runOpsDigest() {
     sections.push({ heading: "Stock monitoring with no tank reading for 2+ days", items: missingReadings });
   }
 
+  // ---- Reports the client rejected, still waiting on an Operations decision ---------------
+  const clientRejected = await database
+    .select({ ref: jobs.ref, updatedAt: jobs.updatedAt })
+    .from(jobs)
+    .where(eq(jobs.status, "report_rejected"));
+  if (clientRejected.length) {
+    sections.push({
+      heading: "Report rejected by the client, needs your decision",
+      items: clientRejected.map((j) => `${j.ref} (${age(now - j.updatedAt.getTime())})`),
+    });
+  }
+
   // ---- Approved but never invoiced -------------------------------------------------------
   const uninvoiced = await database
     .select({ ref: jobs.ref, updatedAt: jobs.updatedAt })
     .from(jobs)
     .leftJoin(invoices, eq(invoices.jobId, jobs.id))
-    .where(and(eq(jobs.status, "invoice_issued"), isNull(invoices.id), lt(jobs.updatedAt, new Date(now - 24 * HOUR_MS))));
+    .where(
+      and(
+        inArray(jobs.status, ["approved", "report_issued", "invoice_issued"]),
+        isNull(invoices.id),
+        lt(jobs.updatedAt, new Date(now - 24 * HOUR_MS)),
+      ),
+    );
   if (uninvoiced.length) {
     sections.push({
       heading: "Approved, still needs an invoice",

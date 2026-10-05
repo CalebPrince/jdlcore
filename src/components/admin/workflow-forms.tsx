@@ -8,7 +8,9 @@ import {
   overrideJobStatus,
   rejectJob,
   rejectPaymentSubmission,
+  returnRejectedReport,
   updateJobDetails,
+  upholdRejectedReport,
   verifyPayment,
 } from "@/app/actions/job-workflow";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -152,7 +154,7 @@ export function ApproveRejectPanel({ jobId }: { jobId: number }) {
       <form action={approveAction}>
         <input type="hidden" name="jobId" value={jobId} />
         <Button type="submit" disabled={approvePending} className="btn-gold w-full">
-          {approvePending ? "Approving…" : "Approve — Issue COQ & Invoice"}
+          {approvePending ? "Approving…" : "Approve and Issue COQ"}
         </Button>
         <Feedback state={approveState} />
       </form>
@@ -164,6 +166,36 @@ export function ApproveRejectPanel({ jobId }: { jobId: number }) {
           {rejectPending ? "Sending back…" : "Reject / Request Amendment"}
         </Button>
         <Feedback state={rejectState} />
+      </form>
+    </div>
+  );
+}
+
+export function ClientRejectionPanel({ jobId, hasInspector }: { jobId: number; hasInspector: boolean }) {
+  const [returnState, returnAction, returnPending] = useActionState(returnRejectedReport, initial);
+  const [upholdState, upholdAction, upholdPending] = useActionState(upholdRejectedReport, initial);
+  return (
+    <div className="flex flex-col gap-5">
+      <form action={returnAction} className="flex flex-col gap-2">
+        <input type="hidden" name="jobId" value={jobId} />
+        <Label htmlFor={`rr-return-${jobId}`}>Return to the inspector: what needs to change (required)</Label>
+        <Textarea id={`rr-return-${jobId}`} name="comment" rows={2} placeholder="Recheck the final dip on TK-102…" required />
+        <Button type="submit" disabled={returnPending || !hasInspector} className="btn-gold self-start">
+          {returnPending ? "Sending back…" : "Return for Amendment"}
+        </Button>
+        {!hasInspector && (
+          <p className="m-0 text-xs text-muted-foreground">This job has no inspector assigned, so it can&apos;t be returned.</p>
+        )}
+        <Feedback state={returnState} />
+      </form>
+      <form action={upholdAction} className="flex flex-col gap-2">
+        <input type="hidden" name="jobId" value={jobId} />
+        <Label htmlFor={`rr-uphold-${jobId}`}>Uphold the report: explanation sent to the client (required)</Label>
+        <Textarea id={`rr-uphold-${jobId}`} name="comment" rows={2} placeholder="The figures were rechecked against the calibration table and stand…" required />
+        <Button type="submit" variant="outline" disabled={upholdPending} className="self-start">
+          {upholdPending ? "Saving…" : "Uphold Report"}
+        </Button>
+        <Feedback state={upholdState} />
       </form>
     </div>
   );

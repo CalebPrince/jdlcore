@@ -1,7 +1,7 @@
 import "server-only";
 import { eq, or } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { invoices, jobUpdates, jobs, services } from "@/db/schema";
+import { invoices, jobs, services } from "@/db/schema";
 import { getInvoiceSettings } from "@/lib/settings";
 import { issueInvoice } from "@/lib/invoicing";
 
@@ -54,15 +54,8 @@ export async function maybeAutoIssueInvoice(jobId: number): Promise<AutoInvoiceR
       subtotalCents: service.defaultPriceCents,
       currency,
       dueDate: due.toISOString().slice(0, 10),
-    });
-
-    await database.insert(jobUpdates).values({
-      jobId,
-      status: "invoice_issued",
-      note: `Invoice ${issued.number} issued automatically from the service default price.`,
-      actorType: "system",
-      actorId: null,
-      actorName: "JDL Core",
+      actor: { type: "system", id: null, name: "JDL Core" },
+      note: (number) => `Invoice ${number} issued automatically from the service default price.`,
     });
     return { outcome: "issued", number: issued.number };
   } catch (err) {

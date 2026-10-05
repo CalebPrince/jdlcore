@@ -42,10 +42,25 @@ const TRANSITIONS: Record<JobStatus, { to: JobStatus; roles: TransitionRole[] }[
   ],
   rejected_amendment: [{ to: "in_progress", roles: ["inspector"] }],
   approved: [{ to: "report_issued", roles: ["system"] }],
-  report_issued: [{ to: "invoice_issued", roles: ["system"] }],
+  // Invoicing is a manual Operations step (src/lib/invoicing.ts). "system" covers the optional
+  // "issue automatically on approval" setting.
+  report_issued: [
+    { to: "invoice_issued", roles: [...STAFF_ANY, "system"] },
+    { to: "report_rejected", roles: ["client"] },
+  ],
   // "system" covers an automated Paystack webhook/callback confirming payment
   // without a staff member manually verifying a receipt.
-  invoice_issued: [{ to: "paid", roles: [...STAFF_ANY, "system"] }],
+  invoice_issued: [
+    { to: "paid", roles: [...STAFF_ANY, "system"] },
+    { to: "report_rejected", roles: ["client"] },
+  ],
+  // The client rejected the issued report. Operations either returns the job to the inspector for
+  // amendment, or upholds the report, which puts the job back where it was.
+  report_rejected: [
+    { to: "rejected_amendment", roles: STAFF_ANY },
+    { to: "report_issued", roles: STAFF_ANY },
+    { to: "invoice_issued", roles: STAFF_ANY },
+  ],
   // "system" covers the daily auto-close of paid jobs whose CoQ has been delivered.
   paid: [{ to: "closed", roles: [...STAFF_ANY, "system"] }],
   closed: [],

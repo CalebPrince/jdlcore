@@ -16,6 +16,11 @@ export const REQUIRED_MIGRATIONS = [
   "0007_automation_runs",
   "0008_outturn_and_calibration",
   "0009_outturn_multi_tank",
+  "0010_clear_activity_data",
+  "0011_clear_test_jobs",
+  "0012_clear_payment_transactions",
+  "0013_fix_invoice_issued_without_invoice",
+  "0014_upload_file_names_and_chat_attachments",
 ] as const;
 
 function isMissingTable(err: unknown): boolean {

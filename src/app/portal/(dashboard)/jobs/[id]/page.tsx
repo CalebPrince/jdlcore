@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { and, asc, desc, eq } from "drizzle-orm";
 import { ArrowLeft, Download, ReceiptText } from "lucide-react";
 import { requireDb } from "@/db";
-import { certificates, documents, invoices, jobComments, jobOutturns, jobUpdates, jobs } from "@/db/schema";
+import { certificates, documents, invoices, jobOutturns, jobUpdates, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import {
   DOCUMENT_KIND_META,
@@ -17,7 +17,9 @@ import {
 import { PortalPaymentForm } from "@/components/portal/portal-payment-form";
 import { DocumentPreviewDialog } from "@/components/portal/document-preview-dialog";
 import { PortalPaystackButton } from "@/components/portal/portal-paystack-button";
-import { PortalComments } from "@/components/portal/portal-comments";
+import { JobChat } from "@/components/chat/job-chat";
+import { RejectReportForm } from "@/components/portal/reject-report-form";
+import { listJobMessages } from "@/lib/job-chat";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { isPaystackReady, getPaystackConfig } from "@/lib/paystack";
 
@@ -84,11 +86,7 @@ export default async function PortalJobDetailPage({
         .where(eq(invoices.jobId, jobId))
         .orderBy(desc(invoices.issuedAt)),
       database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
-      database
-        .select()
-        .from(jobComments)
-        .where(eq(jobComments.jobId, jobId))
-        .orderBy(asc(jobComments.createdAt)),
+      listJobMessages(jobId),
       database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1),
     ]);
   }
@@ -96,6 +94,13 @@ export default async function PortalJobDetailPage({
   const meta =
     JOB_STATUS_META[job.status as JobStatus] ?? JOB_STATUS_META.awaiting_assignment;
   const paystackReady = isPaystackReady(await getPaystackConfig());
+  const reportRejected = job.status === "report_rejected";
+  const canRejectReport = !!coq[0] && (job.status === "report_issued" || job.status === "invoice_issued");
+  const lastRejection = [...timeline].reverse().find((u) => u.status === "report_rejected");
+  // The latest Operations decision on a rejection: shown once the job has moved on from it.
+  const rejectionOutcome = lastRejection
+    ? timeline.find((u) => u.id > lastRejection.id && u.actorType === "staff" && u.note && /client's rejection|client rejected/.test(u.note))
+    : undefined;
 
   return (
     <div className="flex flex-col gap-6">
@@ -150,6 +155,22 @@ export default async function PortalJobDetailPage({
           </div>
         )}
       </section>
+
+      {reportRejected && (
+        <div className="rounded-[var(--radius)] border border-red-200 bg-red-50 p-4 text-sm text-red-800">
+          <p className="m-0 font-semibold">You rejected this report. Operations is reviewing it.</p>
+          {lastRejection?.note && (
+            <p className="m-0 mt-1 whitespace-pre-wrap">Your reason: {lastRejection.note.replace(/^Report rejected by [^:]*: /, "")}</p>
+          )}
+          <p className="m-0 mt-2">Payment is paused until they respond. You can follow up in the group chat below.</p>
+        </div>
+      )}
+      {!reportRejected && rejectionOutcome?.note && (
+        <div className="rounded-[var(--radius)] border bg-white p-4 text-sm text-navy-950" style={{ borderColor: "var(--border)" }}>
+          <p className="m-0 font-semibold">Operations responded to your rejection of the report</p>
+          <p className="m-0 mt-1 whitespace-pre-wrap text-ink-soft">{rejectionOutcome.note}</p>
+        </div>
+      )}
 
       {/* Documents */}
       <section className="flex flex-col gap-3">
@@ -241,16 +262,21 @@ export default async function PortalJobDetailPage({
         )}
       </section>
 
+      {canRejectReport && <RejectReportForm jobId={job.id} />}
+
       {/* Invoices */}
       <section className="flex flex-col gap-3">
         <h2 className="m-0 font-display text-lg font-bold text-navy-950">Invoices</h2>
         {bills.length === 0 ? (
-          <EmptyNote>Invoices for this job will appear here.</EmptyNote>
+          <EmptyNote>
+            No invoice has been issued for this job yet. It will appear here, and you will be notified, as soon as
+            Operations issues it.
+          </EmptyNote>
         ) : (
           <ul className="flex flex-col gap-2.5">
             {bills.map((inv) => {
               const invStatus = inv.status as InvoiceStatus;
-              const canSubmitPayment = invStatus === "pending" || invStatus === "payment_rejected";
+              const canSubmitPayment = !reportRejected && (invStatus === "pending" || invStatus === "payment_rejected");
               return (
                 <li
                   key={inv.id}
@@ -309,10 +335,24 @@ export default async function PortalJobDetailPage({
         )}
       </section>
 
-      {/* Comments */}
-      <section className="flex flex-col gap-3 rounded-[var(--radius)] border bg-white p-5 shadow-[var(--shadow-sm-soft)]" style={{ borderColor: "var(--border)" }}>
-        <h2 className="m-0 font-display text-lg font-bold text-navy-950">Comments</h2>
-        <PortalComments jobId={job.id} comments={comments} />
+      {/* Chat */}
+      <section
+        id="chat"
+        className="flex scroll-mt-24 flex-col gap-3 rounded-[var(--radius)] border bg-white p-5 shadow-[var(--shadow-sm-soft)]"
+        style={{ borderColor: "var(--border)" }}
+      >
+        <h2 className="m-0 font-display text-lg font-bold text-navy-950">Group Chat</h2>
+        <JobChat
+          jobId={job.id}
+          viewerRole="client"
+          viewerId={client.id}
+          initialMessages={comments}
+          participantsNote={
+            job.assignedInspectorId
+              ? "You, JDL Core Operations and your inspector can all see and reply here."
+              : "You and JDL Core Operations can see and reply here. Your inspector joins once one is assigned."
+          }
+        />
       </section>
 
       {/* Timeline */}

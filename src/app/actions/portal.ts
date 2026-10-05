@@ -3,23 +3,25 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
-import { clients, invoices, jobComments, jobUpdates, jobs } from "@/db/schema";
+import { clients, invoices, jobUpdates, jobs } from "@/db/schema";
 import {
   createPortalSession,
   destroyPortalSession,
   getPortalClient,
   verifyPassword,
 } from "@/lib/portal-auth";
-import { makeRef } from "@/lib/jobs";
+import { makeRef, type JobStatus } from "@/lib/jobs";
+import { canTransition } from "@/lib/job-workflow";
 import { notifyBoth, notifyStaffBoth } from "@/lib/notifications";
 import { brandedEmailHtml } from "@/lib/email";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { maybeAutoAssign } from "@/lib/automation/auto-assign";
 import { listServiceOptions } from "@/lib/assignment";
 import { getPaystackConfig, initializeTransaction, isPaystackReady } from "@/lib/paystack";
+import { MAX_UPLOAD_BYTES, readUpload } from "@/lib/uploads";
 import type { FormState } from "./submissions";
 
 async function siteOrigin(): Promise<string> {
@@ -167,8 +169,6 @@ export async function requestService(_prev: FormState, formData: FormData): Prom
 
 /* ---------------- Payment submission (section 3 / 11) ---------------- */
 
-const MAX_RECEIPT_BYTES = 4 * 1024 * 1024;
-
 const paymentSchema = z.object({
   invoiceId: z.coerce.number().int().positive(),
   jobId: z.coerce.number().int().positive(),
@@ -195,15 +195,20 @@ export async function markPaymentSubmitted(_prev: FormState, formData: FormData)
   if (!row || row.job.id !== f.jobId || row.job.clientId !== client.id) {
     return { ok: false, message: "Invoice not found." };
   }
+  if (row.job.status === "report_rejected") {
+    return { ok: false, message: "Payment is on hold while Operations reviews your rejection of the report." };
+  }
 
   let receiptFileData: string | null = null;
   let receiptMimeType: string | null = null;
+  let receiptFileName: string | null = null;
   const file = formData.get("receiptFile");
   if (file instanceof File && file.size > 0) {
-    if (file.size > MAX_RECEIPT_BYTES) return { ok: false, message: "Receipt is larger than 4 MB." };
-    const buf = Buffer.from(await file.arrayBuffer());
-    receiptFileData = `data:${file.type || "application/octet-stream"};base64,${buf.toString("base64")}`;
-    receiptMimeType = file.type || "application/octet-stream";
+    if (file.size > MAX_UPLOAD_BYTES) return { ok: false, message: "Receipt is larger than 4 MB." };
+    const upload = await readUpload(file);
+    receiptFileData = upload.dataUrl;
+    receiptMimeType = upload.mimeType;
+    receiptFileName = upload.fileName || null;
   } else {
     return { ok: false, message: "Attach a payment receipt (PDF or image)." };
   }
@@ -214,6 +219,7 @@ export async function markPaymentSubmitted(_prev: FormState, formData: FormData)
       status: "payment_submitted",
       receiptFileData,
       receiptMimeType,
+      receiptFileName,
       paymentReference: f.paymentReference || null,
       clientComment: f.clientComment || null,
       paymentSubmittedAt: new Date(),
@@ -294,6 +300,9 @@ export async function payInvoiceOnline(_prev: FormState, formData: FormData): Pr
   if (!row || row.job.id !== f.jobId || row.job.clientId !== client.id) {
     return { ok: false, message: "Invoice not found." };
   }
+  if (row.job.status === "report_rejected") {
+    return { ok: false, message: "Payment is on hold while Operations reviews your rejection of the report." };
+  }
   if (row.invoice.status === "paid") return { ok: false, message: "This invoice is already paid." };
 
   const config = await getPaystackConfig();
@@ -318,44 +327,66 @@ export async function payInvoiceOnline(_prev: FormState, formData: FormData): Pr
   redirect(result.authorizationUrl);
 }
 
-/* ---------------- Comments (section 3) ---------------- */
+/* ---------------- Reject an issued report ---------------- */
 
-const commentSchema = z.object({
+const rejectReportSchema = z.object({
   jobId: z.coerce.number().int().positive(),
-  body: z.string().trim().min(1).max(2000),
+  reason: z.string().trim().min(10, "Tell us what is wrong with the report (at least 10 characters).").max(2000),
 });
 
-export async function addJobComment(_prev: FormState, formData: FormData): Promise<FormState> {
+/**
+ * Lets a client reject the report issued on their own job, with a reason. The job moves to
+ * "report rejected" and waits for Operations, who either return it to the inspector for amendment
+ * or uphold the report. Only possible once a report is issued and before the job is paid.
+ */
+export async function rejectReport(_prev: FormState, formData: FormData): Promise<FormState> {
   const client = await getPortalClient();
   if (!client) return { ok: false, message: "Please sign in again." };
 
-  const parsed = commentSchema.safeParse(Object.fromEntries(formData));
-  if (!parsed.success) return { ok: false, message: "Enter a comment." };
+  const parsed = rejectReportSchema.safeParse(Object.fromEntries(formData));
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Enter a reason." };
   const f = parsed.data;
 
-  const rows = await requireDb()
-    .select({ id: jobs.id })
+  const database = requireDb();
+  const rows = await database
+    .select()
     .from(jobs)
-    .where(eq(jobs.id, f.jobId))
+    .where(and(eq(jobs.id, f.jobId), eq(jobs.clientId, client.id)))
     .limit(1);
-  if (!rows[0]) return { ok: false, message: "Job not found." };
+  const job = rows[0];
+  if (!job) return { ok: false, message: "Job not found." };
+  if (!canTransition(job.status as JobStatus, "report_rejected", { type: "client", id: client.id, name: client.name })) {
+    return { ok: false, message: "This report can't be rejected at this stage. Use the chat to reach Operations." };
+  }
 
-  await requireDb().insert(jobComments).values({
-    jobId: f.jobId,
-    authorType: "client",
-    authorId: client.id,
-    authorName: client.name,
-    body: f.body,
+  // Guarded on the status we just read, so a payment or staff action landing at the same moment wins cleanly.
+  const updated = await database
+    .update(jobs)
+    .set({ status: "report_rejected", updatedAt: new Date() })
+    .where(and(eq(jobs.id, job.id), eq(jobs.status, job.status)))
+    .returning({ id: jobs.id });
+  if (updated.length === 0) return { ok: false, message: "This job has just changed. Refresh the page and try again." };
+
+  await database.insert(jobUpdates).values({
+    jobId: job.id,
+    status: "report_rejected",
+    note: `Report rejected by ${client.name}: ${f.reason}`,
+    actorType: "client",
+    actorId: client.id,
+    actorName: client.name,
   });
 
   await notifyOpsOfJob(
-    f.jobId,
-    "client_comment",
-    `New comment from ${client.name}`,
-    f.body,
+    job.id,
+    "report_rejected",
+    `${client.name} rejected the report on ${job.ref}`,
+    `Reason given: ${f.reason}`,
   );
 
-  revalidatePath(`/portal/jobs/${f.jobId}`);
-  revalidatePath(`/admin/jobs/${f.jobId}`);
-  return { ok: true, message: "Comment added." };
+  revalidatePath(`/portal/jobs/${job.id}`);
+  revalidatePath("/portal");
+  revalidatePath(`/admin/jobs/${job.id}`);
+  revalidatePath("/admin/jobs");
+  revalidatePath(`/inspector/jobs/${job.id}`);
+  return { ok: true, message: "Your rejection has been sent to Operations. They will review it and reply here." };
 }

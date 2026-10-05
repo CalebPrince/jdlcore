@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, desc, eq, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { ArrowLeft, FileUp } from "lucide-react";
 import { requireDb } from "@/db";
 import {
@@ -9,7 +9,6 @@ import {
   documents,
   inspectors,
   invoices,
-  jobComments,
   jobCompletionData,
   jobOutturns,
   jobOutturnTanks,
@@ -37,12 +36,14 @@ import {
 import {
   AssignInspectorForm,
   ApproveRejectPanel,
+  ClientRejectionPanel,
   EditJobDetailsForm,
   CloseJobButton,
   OverrideStatusForm,
   PaymentActionPanel,
 } from "@/components/admin/workflow-forms";
-import { AdminJobComments } from "@/components/admin/admin-job-comments";
+import { JobChat } from "@/components/chat/job-chat";
+import { listJobMessages } from "@/lib/job-chat";
 import { AiReviewBanner } from "@/components/admin/ai-review-banner";
 import { ApprovalChecklist } from "@/components/admin/approval-checklist";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
@@ -65,6 +66,9 @@ import { evaluateApproval, type ApprovalEvaluation } from "@/lib/approval-checks
 import { getAutomationSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
+
+/** Approved jobs that Operations still has to invoice (invoice_issued covers jobs approved before invoicing became a manual step). */
+const AWAITING_INVOICE_STATUSES = ["approved", "report_issued", "invoice_issued"];
 
 const dateFmt = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
@@ -129,7 +133,7 @@ export default async function AdminJobDetailPage({
     .where(eq(stockReadings.jobId, jobId));
   const readingCount = readingCountRows[0]?.n ?? readings.length;
   const coq = await database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1);
-  const comments = await database.select().from(jobComments).where(eq(jobComments.jobId, jobId)).orderBy(asc(jobComments.createdAt));
+  const comments = await listJobMessages(jobId);
   const invoiceSettings = await getInvoiceSettings();
   const aiReviews = await loadJobReviews(jobId);
 
@@ -157,6 +161,7 @@ export default async function AdminJobDetailPage({
     }
   }
   const canClose = job.status === "paid";
+  const clientRejection = timeline.find((u) => u.status === "report_rejected");
   const isAdmin = staff.role === "administrator" || staff.role === "superadmin";
   const cd = completion[0];
   const tankById = new Map(tankList.map((t) => [t.id, t]));
@@ -255,6 +260,26 @@ export default async function AdminJobDetailPage({
           </Card>
         )}
 
+        {job.status === "report_rejected" && (
+          <Card className="border-red-200">
+            <CardHeader>
+              <CardTitle className="font-display">Client Rejected the Report</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-4">
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+                <p className="m-0 font-semibold">{clientRejection?.actorName ?? client.name} wrote:</p>
+                <p className="m-0 mt-1 whitespace-pre-wrap">
+                  {clientRejection?.note?.replace(/^Report rejected by [^:]*: /, "") ?? "No reason was recorded."}
+                </p>
+              </div>
+              <p className="m-0 text-sm text-muted-foreground">
+                Payment on this job is paused until you decide. You can also talk it through with the client in the group chat below.
+              </p>
+              <ClientRejectionPanel jobId={job.id} hasInspector={!!job.assignedInspectorId} />
+            </CardContent>
+          </Card>
+        )}
+
         {canClose && (
           <Card>
             <CardHeader>
@@ -329,9 +354,16 @@ export default async function AdminJobDetailPage({
                     <p className="m-0 text-xs text-muted-foreground">
                       {DOCUMENT_KIND_META[(d.kind as DocumentKind) in DOCUMENT_KIND_META ? (d.kind as DocumentKind) : "other"].label}
                       {" · "}
-                      {d.fileData ? "uploaded file" : "link"}
+                      {d.fileData ? (d.fileName ?? "uploaded file") : "link"}
                     </p>
                   </div>
+                  <a
+                    href={`/api/portal/documents/${d.id}`}
+                    className="shrink-0 text-xs font-semibold text-navy-700 underline-offset-2 hover:underline"
+                    {...(d.fileData ? { download: true } : { target: "_blank", rel: "noreferrer" })}
+                  >
+                    {d.fileData ? "Download" : "Open link"}
+                  </a>
                 </div>
                 <AiReviewBanner reviews={documentReviews(d.id)} />
               </div>
@@ -418,6 +450,11 @@ export default async function AdminJobDetailPage({
                 })}
               </ul>
             )}
+            {bills.length === 0 && AWAITING_INVOICE_STATUSES.includes(job.status) && (
+              <p className="m-0 rounded-lg border border-[rgba(201,142,18,0.4)] bg-[rgba(201,142,18,0.08)] p-3 text-sm text-navy-950">
+                This job is approved but has no invoice yet. Nothing is sent to the client until you issue it below.
+              </p>
+            )}
             <CreateInvoiceForm
               jobId={job.id}
               defaultCurrency={invoiceSettings.defaultCurrency}
@@ -494,12 +531,22 @@ export default async function AdminJobDetailPage({
 
       </div>
 
-      <Card>
+      <Card id="chat" className="scroll-mt-24">
         <CardHeader>
-          <CardTitle className="font-display">Comments</CardTitle>
+          <CardTitle className="font-display">Group Chat</CardTitle>
         </CardHeader>
         <CardContent>
-          <AdminJobComments jobId={job.id} comments={comments} />
+          <JobChat
+            jobId={job.id}
+            viewerRole="staff"
+            viewerId={staff.id}
+            initialMessages={comments}
+            participantsNote={
+              assignedInspector[0]
+                ? `Shared with the client (${client.name}) and the inspector (${assignedInspector[0].name}). Both see everything posted here.`
+                : `Shared with the client (${client.name}). The inspector joins once one is assigned.`
+            }
+          />
         </CardContent>
       </Card>
 

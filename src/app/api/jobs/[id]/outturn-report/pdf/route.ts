@@ -8,7 +8,7 @@ import { getInspector } from "@/lib/inspector-auth";
 import { getReportSettings } from "@/lib/settings";
 import { buildOutturnReportPdf } from "@/lib/outturn-report-pdf";
 
-const DONE_STATUSES = ["approved", "report_issued", "invoice_issued", "paid", "closed"];
+const DONE_STATUSES = ["approved", "report_issued", "invoice_issued", "report_rejected", "paid", "closed"];
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const preview = new URL(req.url).searchParams.get("preview") === "1";

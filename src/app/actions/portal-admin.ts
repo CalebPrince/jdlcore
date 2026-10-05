@@ -24,6 +24,7 @@ import { notify, notifyBoth } from "@/lib/notifications";
 import { reviewUploadedFile } from "@/lib/ai/document-review";
 import { logAudit } from "@/lib/audit";
 import { issueInvoice, payOnlineLine } from "@/lib/invoicing";
+import { MAX_UPLOAD_BYTES, readUpload } from "@/lib/uploads";
 import { issuePortalSetupLink } from "@/lib/account-setup";
 import { listServiceOptions } from "@/lib/assignment";
 import { maybeAutoAssign } from "@/lib/automation/auto-assign";
@@ -238,8 +239,6 @@ const docSchema = z.object({
   url: z.string().trim().url().max(1000).optional().or(z.literal("")),
 });
 
-const MAX_UPLOAD_BYTES = 4 * 1024 * 1024;
-
 export async function addDocument(
   _prev: FormState,
   formData: FormData,
@@ -251,14 +250,16 @@ export async function addDocument(
 
   let fileData: string | null = null;
   let mimeType: string | null = null;
+  let fileName: string | null = null;
   const file = formData.get("file");
   if (file instanceof File && file.size > 0) {
     if (file.size > MAX_UPLOAD_BYTES) {
       return initialFail("File is larger than 4 MB. Use a link instead.");
     }
-    const buf = Buffer.from(await file.arrayBuffer());
-    fileData = `data:${file.type || "application/octet-stream"};base64,${buf.toString("base64")}`;
-    mimeType = file.type || "application/octet-stream";
+    const upload = await readUpload(file);
+    fileData = upload.dataUrl;
+    mimeType = upload.mimeType;
+    fileName = upload.fileName || null;
   } else if (!f.url) {
     return initialFail("Attach a file or paste a link.");
   }
@@ -274,6 +275,7 @@ export async function addDocument(
         url: f.url || null,
         fileData,
         mimeType,
+        fileName,
       })
       .returning({ id: documents.id });
     insertedId = inserted[0]?.id ?? null;
@@ -334,22 +336,29 @@ export async function createInvoice(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole([...OPS_ROLES]))) return initialFail("Unauthorized");
+  const staff = await requireStaffRole([...OPS_ROLES]);
+  if (!staff) return initialFail("Unauthorized");
   const parsed = invoiceSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return initialFail("Enter a valid amount.");
   const f = parsed.data;
+  let number: string;
   try {
-    await issueInvoice({
+    const issued = await issueInvoice({
       jobId: f.jobId,
       subtotalCents: Math.round(f.amount * 100),
       currency: f.currency,
       dueDate: f.dueDate || null,
+      actor: { type: "staff", id: staff.id, name: staff.name },
     });
+    number = issued.number;
   } catch {
     return initialFail("Could not create invoice.");
   }
   revalidatePath(`/admin/jobs/${f.jobId}`);
-  return { ok: true, message: "Invoice issued." };
+  revalidatePath("/admin/jobs");
+  revalidatePath(`/portal/jobs/${f.jobId}`);
+  revalidatePath("/portal");
+  return { ok: true, message: `Invoice ${number} issued. The client has been notified and can see it in the portal.` };
 }
 
 const reminderSchema = z.object({

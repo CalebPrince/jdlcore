@@ -4,7 +4,7 @@ import { requireDb } from "@/db";
 import { certificates, clients, jobs } from "@/db/schema";
 import { makeCoqNumber } from "@/lib/jobs";
 import { notify } from "@/lib/notifications";
-import { sendNotification } from "@/lib/email";
+import { brandedEmailHtml, sendNotification } from "@/lib/email";
 import { getReportSettings } from "@/lib/settings";
 
 /**
@@ -23,6 +23,41 @@ export async function generateCoq(
   if (!job) throw new Error("Job not found");
 
   const reportSettings = await getReportSettings();
+
+  // A job approved again after an amendment keeps its certificate and number; the certificate is
+  // drawn from the job's current figures, so it now shows the amended ones.
+  const existing = await database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1);
+  if (existing[0]) {
+    await database
+      .update(certificates)
+      .set({ issuedAt: new Date(), issuedByStaffId })
+      .where(eq(certificates.id, existing[0].id));
+    await notify({
+      recipientType: "client",
+      recipientId: job.clientId,
+      jobId,
+      type: "report_approved",
+      title: `Amended report issued: ${job.ref}`,
+      body: "Your inspection report has been amended and reissued. The updated Certificate of Quantity is ready.",
+      link: `/portal/jobs/${jobId}`,
+    });
+    const reissueRows = await database.select({ email: clients.email }).from(clients).where(eq(clients.id, job.clientId)).limit(1);
+    if (reissueRows[0]) {
+      await sendNotification({
+        to: reissueRows[0].email,
+        subject: `[${job.ref}] Amended report issued - JDL Core`,
+        html: brandedEmailHtml({
+          label: "JDL CORE CLIENT PORTAL",
+          heading: `Amended report issued for ${job.ref}`,
+          bodyLines: [`Your report has been amended and the updated Certificate of Quantity (${existing[0].coqNumber}) is now available in the client portal.`],
+          ctaUrl: `https://jdlcore.com/portal/jobs/${jobId}`,
+          ctaLabel: "Open the job",
+          footer: `Job reference: ${job.ref}`,
+        }),
+      });
+    }
+    return { certificateId: existing[0].id, coqNumber: existing[0].coqNumber };
+  }
 
   const [cert] = await database
     .insert(certificates)

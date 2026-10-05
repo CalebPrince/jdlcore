@@ -33,6 +33,15 @@ export type OutturnDefaults = {
   finalDensityAt20: string | null;
   finalVcf: string | null;
   finalSwPercent: string | null;
+  /** Manual overrides: only set when the saved figure didn't come from the tank's calibration table. */
+  initialManualTgvL?: string | null;
+  initialManualWaterVolumeL?: string | null;
+  initialManualRoofVolumeL?: string | null;
+  initialAirBuoyancyOverrideMt?: string | null;
+  finalManualTgvL?: string | null;
+  finalManualWaterVolumeL?: string | null;
+  finalManualRoofVolumeL?: string | null;
+  finalAirBuoyancyOverrideMt?: string | null;
 };
 
 function Field({
@@ -77,7 +86,10 @@ function ReadingSection({
 }) {
   const p = (name: string) => `${side}${name}`;
   const id = (name: string) => `ot-${side}-${name}-${jobId}`;
-  const d = defaults as unknown as Record<string, string | null>;
+  const d = defaults as unknown as Record<string, string | null | undefined>;
+  const hasOverrides = ["ManualTgvL", "ManualWaterVolumeL", "ManualRoofVolumeL", "AirBuoyancyOverrideMt"].some(
+    (name) => d[`${side}${name}`] != null,
+  );
 
   return (
     <div className="flex flex-col gap-3 rounded-xl border p-4" style={{ borderColor: "var(--border)" }}>
@@ -108,15 +120,15 @@ function ReadingSection({
         <Field id={id("vcf")} label="VCF" name={p("Vcf")} step="0.00001" defaultValue={d[`${side}Vcf`]} />
         {isCrudeOil && <Field id={id("sw")} label="S&W (%)" name={p("SwPercent")} step="0.001" defaultValue={d[`${side}SwPercent`]} placeholder="0" />}
       </div>
-      <details className="text-xs text-muted-foreground">
+      <details open={hasOverrides || undefined} className="text-xs text-muted-foreground">
         <summary className="cursor-pointer">
           Manual overrides (only if the tank isn&apos;t calibrated for this dip yet, or a reference gives a different figure)
         </summary>
         <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <Field id={id("mtgv")} label="TGV, entered directly (L)" name={p("ManualTgvL")} />
-          <Field id={id("mwater")} label="Water volume, entered directly (L)" name={p("ManualWaterVolumeL")} />
-          <Field id={id("mroof")} label="Roof volume, entered directly (L)" name={p("ManualRoofVolumeL")} />
-          <Field id={id("mair")} label="Air buoyancy correction, entered directly (Mt)" name={p("AirBuoyancyOverrideMt")} />
+          <Field id={id("mtgv")} label="TGV, entered directly (L)" name={p("ManualTgvL")} defaultValue={d[`${side}ManualTgvL`]} />
+          <Field id={id("mwater")} label="Water volume, entered directly (L)" name={p("ManualWaterVolumeL")} defaultValue={d[`${side}ManualWaterVolumeL`]} />
+          <Field id={id("mroof")} label="Roof volume, entered directly (L)" name={p("ManualRoofVolumeL")} defaultValue={d[`${side}ManualRoofVolumeL`]} />
+          <Field id={id("mair")} label="Air buoyancy correction, entered directly (Mt)" name={p("AirBuoyancyOverrideMt")} defaultValue={d[`${side}AirBuoyancyOverrideMt`]} />
         </div>
       </details>
     </div>

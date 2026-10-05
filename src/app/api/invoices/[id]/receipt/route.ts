@@ -4,19 +4,12 @@ import { requireDb } from "@/db";
 import { invoices, jobs } from "@/db/schema";
 import { getPortalClient } from "@/lib/portal-auth";
 import { getStaff } from "@/lib/staff-auth";
+import { decodeDataUrl, fileResponse, resolveDownload } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
 
-const EXT_BY_MIME: Record<string, string> = {
-  "application/pdf": "pdf",
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/jpg": "jpg",
-  "text/plain": "txt",
-};
-
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   const portal = await getPortalClient();
@@ -42,18 +35,12 @@ export async function GET(
   if (!entry || !entry.invoice.receiptFileData) return new NextResponse("Not found", { status: 404 });
 
   const { invoice } = entry;
-  const base64 = invoice.receiptFileData!.includes(",")
-    ? invoice.receiptFileData!.split(",")[1]
-    : invoice.receiptFileData!;
-  const bytes = Buffer.from(base64, "base64");
-  const mimeType = invoice.receiptMimeType ?? "application/octet-stream";
-  const ext = EXT_BY_MIME[mimeType];
-  const filename = `${invoice.number}-receipt${ext ? `.${ext}` : ""}`;
-  return new NextResponse(new Uint8Array(bytes), {
-    headers: {
-      "content-type": mimeType,
-      "content-disposition": `attachment; filename="${filename}"`,
-      "cache-control": "private, no-store",
-    },
+  const bytes = decodeDataUrl(invoice.receiptFileData!);
+  const resolved = resolveDownload({
+    bytes,
+    mimeType: invoice.receiptMimeType,
+    fileName: invoice.receiptFileName,
+    fallbackName: `${invoice.number}-receipt`,
   });
+  return fileResponse(req, bytes, resolved);
 }

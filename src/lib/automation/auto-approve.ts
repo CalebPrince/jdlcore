@@ -1,7 +1,7 @@
 import "server-only";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { requireDb } from "@/db";
-import { jobApprovalChecks, jobs } from "@/db/schema";
+import { jobApprovalChecks, jobUpdates, jobs } from "@/db/schema";
 import { evaluateApproval, recordApprovalDecision } from "@/lib/approval-checks";
 import { canTransition, type Actor } from "@/lib/job-workflow";
 import { approveJobCore } from "@/lib/job-approval";
@@ -47,6 +47,16 @@ export async function runAutoApprove() {
       .limit(1);
     const row = latest[0];
     if (!row || row.verdict !== "pass" || row.humanDecision) {
+      skipped += 1;
+      continue;
+    }
+    // A report the client rejected always goes back past a person, however clean the checks look.
+    const clientRejected = await database
+      .select({ id: jobUpdates.id })
+      .from(jobUpdates)
+      .where(and(eq(jobUpdates.jobId, job.id), eq(jobUpdates.status, "report_rejected")))
+      .limit(1);
+    if (clientRejected[0]) {
       skipped += 1;
       continue;
     }
