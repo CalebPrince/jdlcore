@@ -60,6 +60,24 @@ export async function inviteInspector(_prev: InviteState, formData: FormData): P
   if (!parsed.success) return { ok: false, message: "Check the fields and try again." };
   const f = parsed.data;
 
+  // Optional assignment profile, set at invite time so the inspector is never left invisible to
+  // auto-assignment. Only written when at least one service is ticked, so re-inviting an existing
+  // inspector never wipes the profile they already have.
+  const wantsProfile = formData.getAll("serviceTypes").length > 0;
+  let profileFields: ProfileFields | null = null;
+  if (wantsProfile) {
+    const parsedProfile = profileFieldsSchema.safeParse({
+      regions: formData.get("regions") ?? undefined,
+      maxOpenJobs: formData.get("maxOpenJobs") ?? 3,
+      unavailableUntil: undefined,
+      autoAssignEnabled: formData.get("autoAssignEnabled") ?? undefined,
+    });
+    if (!parsedProfile.success) return { ok: false, message: "Check the assignment settings and try again." };
+    const read = readProfileFields(formData, parsedProfile.data);
+    if (!read.ok) return { ok: false, message: read.message };
+    profileFields = read.fields;
+  }
+
   let inspectorId: number;
   try {
     const database = requireDb();
@@ -83,6 +101,18 @@ export async function inviteInspector(_prev: InviteState, formData: FormData): P
     return { ok: false, message: "Could not create/invite this inspector." };
   }
 
+  if (profileFields) {
+    try {
+      await upsertAssignmentProfile(inspectorId, profileFields);
+    } catch (err) {
+      console.error("inviteInspector profile:", err);
+      return {
+        ok: false,
+        message: "The inspector was created, but their assignment settings could not be saved. Open their Assignment profile below and save it.",
+      };
+    }
+  }
+
   const token = await issueInspectorSetupToken(inspectorId);
   const link = `${await origin()}/inspector/setup?token=${token}`;
   revalidatePath("/admin/inspectors");
@@ -92,7 +122,7 @@ export async function inviteInspector(_prev: InviteState, formData: FormData): P
     action: "inspector.invited",
     targetType: "inspector",
     targetId: inspectorId,
-    summary: `Invited/updated ${f.name} (${f.email}) as inspector.`,
+    summary: `Invited/updated ${f.name} (${f.email}) as inspector${profileFields ? ` (auto-assign ${profileFields.autoAssignEnabled ? "on" : "off"}, ${profileFields.serviceTypes.length} service(s))` : ""}.`,
   });
 
   await notify({
@@ -214,13 +244,61 @@ export async function deleteInspector(formData: FormData): Promise<void> {
 
 /* ---------------- Assignment profile (used by auto-assignment) ---------------- */
 
-const profileSchema = z.object({
-  inspectorId: z.coerce.number().int().positive(),
+const profileFieldsSchema = z.object({
   regions: z.string().max(600).optional(),
   maxOpenJobs: z.coerce.number().int().min(1).max(20),
   unavailableUntil: z.string().optional(),
   autoAssignEnabled: z.string().optional(),
 });
+
+const profileSchema = profileFieldsSchema.extend({
+  inspectorId: z.coerce.number().int().positive(),
+});
+
+type ProfileFields = {
+  regions: string[];
+  serviceTypes: string[];
+  maxOpenJobs: number;
+  unavailableUntil: Date | null;
+  autoAssignEnabled: boolean;
+};
+
+/** Reads the assignment-profile fields shared by the invite form and the profile form. */
+function readProfileFields(
+  formData: FormData,
+  data: z.infer<typeof profileFieldsSchema>,
+): { ok: true; fields: ProfileFields } | { ok: false; message: string } {
+  const serviceTypes = formData
+    .getAll("serviceTypes")
+    .map(String)
+    .filter((s) => (SERVICE_TYPES as readonly string[]).includes(s));
+  const regions = [
+    ...new Set(
+      (data.regions ?? "")
+        .split(/[,\n]/)
+        .map((r) => r.trim())
+        .filter(Boolean),
+    ),
+  ].slice(0, 30);
+  const enabled = data.autoAssignEnabled === "on";
+  if (enabled && serviceTypes.length === 0) {
+    return { ok: false, message: "Pick at least one service this inspector is qualified for before switching them on." };
+  }
+  const away = data.unavailableUntil ? new Date(`${data.unavailableUntil}T00:00:00.000Z`) : null;
+  if (away && Number.isNaN(away.getTime())) return { ok: false, message: "That date isn't valid." };
+  return {
+    ok: true,
+    fields: { regions, serviceTypes, maxOpenJobs: data.maxOpenJobs, unavailableUntil: away, autoAssignEnabled: enabled },
+  };
+}
+
+async function upsertAssignmentProfile(inspectorId: number, f: ProfileFields): Promise<void> {
+  const values = { inspectorId, ...f, updatedAt: new Date() };
+  await requireDb()
+    .insert(inspectorAssignmentProfiles)
+    .values(values)
+    .onConflictDoUpdate({ target: inspectorAssignmentProfiles.inspectorId, set: values });
+}
 
 export async function saveInspectorAssignmentProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const current = await requireStaffRole([...ADMIN_ROLES]);
@@ -228,39 +306,12 @@ export async function saveInspectorAssignmentProfile(_prev: FormState, formData:
   const parsed = profileSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Check the numbers and dates entered." };
 
-  const serviceTypes = formData
-    .getAll("serviceTypes")
-    .map(String)
-    .filter((s) => (SERVICE_TYPES as readonly string[]).includes(s));
-  const regions = [
-    ...new Set(
-      (parsed.data.regions ?? "")
-        .split(/[,\n]/)
-        .map((r) => r.trim())
-        .filter(Boolean),
-    ),
-  ].slice(0, 30);
-  const enabled = parsed.data.autoAssignEnabled === "on";
-  if (enabled && serviceTypes.length === 0) {
-    return { ok: false, message: "Pick at least one service this inspector is qualified for before switching them on." };
-  }
-  const away = parsed.data.unavailableUntil ? new Date(`${parsed.data.unavailableUntil}T00:00:00.000Z`) : null;
-  if (away && Number.isNaN(away.getTime())) return { ok: false, message: "That date isn't valid." };
+  const read = readProfileFields(formData, parsed.data);
+  if (!read.ok) return { ok: false, message: read.message };
+  const { fields } = read;
 
   try {
-    const values = {
-      inspectorId: parsed.data.inspectorId,
-      regions,
-      serviceTypes,
-      maxOpenJobs: parsed.data.maxOpenJobs,
-      unavailableUntil: away,
-      autoAssignEnabled: enabled,
-      updatedAt: new Date(),
-    };
-    await requireDb()
-      .insert(inspectorAssignmentProfiles)
-      .values(values)
-      .onConflictDoUpdate({ target: inspectorAssignmentProfiles.inspectorId, set: values });
+    await upsertAssignmentProfile(parsed.data.inspectorId, fields);
   } catch {
     return {
       ok: false,
@@ -273,7 +324,7 @@ export async function saveInspectorAssignmentProfile(_prev: FormState, formData:
     action: "inspector.assignment_profile_updated",
     targetType: "inspector",
     targetId: parsed.data.inspectorId,
-    summary: `Updated assignment profile for inspector #${parsed.data.inspectorId} (auto-assign ${enabled ? "on" : "off"}, ${serviceTypes.length} service(s), ${regions.length} region(s), max ${parsed.data.maxOpenJobs} open).`,
+    summary: `Updated assignment profile for inspector #${parsed.data.inspectorId} (auto-assign ${fields.autoAssignEnabled ? "on" : "off"}, ${fields.serviceTypes.length} service(s), ${fields.regions.length} region(s), max ${fields.maxOpenJobs} open).`,
   });
   return { ok: true, message: "Assignment profile saved." };
 }

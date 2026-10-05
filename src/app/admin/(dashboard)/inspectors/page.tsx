@@ -111,6 +111,14 @@ export default async function AdminInspectorsPage() {
                   <Badge variant={i.active ? "secondary" : "outline"}>
                     {i.active ? "Available" : "Unavailable"}
                   </Badge>
+                  {!profilesUnavailable && autoAssignWarning(i.status, i.active, profiles.get(i.id)) && (
+                    <span
+                      className="rounded-full bg-[rgba(238,176,43,0.18)] px-2.5 py-1 text-xs font-semibold text-gold-700"
+                      title="This inspector will not receive automatically assigned jobs until this is fixed."
+                    >
+                      {autoAssignWarning(i.status, i.active, profiles.get(i.id))}
+                    </span>
+                  )}
                   <span className="text-xs text-ink-faint">
                     Added {dateFmt.format(new Date(i.createdAt))}
                   </span>
@@ -151,6 +159,19 @@ export default async function AdminInspectorsPage() {
       )}
     </div>
   );
+}
+
+/** Why an inspector is invisible to auto-assignment, or null when they can receive jobs. */
+function autoAssignWarning(
+  status: string,
+  active: boolean,
+  profile: AssignmentProfileView | undefined,
+): string | null {
+  if (!active || status === "disabled") return null; // switched off on purpose
+  if (status !== "active") return "Not eligible yet: waiting for account setup";
+  if (!profile) return "Not eligible: assignment profile not set up";
+  if (!profile.autoAssignEnabled) return "Not eligible: auto-assign is off";
+  return null;
 }
 
 async function loadInspectors() {

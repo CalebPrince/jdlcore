@@ -156,7 +156,12 @@ export async function pickInspectorForJob(job: JobRow, excludeInspectorIds: numb
         eq(inspectors.status, "active"),
       ),
     );
-  if (candidates.length === 0) return { found: false, why: "no inspector is switched on for auto-assignment" };
+  if (candidates.length === 0) {
+    return withIgnoredNote(
+      { found: false, why: "no inspector is switched on for auto-assignment" },
+      await countIgnoredInspectors(database, []),
+    );
+  }
 
   const open = await database
     .select({ inspectorId: jobs.assignedInspectorId, n: sql<number>`count(*)::int` })
@@ -169,13 +174,54 @@ export async function pickInspectorForJob(job: JobRow, excludeInspectorIds: numb
     .where(and(isNotNull(jobs.assignedInspectorId), eq(jobs.clientId, job.clientId)))
     .groupBy(jobs.assignedInspectorId);
 
-  return chooseInspector(
+  const result = chooseInspector(
     job,
     candidates,
     new Map(open.map((r) => [r.inspectorId, r.n])),
     new Map(forClient.map((r) => [r.inspectorId, r.n])),
     excludeInspectorIds,
   );
+  if (result.found) return result;
+  return withIgnoredNote(result, await countIgnoredInspectors(database, candidates.map((c) => c.id)));
+}
+
+type IgnoredCounts = { setup: number; off: number };
+
+/**
+ * Inspectors who exist but were never considered, so a "no match" email can say so. Without this a
+ * newly added inspector who is still "invited", or whose profile was never switched on, is invisible
+ * and the message only talks about the inspectors who were considered.
+ */
+async function countIgnoredInspectors(
+  database: ReturnType<typeof requireDb>,
+  consideredIds: number[],
+): Promise<IgnoredCounts> {
+  const rows = await database
+    .select({
+      id: inspectors.id,
+      status: inspectors.status,
+      active: inspectors.active,
+      enabled: inspectorAssignmentProfiles.autoAssignEnabled,
+    })
+    .from(inspectors)
+    .leftJoin(inspectorAssignmentProfiles, eq(inspectorAssignmentProfiles.inspectorId, inspectors.id));
+  const considered = new Set(consideredIds);
+  const counts: IgnoredCounts = { setup: 0, off: 0 };
+  for (const r of rows) {
+    if (considered.has(r.id) || !r.active || r.status === "disabled") continue;
+    if (r.status !== "active") counts.setup += 1;
+    else if (!r.enabled) counts.off += 1;
+  }
+  return counts;
+}
+
+function withIgnoredNote(result: PickResult, c: IgnoredCounts): PickResult {
+  if (result.found) return result;
+  const parts = [
+    c.off && `${c.off} not switched on for auto-assignment`,
+    c.setup && `${c.setup} still waiting to set up their account`,
+  ].filter(Boolean);
+  return parts.length ? { found: false, why: `${result.why}; also not considered: ${parts.join(", ")}` } : result;
 }
 
 /**

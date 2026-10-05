@@ -1,0 +1,5 @@
+{
+  "description": "JDL Core: website and operations platform for a Ghana-based oil and gas inspection, analytics and training group. Includes the public site, a client portal, an inspector portal and an admin back office covering inspection jobs, tank stock monitoring, product outturn calculation, Certificates of Quantity, invoicing with Paystack, a per-job group chat, automated assignment and approval, and a multi-provider AI gateway.",
+  "tags": ["Next.js", "TypeScript", "Tailwind", "Drizzle", "Supabase", "Paystack", "AI"],
+  "category": "Web"
+}
