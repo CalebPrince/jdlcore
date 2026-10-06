@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { CHAT_MESSAGE_MAX, listJobMessages, postJobMessage, resolveChatParticipant } from "@/lib/job-chat";
+import {
+  CHAT_MESSAGE_MAX,
+  chatParticipantsNote,
+  chatRealtimeProps,
+  listJobMessages,
+  postJobMessage,
+  resolveChatParticipant,
+} from "@/lib/job-chat";
 import { CHAT_ATTACHMENT_EXTS, MAX_UPLOAD_BYTES, extOf, readUpload, type StoredUpload } from "@/lib/uploads";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +25,11 @@ function sameOrigin(req: Request): boolean {
   }
 }
 
-/** The job chat's messages. `?after=<id>` returns only newer ones (what the open chat polls with). */
+/**
+ * The job chat's messages. `?after=<id>` returns only newer ones (what the open chat checks with).
+ * `?meta=1` adds what the floating chat needs to open this conversation from scratch: the job's
+ * reference and title, who is in the chat, and the live channel to listen on.
+ */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const url = new URL(req.url);
@@ -30,7 +41,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const after = Number(url.searchParams.get("after"));
   const messages = await listJobMessages(participant.job.id, Number.isInteger(after) && after > 0 ? after : 0);
-  return NextResponse.json({ messages }, { headers: { "Cache-Control": "no-store" } });
+  const meta =
+    url.searchParams.get("meta") === "1"
+      ? {
+          ref: participant.job.ref,
+          title: `${participant.job.service}${participant.job.location ? `, ${participant.job.location}` : ""}`,
+          participantsNote: await chatParticipantsNote(participant),
+          realtime: chatRealtimeProps(participant.job.id),
+        }
+      : undefined;
+  return NextResponse.json({ messages, meta }, { headers: { "Cache-Control": "no-store" } });
 }
 
 const ATTACHMENT_TOO_BIG = "That file is larger than 4 MB.";

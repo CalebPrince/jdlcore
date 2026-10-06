@@ -32,8 +32,7 @@ import {
 import { OutturnForm, type OutturnDefaults } from "@/components/inspector/outturn-form";
 import { OutturnTrailDisplay } from "@/components/inspector/outturn-trail-display";
 import { OutturnSummaryCard, OutturnTanksList } from "@/components/inspector/outturn-summary";
-import { JobChat } from "@/components/chat/job-chat";
-import { chatRealtimeProps, listJobMessages, unreadChatCounts } from "@/lib/job-chat";
+import { unreadChatCounts } from "@/lib/job-chat";
 import { StockReadingsList } from "@/components/inspector/stock-readings-list";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,7 +119,6 @@ export default async function InspectorJobDetailPage({
     database.select().from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1),
   ]);
 
-  const chatMessages = await listJobMessages(jobId);
   const unreadChat = (await unreadChatCounts("inspector", inspector.id, [jobId])).get(jobId) ?? 0;
   const jobDocs = await database
     .select({ id: documents.id, title: documents.title, fileName: documents.fileName, createdAt: documents.createdAt })
@@ -243,7 +241,7 @@ export default async function InspectorJobDetailPage({
           href="#chat"
           className="inline-flex w-fit items-center gap-2 rounded-full bg-gold-600 px-3.5 py-1.5 text-sm font-bold text-navy-950 transition-opacity hover:opacity-90"
         >
-          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: jump to the chat
+          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: open the chat
         </a>
       )}
 
@@ -475,22 +473,6 @@ export default async function InspectorJobDetailPage({
           </CardContent>
         </Card>
       )}
-
-      <Card id="chat" className="scroll-mt-24">
-        <CardHeader>
-          <CardTitle className="font-display">Group Chat</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <JobChat
-            jobId={job.id}
-            viewerRole="inspector"
-            viewerId={inspector.id}
-            initialMessages={chatMessages}
-            realtime={chatRealtimeProps(job.id)}
-            participantsNote={`Shared with the client (${client.name}) and JDL Core Operations. Both see everything posted here.`}
-          />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

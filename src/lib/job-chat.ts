@@ -354,3 +354,128 @@ export async function postJobMessage(sender: ChatParticipant, rawBody: string, u
 
   return toMessage(inserted[0]);
 }
+
+/* ---------------- Conversations (the floating chat's list) ---------------- */
+
+export type ChatConversation = {
+  jobId: number;
+  ref: string;
+  title: string;
+  status: string;
+  /** Who the job is for; shown to Operations and inspectors, who see many clients. */
+  clientName: string | null;
+  unread: number;
+  lastMessage: { authorName: string; preview: string; at: string } | null;
+};
+
+const CONVERSATION_LIMIT = 80;
+
+/**
+ * The job chats one person can open, most recently active first: a client's own jobs, an
+ * inspector's assigned jobs, or (for Operations) every job that isn't closed. Each carries its
+ * unread count and a preview of the latest message. The caller has already established who the
+ * person is from their session.
+ */
+export async function listConversations(role: ChatRole, viewerId: number): Promise<ChatConversation[]> {
+  const database = requireDb();
+  const scope =
+    role === "client"
+      ? eq(jobs.clientId, viewerId)
+      : role === "inspector"
+        ? eq(jobs.assignedInspectorId, viewerId)
+        : sql`${jobs.status} <> 'closed'`;
+
+  const jobRows = await database
+    .select({
+      id: jobs.id,
+      ref: jobs.ref,
+      service: jobs.service,
+      location: jobs.location,
+      status: jobs.status,
+      updatedAt: jobs.updatedAt,
+      clientName: clients.name,
+    })
+    .from(jobs)
+    .innerJoin(clients, eq(jobs.clientId, clients.id))
+    .where(scope)
+    .orderBy(desc(jobs.updatedAt))
+    .limit(CONVERSATION_LIMIT);
+  if (jobRows.length === 0) return [];
+
+  const jobIds = jobRows.map((j) => j.id);
+  const [lastRows, unread] = await Promise.all([
+    database
+      .selectDistinctOn([jobComments.jobId], {
+        jobId: jobComments.jobId,
+        authorName: jobComments.authorName,
+        body: jobComments.body,
+        attachmentName: jobComments.attachmentName,
+        attachmentMime: jobComments.attachmentMime,
+        createdAt: jobComments.createdAt,
+      })
+      .from(jobComments)
+      .where(inArray(jobComments.jobId, jobIds))
+      .orderBy(jobComments.jobId, desc(jobComments.id)),
+    unreadChatCounts(role, viewerId, jobIds),
+  ]);
+  const lastByJob = new Map(lastRows.map((r) => [r.jobId, r]));
+
+  return jobRows
+    .map((j) => {
+      const last = lastByJob.get(j.id);
+      const preview = last
+        ? last.body.trim() ||
+          (attachmentKind(last.attachmentMime ?? "") === "audio" ? "Voice message" : `File: ${last.attachmentName ?? "attachment"}`)
+        : "";
+      const conversation: ChatConversation = {
+        jobId: j.id,
+        ref: j.ref,
+        title: `${j.service}${j.location ? `, ${j.location}` : ""}`,
+        status: j.status,
+        clientName: role === "client" ? null : j.clientName,
+        unread: unread.get(j.id) ?? 0,
+        lastMessage: last
+          ? { authorName: last.authorName, preview: preview.slice(0, 120), at: new Date(last.createdAt).toISOString() }
+          : null,
+      };
+      return { conversation, lastAt: last ? new Date(last.createdAt).getTime() : 0, updatedAt: new Date(j.updatedAt).getTime() };
+    })
+    // Chats with messages first, newest message on top; then jobs with no messages yet, newest job first.
+    .sort((a, b) => b.lastAt - a.lastAt || b.updatedAt - a.updatedAt)
+    .map((row) => row.conversation);
+}
+
+/** The one-line "who is in this chat" note shown at the top of a conversation. */
+export async function chatParticipantsNote(participant: ChatParticipant): Promise<string> {
+  const { job, role } = participant;
+  if (role === "client") {
+    return job.assignedInspectorId
+      ? "You, JDL Core Operations and your inspector can all see and reply here."
+      : "You and JDL Core Operations can see and reply here. Your inspector joins once one is assigned.";
+  }
+  const database = requireDb();
+  const clientRows = await database.select({ name: clients.name }).from(clients).where(eq(clients.id, job.clientId)).limit(1);
+  const clientName = clientRows[0]?.name ?? "the client";
+  if (role === "inspector") return `Shared with the client (${clientName}) and JDL Core Operations. Both see everything posted here.`;
+  if (!job.assignedInspectorId) return `Shared with the client (${clientName}). The inspector joins once one is assigned.`;
+  const inspectorRows = await database
+    .select({ name: inspectors.name })
+    .from(inspectors)
+    .where(eq(inspectors.id, job.assignedInspectorId))
+    .limit(1);
+  return `Shared with the client (${clientName}) and the inspector (${inspectorRows[0]?.name ?? "assigned"}). Both see everything posted here.`;
+}
+
+/** Resolves the signed-in person for a role, without tying them to a job (used by the conversation list). */
+export async function resolveChatViewer(role: ChatRole): Promise<{ role: ChatRole; id: number } | null> {
+  if (role === "client") {
+    const client = await getPortalClient();
+    return client ? { role, id: client.id } : null;
+  }
+  if (role === "inspector") {
+    const inspector = await getInspector();
+    return inspector ? { role, id: inspector.id } : null;
+  }
+  const staff = await getStaff();
+  return staff && (OPS_ROLES as readonly string[]).includes(staff.role) ? { role: "staff", id: staff.id } : null;
+}

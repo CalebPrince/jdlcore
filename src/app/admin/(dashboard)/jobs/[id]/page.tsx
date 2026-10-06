@@ -42,8 +42,7 @@ import {
   OverrideStatusForm,
   PaymentActionPanel,
 } from "@/components/admin/workflow-forms";
-import { JobChat } from "@/components/chat/job-chat";
-import { chatRealtimeProps, listJobMessages, unreadChatCounts } from "@/lib/job-chat";
+import { unreadChatCounts } from "@/lib/job-chat";
 import { AiReviewBanner } from "@/components/admin/ai-review-banner";
 import { ApprovalChecklist } from "@/components/admin/approval-checklist";
 import { StockSheetImport } from "@/components/stock/stock-sheet-import";
@@ -133,7 +132,6 @@ export default async function AdminJobDetailPage({
     .where(eq(stockReadings.jobId, jobId));
   const readingCount = readingCountRows[0]?.n ?? readings.length;
   const coq = await database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1);
-  const comments = await listJobMessages(jobId);
   const unreadChat = (await unreadChatCounts("staff", staff.id, [jobId])).get(jobId) ?? 0;
   const invoiceSettings = await getInvoiceSettings();
   const aiReviews = await loadJobReviews(jobId);
@@ -186,7 +184,7 @@ export default async function AdminJobDetailPage({
           href="#chat"
           className="inline-flex w-fit items-center gap-2 rounded-full bg-gold-600 px-3.5 py-1.5 text-sm font-bold text-navy-950 transition-opacity hover:opacity-90"
         >
-          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: jump to the chat
+          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: open the chat
         </a>
       )}
 
@@ -283,7 +281,7 @@ export default async function AdminJobDetailPage({
                 </p>
               </div>
               <p className="m-0 text-sm text-muted-foreground">
-                Payment on this job is paused until you decide. You can also talk it through with the client in the group chat below.
+                Payment on this job is paused until you decide. You can also talk it through with the client in the group chat (the chat button at the bottom right).
               </p>
               <ClientRejectionPanel jobId={job.id} hasInspector={!!job.assignedInspectorId} />
             </CardContent>
@@ -540,26 +538,6 @@ export default async function AdminJobDetailPage({
         )}
 
       </div>
-
-      <Card id="chat" className="scroll-mt-24">
-        <CardHeader>
-          <CardTitle className="font-display">Group Chat</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <JobChat
-            jobId={job.id}
-            viewerRole="staff"
-            viewerId={staff.id}
-            initialMessages={comments}
-            realtime={chatRealtimeProps(job.id)}
-            participantsNote={
-              assignedInspector[0]
-                ? `Shared with the client (${client.name}) and the inspector (${assignedInspector[0].name}). Both see everything posted here.`
-                : `Shared with the client (${client.name}). The inspector joins once one is assigned.`
-            }
-          />
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader>

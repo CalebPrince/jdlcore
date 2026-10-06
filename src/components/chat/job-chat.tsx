@@ -78,6 +78,8 @@ export function JobChat({
   initialMessages,
   participantsNote,
   realtime,
+  fill = false,
+  onRead,
 }: {
   jobId: number;
   viewerRole: JobChatRole;
@@ -87,6 +89,10 @@ export function JobChat({
   participantsNote: string;
   /** Live connection details for this job's channel; null when Realtime isn't configured. */
   realtime?: { url: string; anonKey: string; topic: string } | null;
+  /** Stretch to fill the parent's height (the floating panel) instead of using a fixed-height message area. */
+  fill?: boolean;
+  /** Called after the viewer's read position has been saved, so unread counts elsewhere can refresh. */
+  onRead?: () => void;
 }) {
   const [messages, setMessages] = useState<JobChatMessage[]>(initialMessages);
   const [draft, setDraft] = useState("");
@@ -110,6 +116,10 @@ export function JobChat({
   const realtimeTopic = realtime?.topic;
   const inViewRef = useRef(false);
   const markedReadRef = useRef(0);
+  const onReadRef = useRef(onRead);
+  useEffect(() => {
+    onReadRef.current = onRead;
+  }, [onRead]);
 
   const merge = useCallback((incoming: JobChatMessage[]) => {
     if (incoming.length === 0) return;
@@ -132,9 +142,13 @@ export function JobChat({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ as: viewerRole, lastId }),
       keepalive: true,
-    }).catch(() => {
-      markedReadRef.current = 0;
-    });
+    })
+      .then((res) => {
+        if (res.ok) onReadRef.current?.();
+      })
+      .catch(() => {
+        markedReadRef.current = 0;
+      });
   }, [jobId, viewerRole]);
 
   useEffect(() => {
@@ -344,7 +358,7 @@ export function JobChat({
   const canSend = !sending && !recording && (draft.trim().length > 0 || file !== null);
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className={fill ? "flex min-h-0 flex-1 flex-col gap-3" : "flex flex-col gap-3"}>
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <p className="m-0 text-xs text-muted-foreground">{participantsNote}</p>
         <p className="m-0 flex items-center gap-1.5 text-xs text-muted-foreground" aria-live="polite">
@@ -359,7 +373,9 @@ export function JobChat({
           const el = e.currentTarget;
           stickToBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48;
         }}
-        className="flex max-h-[26rem] min-h-40 flex-col gap-2.5 overflow-y-auto rounded-xl border bg-[#f4f5f2] p-3 sm:p-4"
+        className={`flex flex-col gap-2.5 overflow-y-auto rounded-xl border bg-[#f4f5f2] p-3 ${
+          fill ? "min-h-0 flex-1" : "max-h-[26rem] min-h-40 sm:p-4"
+        }`}
         style={{ borderColor: "var(--border)" }}
         role="log"
         aria-label="Job chat messages"
@@ -551,7 +567,7 @@ export function JobChat({
           }}
           rows={2}
           maxLength={MAX_LENGTH}
-          placeholder="Write a message. Enter sends, Shift+Enter adds a line."
+          placeholder={fill ? "Write a message" : "Write a message. Enter sends, Shift+Enter adds a line."}
           className="min-h-11 flex-1 resize-none bg-white"
         />
         <Button type="submit" disabled={!canSend} className="btn-gold h-11 shrink-0">

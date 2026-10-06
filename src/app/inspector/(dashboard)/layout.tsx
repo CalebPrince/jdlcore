@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { NotificationBell } from "@/components/notifications/notification-bell";
 import { recentNotifications, unreadCount } from "@/lib/notifications";
 import { MobileWorkspaceMenu } from "@/components/backend/mobile-workspace-menu";
+import { FloatingChat } from "@/components/chat/floating-chat";
+import { inboxRealtimeProps, listConversations } from "@/lib/job-chat";
 
 export const dynamic = "force-dynamic";
 
@@ -71,6 +73,12 @@ export default async function InspectorLayout({
       <footer className="py-6 text-center text-xs text-ink-faint">
         <p className="m-0">JDL Core Inspector Portal · Integrity at the Core</p>
       </footer>
+      <FloatingChat
+        role="inspector"
+        viewerId={inspector.id}
+        initialConversations={await listConversations("inspector", inspector.id).catch(() => [])}
+        inboxRealtime={inboxRealtimeProps("inspector", inspector.id)}
+      />
     </div>
   );
 }

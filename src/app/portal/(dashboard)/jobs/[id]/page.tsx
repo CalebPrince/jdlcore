@@ -17,9 +17,8 @@ import {
 import { PortalPaymentForm } from "@/components/portal/portal-payment-form";
 import { DocumentPreviewDialog } from "@/components/portal/document-preview-dialog";
 import { PortalPaystackButton } from "@/components/portal/portal-paystack-button";
-import { JobChat } from "@/components/chat/job-chat";
 import { RejectReportForm } from "@/components/portal/reject-report-form";
-import { chatRealtimeProps, listJobMessages, unreadChatCounts } from "@/lib/job-chat";
+import { unreadChatCounts } from "@/lib/job-chat";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { isPaystackReady, getPaystackConfig } from "@/lib/paystack";
 
@@ -57,7 +56,6 @@ export default async function PortalJobDetailPage({
   let docs;
   let bills;
   let coq;
-  let comments;
   let outturn;
   const database = requireDb();
   {
@@ -69,7 +67,7 @@ export default async function PortalJobDetailPage({
     job = rows[0];
     if (!job) notFound();
 
-    [timeline, docs, bills, coq, comments, outturn] = await Promise.all([
+    [timeline, docs, bills, coq, outturn] = await Promise.all([
       database
         .select()
         .from(jobUpdates)
@@ -86,7 +84,6 @@ export default async function PortalJobDetailPage({
         .where(eq(invoices.jobId, jobId))
         .orderBy(desc(invoices.issuedAt)),
       database.select().from(certificates).where(eq(certificates.jobId, jobId)).limit(1),
-      listJobMessages(jobId),
       database.select({ id: jobOutturns.id }).from(jobOutturns).where(eq(jobOutturns.jobId, jobId)).limit(1),
     ]);
   }
@@ -140,7 +137,7 @@ export default async function PortalJobDetailPage({
           href="#chat"
           className="inline-flex w-fit items-center gap-2 rounded-full bg-gold-600 px-3.5 py-1.5 text-sm font-bold text-navy-950 transition-opacity hover:opacity-90"
         >
-          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: jump to the chat
+          {unreadChat} new chat message{unreadChat === 1 ? "" : "s"}: open the chat
         </a>
       )}
 
@@ -172,7 +169,7 @@ export default async function PortalJobDetailPage({
           {lastRejection?.note && (
             <p className="m-0 mt-1 whitespace-pre-wrap">Your reason: {lastRejection.note.replace(/^Report rejected by [^:]*: /, "")}</p>
           )}
-          <p className="m-0 mt-2">Payment is paused until they respond. You can follow up in the group chat below.</p>
+          <p className="m-0 mt-2">Payment is paused until they respond. You can follow up in the group chat (the chat button at the bottom right).</p>
         </div>
       )}
       {!reportRejected && rejectionOutcome?.note && (
@@ -343,27 +340,6 @@ export default async function PortalJobDetailPage({
             })}
           </ul>
         )}
-      </section>
-
-      {/* Chat */}
-      <section
-        id="chat"
-        className="flex scroll-mt-24 flex-col gap-3 rounded-[var(--radius)] border bg-white p-5 shadow-[var(--shadow-sm-soft)]"
-        style={{ borderColor: "var(--border)" }}
-      >
-        <h2 className="m-0 font-display text-lg font-bold text-navy-950">Group Chat</h2>
-        <JobChat
-          jobId={job.id}
-          viewerRole="client"
-          viewerId={client.id}
-          initialMessages={comments}
-          realtime={chatRealtimeProps(job.id)}
-          participantsNote={
-            job.assignedInspectorId
-              ? "You, JDL Core Operations and your inspector can all see and reply here."
-              : "You and JDL Core Operations can see and reply here. Your inspector joins once one is assigned."
-          }
-        />
       </section>
 
       {/* Timeline */}
