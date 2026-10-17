@@ -1,16 +1,23 @@
 # JDL Core Platform
 
-**Industry: Oil & Gas** — independent inspection, industry analytics, and operations training for the oil & gas sector.
+**Industry: Oil & Gas** — independent inspection and operations training for the oil & gas sector.
 
-JDL Core is a West African oil & gas group with three divisions: independent inspection services, source-grounded industry analytics, and practical operations training for the sector.
+JDL Core is a West African oil & gas group with two divisions: independent inspection services and practical operations training for the sector.
 
-The application combines public marketing sites with secure workspaces for staff, clients, inspectors, analytics subscribers, and academy learners.
+The application combines public marketing sites with secure workspaces for staff, clients, inspectors, and academy learners.
+
+> **Analytics is withdrawn from JDL Core (17 Oct 2026) but kept in the codebase for reference.** The client asked for it to be removed; the product is being reused elsewhere. All code, tables and data stay. It is visible only to the platform owner (`akakpo.c.benjamin@gmail.com`, superadmin) while signed in to `/admin`, enforced by `isOwnerStaff()` / `getOwnerStaff()` in `src/lib/staff-auth.ts`:
+> - `/analytics/*` (served on `jdlcore.com`, behind `src/app/analytics/layout.tsx`), its APIs, login, setup, checkout and callback return 404/401 to everyone else. `getAnalyticsUser()` returns null unless the owner is signed in.
+> - `analytics.jdlcore.com` redirects to `jdlcore.com`.
+> - Admin: the Analytics nav item and pages, Analytics pricing, plan sync, Analytics payment rows (ledger and totals), the Analytics waitlist, Analytics accounts in Reset Accounts, and the NPA price-data automation are owner-only. Analytics alerts and emails (`notifyStaffBoth({ ownerOnly: true })`) go to the owner only. JDL's own superadmins, including the client's, do not see any of it.
+> - AI assistants other than the Analytics one get platform knowledge without the Analytics division (`buildPlatformContext`); non-owner edits in AI Settings keep the stored Analytics division untouched.
+> - The daily NPA sync and subscription sweep still run, so the reference data stays current.
 
 ## Live sites
 
 - [jdlcore.com](https://jdlcore.com) — group landing page
 - [inspect.jdlcore.com](https://inspect.jdlcore.com) — Inspection Services
-- [analytics.jdlcore.com](https://analytics.jdlcore.com) — Analytics
+- analytics.jdlcore.com — withdrawn, redirects to jdlcore.com (see above)
 - [academy.jdlcore.com](https://academy.jdlcore.com) — Academy
 
 ## Stack

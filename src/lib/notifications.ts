@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { notifications, staff } from "@/db/schema";
 import { sendNotification } from "@/lib/email";
-import type { StaffRole } from "@/lib/staff-auth";
+import { isOwnerStaff, type StaffRole } from "@/lib/staff-auth";
 
 export type RecipientType = "client" | "inspector" | "staff";
 
@@ -104,6 +104,8 @@ export async function notifyBoth(input: {
 /** Fires both the in-app bell and a real email for every active staff member (optionally role-filtered). */
 export async function notifyStaffBoth(input: {
   roles?: StaffRole[];
+  /** Only the platform owner (see isOwnerStaff), e.g. for the withdrawn Analytics product. */
+  ownerOnly?: boolean;
   type: string;
   title: string;
   body: string;
@@ -114,7 +116,7 @@ export async function notifyStaffBoth(input: {
   try {
     const database = requireDb();
     const rows = await database
-      .select({ id: staff.id, email: staff.email })
+      .select({ id: staff.id, email: staff.email, role: staff.role })
       .from(staff)
       .where(
         input.roles && input.roles.length > 0
@@ -122,6 +124,7 @@ export async function notifyStaffBoth(input: {
           : eq(staff.status, "active"),
       );
     for (const s of rows) {
+      if (input.ownerOnly && !isOwnerStaff(s)) continue;
       await notifyBoth({
         recipientType: "staff",
         recipientId: s.id,

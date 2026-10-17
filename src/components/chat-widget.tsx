@@ -81,17 +81,6 @@ const rules: { test: RegExp; reply: () => Reply }[] = [
     }),
   },
   {
-    test: /analytics|chatbot|industry data/i,
-    reply: () => ({
-      text: "JDL Core Analytics is live in beta, with source-grounded answers, citations, conversation history, and report exports.",
-      quickReplies: [
-        { label: "Explore Analytics", href: "https://analytics.jdlcore.com" },
-        { label: "Subscriber Sign In", href: "https://analytics.jdlcore.com/analytics/login" },
-        "Our Services",
-      ],
-    }),
-  },
-  {
     test: /academy|course|tutorial|training|learn|practice test/i,
     reply: () => ({
       text: "JDL Core Academy is open. Learners can register, complete petroleum operations courses, take assessments, and earn verifiable certificates.",

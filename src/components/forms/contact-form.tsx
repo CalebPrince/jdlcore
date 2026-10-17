@@ -31,7 +31,6 @@ export function ContactForm() {
             Select a division
           </option>
           <option>Inspection Services</option>
-          <option>Analytics</option>
           <option>Academy</option>
           <option>Something else</option>
         </select>

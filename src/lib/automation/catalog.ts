@@ -22,6 +22,8 @@ export type Automation = {
   switch?: "autoAssign" | "approval" | "autoInvoice";
   /** Where the team can change how it behaves. */
   where?: { label: string; href: string };
+  /** Belongs to the withdrawn Analytics product: shown to the platform owner only. */
+  ownerOnly?: boolean;
 };
 
 export const AUTOMATIONS: Automation[] = [
@@ -147,7 +149,7 @@ export const AUTOMATIONS: Automation[] = [
   },
   {
     id: "subscription-check",
-    name: "Check Analytics and Academy subscriptions",
+    name: "Check subscriptions",
     summary: "Keeps subscribers' billing dates correct and tells your team when a subscription has really ended.",
     does: [
       "Looks at subscribers whose recorded billing period has run out",
@@ -159,7 +161,7 @@ export const AUTOMATIONS: Automation[] = [
     kind: "scheduled",
     task: "subscription-sweep",
     cadence: "daily",
-    where: { label: "Analytics", href: "/admin/analytics" },
+    where: { label: "Academy", href: "/admin/academy" },
   },
   {
     id: "price-data-update",
@@ -176,6 +178,7 @@ export const AUTOMATIONS: Automation[] = [
     task: "npa-sync",
     cadence: "npa",
     where: { label: "Analytics", href: "/admin/analytics" },
+    ownerOnly: true,
   },
 
   // ---------------------------------------------------------------- event-driven

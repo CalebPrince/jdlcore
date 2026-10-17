@@ -33,7 +33,8 @@ export async function runSubscriptionSweep() {
   const lapsedBefore = new Date(now.getTime() - GRACE_MS);
   let lookups = 0;
   let refreshed = 0;
-  const flagged: string[] = [];
+  const analyticsFlagged: string[] = [];
+  const academyFlagged: string[] = [];
 
   const analytics = await database
     .select({
@@ -63,7 +64,7 @@ export async function runSubscriptionSweep() {
         .where(eq(analyticsUsers.id, user.id));
       refreshed += 1;
     } else if (status !== "active" && (await claimEvent("subscription_lapsed", `analytics:${user.id}:${status}`))) {
-      flagged.push(`Analytics: ${user.email} (Paystack status "${status}")`);
+      analyticsFlagged.push(`Analytics: ${user.email} (Paystack status "${status}")`);
     }
   }
 
@@ -95,31 +96,41 @@ export async function runSubscriptionSweep() {
         .where(eq(academyLearners.id, learner.id));
       refreshed += 1;
     } else if (status !== "active" && (await claimEvent("subscription_lapsed", `academy:${learner.id}:${status}`))) {
-      flagged.push(`Academy: ${learner.email} (Paystack status "${status}")`);
+      academyFlagged.push(`Academy: ${learner.email} (Paystack status "${status}")`);
     }
   }
 
-  if (flagged.length > 0) {
-    const title = `${flagged.length} subscription${flagged.length === 1 ? "" : "s"} need a look`;
-    await notifyStaffBoth({
-      roles: ["operations", "administrator", "superadmin"],
-      type: "subscription_lapsed",
-      title,
-      body: flagged.slice(0, 3).join("; "),
-      link: "/admin/analytics",
-      emailSubject: title,
-      emailHtml: brandedEmailHtml({
-        label: "JDL CORE ADMIN",
-        heading: title,
-        bodyLines: [
-          "These subscribers' billing period has passed and Paystack no longer shows an upcoming payment. Their access was not changed.",
-          ...flagged.slice(0, 20),
-        ],
-        ctaUrl: "https://jdlcore.com/admin/analytics",
-        ctaLabel: "Open Analytics admin",
-      }),
-    });
-  }
+  // Analytics is kept for the platform owner only, so its flags go to the owner alone.
+  await flagLapsed(analyticsFlagged, { ownerOnly: true }, "/admin/analytics", "Open Analytics admin");
+  await flagLapsed(academyFlagged, { roles: ["operations", "administrator", "superadmin"] }, "/admin/academy", "Open Academy admin");
 
-  return { lookups, refreshed, flagged: flagged.length };
+  return { lookups, refreshed, flagged: analyticsFlagged.length + academyFlagged.length };
+}
+
+async function flagLapsed(
+  flagged: string[],
+  audience: Pick<Parameters<typeof notifyStaffBoth>[0], "roles" | "ownerOnly">,
+  link: string,
+  ctaLabel: string,
+) {
+  if (flagged.length === 0) return;
+  const title = `${flagged.length} subscription${flagged.length === 1 ? "" : "s"} need a look`;
+  await notifyStaffBoth({
+    ...audience,
+    type: "subscription_lapsed",
+    title,
+    body: flagged.slice(0, 3).join("; "),
+    link,
+    emailSubject: title,
+    emailHtml: brandedEmailHtml({
+      label: "JDL CORE ADMIN",
+      heading: title,
+      bodyLines: [
+        "These subscribers' billing period has passed and Paystack no longer shows an upcoming payment. Their access was not changed.",
+        ...flagged.slice(0, 20),
+      ],
+      ctaUrl: `https://jdlcore.com${link}`,
+      ctaLabel,
+    }),
+  });
 }

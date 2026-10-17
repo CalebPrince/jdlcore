@@ -8,7 +8,6 @@ import { sendNotification, brandedEmailHtml } from "@/lib/email";
 import { notifyStaffBoth } from "@/lib/notifications";
 import { logPaymentTransaction } from "@/lib/payment-transactions";
 
-const OPS_ROLES = ["operations", "administrator", "superadmin"] as const;
 
 function planCodeKey(planId: AnalyticsPlanId): string {
   return `paystack_plan_code_${planId}`;
@@ -115,7 +114,7 @@ export async function finalizeAnalyticsCheckout(reference: string): Promise<Chec
   const def = await getAnalyticsPlan(user.plan);
   if (def.priceCents === null || verified.amountCents !== def.priceCents || verified.currency !== def.currency) {
     await notifyStaffBoth({
-      roles: [...OPS_ROLES],
+      ownerOnly: true,
       type: "payment_amount_mismatch",
       title: `Analytics subscription amount mismatch — ${user.email}`,
       body: `A Paystack charge for ${user.email}'s ${def.label} plan doesn't match the expected amount. Access was not activated — needs manual review.`,
@@ -164,12 +163,12 @@ export async function finalizeAnalyticsCheckout(reference: string): Promise<Chec
         `Your ${def.label} subscription is active — ${def.monthlyQuestionLimit ?? "unlimited"} questions a month, up to ${def.seatLimit ?? "unlimited"} seats.`,
         "Jump into your workspace and start asking questions.",
       ],
-      ctaUrl: "https://analytics.jdlcore.com/analytics/app",
+      ctaUrl: "https://jdlcore.com/analytics/app",
       ctaLabel: "Open Analytics",
     }),
   });
   await notifyStaffBoth({
-    roles: [...OPS_ROLES],
+    ownerOnly: true,
     type: "analytics_subscription_started",
     title: `New Analytics subscriber — ${user.name}`,
     body: `${user.name} (${user.email}) subscribed to the ${def.label} plan.`,
@@ -269,7 +268,7 @@ export async function handleSubscriptionDisable(data: {
     }),
   });
   await notifyStaffBoth({
-    roles: [...OPS_ROLES],
+    ownerOnly: true,
     type: "analytics_subscription_ended",
     title: `Analytics subscription ended — ${user.name}`,
     body: `${user.name} (${user.email})'s subscription ended and access was automatically paused.`,
@@ -321,7 +320,7 @@ export async function handleInvoicePaymentFailed(data: {
         "Your last renewal payment failed. Please update your card to avoid losing access.",
         "We'll retry automatically, but updating your card now is the fastest fix.",
       ],
-      ctaUrl: "https://analytics.jdlcore.com/analytics/app",
+      ctaUrl: "https://jdlcore.com/analytics/app",
       ctaLabel: "Open Analytics",
     }),
   });
@@ -367,7 +366,7 @@ export async function handleChargeSuccessRenewal(data: {
         `Your ${user.plan ?? "Analytics"} subscription has renewed — next renewal ${periodEnd.toDateString()}.`,
         "No action needed.",
       ],
-      ctaUrl: "https://analytics.jdlcore.com/analytics/app",
+      ctaUrl: "https://jdlcore.com/analytics/app",
       ctaLabel: "Open Analytics",
     }),
   });

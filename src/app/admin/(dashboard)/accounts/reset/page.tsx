@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { getStaff } from "@/lib/staff-auth";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import { listResettableAccounts } from "@/lib/account-directory";
 import { AccountResetPanel } from "@/components/admin/account-reset-panel";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,11 +11,12 @@ export const metadata: Metadata = { title: "Reset Accounts | JDL Core Admin" };
 export default async function AdminAccountResetPage() {
   const current = await getStaff();
   if (!current || current.role !== "superadmin") notFound();
+  const isOwner = isOwnerStaff(current);
 
   let accounts: Awaited<ReturnType<typeof listResettableAccounts>> = [];
   let dbError = false;
   try {
-    accounts = await listResettableAccounts();
+    accounts = await listResettableAccounts({ includeAnalytics: isOwner });
   } catch {
     dbError = true;
   }
@@ -25,7 +26,7 @@ export default async function AdminAccountResetPage() {
       <div>
         <h1 className="font-display text-2xl font-bold text-navy-950">Reset Accounts</h1>
         <p className="text-sm text-muted-foreground">
-          Select any client, staff, inspector, academy, or analytics account and either email
+          Select any client, staff, inspector{isOwner ? ", academy, or analytics" : ", or academy"} account and either email
           them a reset link or set a brand-new password to hand-deliver yourself. Super admin
           only.
         </p>
@@ -38,7 +39,7 @@ export default async function AdminAccountResetPage() {
           </CardContent>
         </Card>
       ) : (
-        <AccountResetPanel accounts={accounts} currentStaffId={current.id} />
+        <AccountResetPanel accounts={accounts} currentStaffId={current.id} showAnalytics={isOwner} />
       )}
     </div>
   );

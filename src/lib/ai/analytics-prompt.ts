@@ -14,7 +14,7 @@ export async function buildAnalyticsSystemPrompt(
   contextBlocks: string[] = [],
   question?: string,
 ): Promise<string> {
-  const [settings, knowledge] = await Promise.all([getContactSettings(), buildPlatformContext(question)]);
+  const [settings, knowledge] = await Promise.all([getContactSettings(), buildPlatformContext(question, { includeAnalytics: true })]);
   const contactLines = [
     settings.phoneDisplay && `Phone/WhatsApp: ${settings.phoneDisplay}`,
     settings.emailInfo && `General email: ${settings.emailInfo}`,

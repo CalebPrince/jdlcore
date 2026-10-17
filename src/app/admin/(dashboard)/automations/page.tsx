@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, Clock, PauseCircle, TriangleAlert } from "lucide-react";
-import { getStaff } from "@/lib/staff-auth";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import { loadAutomationOverview, type AutomationCard } from "@/lib/automation/overview";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,7 +98,7 @@ export default async function AutomationsPage() {
   const current = await getStaff();
   if (!current || (current.role !== "administrator" && current.role !== "superadmin")) notFound();
 
-  const data = await loadAutomationOverview();
+  const data = await loadAutomationOverview({ isOwner: isOwnerStaff(current) });
   const attention = data.scheduled.filter((c) => c.health === "failed" || c.health === "late");
   const doneForYou = data.counts.reduce((total, c) => total + c.count, 0);
 

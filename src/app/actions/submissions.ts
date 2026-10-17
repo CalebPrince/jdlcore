@@ -18,6 +18,7 @@ export type FormState = {
  */
 async function notifyStaffOfSubmission(submissionType: string, title: string, body: string): Promise<void> {
   await notifyStaffBoth({
+    ownerOnly: submissionType === "waitlist_analytics",
     type: submissionType,
     title,
     body,

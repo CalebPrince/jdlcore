@@ -6,12 +6,11 @@ export const metadata = { title: "Forgot Password | JDL Core" };
 export default async function ForgotPasswordPage({ searchParams }: { searchParams: Promise<{ type?: string }> }) {
   const requested = (await searchParams).type;
   const defaultType =
-    requested === "analytics" || requested === "portal" || requested === "inspector" || requested === "staff"
+    requested === "portal" || requested === "inspector" || requested === "staff"
       ? requested
       : "academy";
   const back = {
     portal: { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
-    analytics: { href: "https://analytics.jdlcore.com", label: "Analytics" },
     academy: { href: "https://academy.jdlcore.com", label: "Academy" },
     inspector: { href: "/inspector", label: "Inspector Portal" },
     staff: { href: "/admin", label: "Admin" },

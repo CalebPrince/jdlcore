@@ -3,8 +3,8 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AiSettingsForm } from "@/components/admin/ai-settings-form";
 import { KnowledgeForm } from "@/components/admin/knowledge-form";
-import { loadKnowledgeRegistry } from "@/lib/ai/knowledge-store";
-import { getStaff } from "@/lib/staff-auth";
+import { loadKnowledgeRegistry, registryWithoutAnalytics } from "@/lib/ai/knowledge-store";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import {
   getAiSettings,
   maskKey,
@@ -19,7 +19,9 @@ export default async function AdminAiSettingsPage() {
   if (!current || current.role !== "superadmin") notFound();
 
   const s = await getAiSettings();
-  const registry = await loadKnowledgeRegistry().catch(() => null);
+  const stored = await loadKnowledgeRegistry().catch(() => null);
+  // Analytics is owner-only; other superadmins edit the knowledge without that division.
+  const registry = stored && !isOwnerStaff(current) ? registryWithoutAnalytics(stored) : stored;
   const anyConfigured = PROVIDER_ORDER.some((p) => s[`${p}Key`]);
 
   return (

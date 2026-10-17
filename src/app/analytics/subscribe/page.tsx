@@ -5,6 +5,7 @@ import { AuthShell } from "@/components/auth/auth-shell";
 import { AnalyticsSubscribeForm } from "@/components/analytics/subscribe-form";
 import { getAnalyticsPlan, isSelfServePlanId } from "@/lib/analytics-plans";
 import { formatMoney } from "@/lib/jobs";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const metadata: Metadata = { title: "Subscribe | JDL Core Analytics" };
 export const dynamic = "force-dynamic";
@@ -14,6 +15,7 @@ export default async function AnalyticsSubscribePage({
 }: {
   searchParams: Promise<{ plan?: string; error?: string }>;
 }) {
+  await requireOwnerOr404();
   const { plan: planParam, error } = await searchParams;
   const plan = isSelfServePlanId(planParam) ? planParam : "depot";
   const def = await getAnalyticsPlan(plan);

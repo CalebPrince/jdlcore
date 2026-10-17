@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { sql, desc } from "drizzle-orm";
+import { sql, desc, ne } from "drizzle-orm";
 import {
   FileText,
   MessageSquare,
@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { paymentTransactionTotals } from "@/lib/payment-transactions";
+import { getOwnerStaff } from "@/lib/staff-auth";
 import { formatMoney } from "@/lib/jobs";
 
 export const dynamic = "force-dynamic";
@@ -51,18 +52,22 @@ const timeFmt = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
 });
 
-async function loadStats() {
+async function loadStats(isOwner: boolean) {
   const database = requireDb();
+  // The Analytics waitlist belongs to the withdrawn Analytics product: owner only.
+  const visible = isOwner ? undefined : ne(submissions.type, "waitlist_analytics");
   const counts = await database
     .select({
       type: submissions.type,
       count: sql<number>`count(*)::int`,
     })
     .from(submissions)
+    .where(visible)
     .groupBy(submissions.type);
   const recent = await database
     .select()
     .from(submissions)
+    .where(visible)
     .orderBy(desc(submissions.createdAt))
     .limit(6);
   return { counts, recent };
@@ -70,6 +75,7 @@ async function loadStats() {
 
 export default async function AdminDashboardPage() {
   const settings = await getContactSettings();
+  const isOwner = Boolean(await getOwnerStaff());
 
   const placeholders = (Object.keys(DEFAULT_SETTINGS) as (keyof typeof DEFAULT_SETTINGS)[])
     .filter((k) => k !== "whatsappMessage" && settings[k] === DEFAULT_SETTINGS[k]);
@@ -77,7 +83,7 @@ export default async function AdminDashboardPage() {
   let stats: Awaited<ReturnType<typeof loadStats>> | null = null;
   let dbError = false;
   try {
-    stats = await loadStats();
+    stats = await loadStats(isOwner);
   } catch {
     dbError = true;
   }
@@ -91,7 +97,7 @@ export default async function AdminDashboardPage() {
 
   const byType = new Map(stats?.counts.map((c) => [c.type, c.count]) ?? []);
   const total = stats?.counts.reduce((sum, c) => sum + c.count, 0) ?? 0;
-  const paymentTotals = await paymentTransactionTotals();
+  const paymentTotals = await paymentTransactionTotals({ includeAnalytics: isOwner });
   const unsuccessfulCount = paymentTotals.failedCount + paymentTotals.canceledCount;
   const unsuccessfulCents = paymentTotals.failedCents + paymentTotals.canceledCents;
 
@@ -147,10 +153,12 @@ export default async function AdminDashboardPage() {
           hint="All forms across the site"
           highlight
         />
-        {[...Object.entries(TYPE_META).map(([type, meta]) => ({
-          type,
-          ...meta,
-        }))].map(({ type, label, icon: Icon }) => (
+        {[...Object.entries(TYPE_META)
+          .filter(([type]) => isOwner || type !== "waitlist_analytics")
+          .map(([type, meta]) => ({
+            type,
+            ...meta,
+          }))].map(({ type, label, icon: Icon }) => (
           <StatCard
             key={type}
             icon={Icon}

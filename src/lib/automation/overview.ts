@@ -42,7 +42,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  * Everything the admin Automations page shows: what each automation is, whether it is switched on,
  * when it last ran and how it went, and what it has done by itself recently. Read-only.
  */
-export async function loadAutomationOverview(): Promise<AutomationOverview> {
+export async function loadAutomationOverview(opts: { isOwner?: boolean } = {}): Promise<AutomationOverview> {
   const database = requireDb();
   const now = Date.now();
   const settings = await getAutomationSettings();
@@ -86,7 +86,7 @@ export async function loadAutomationOverview(): Promise<AutomationOverview> {
     return { state: "always", stateLabel: "Always on" };
   };
 
-  const cards: AutomationCard[] = AUTOMATIONS.map((a) => {
+  const cards: AutomationCard[] = AUTOMATIONS.filter((a) => !a.ownerOnly || opts.isOwner).map((a) => {
     const base: AutomationCard = { ...a, ...stateFor(a), when: a.when };
     if (a.kind !== "scheduled" || !a.task || !a.cadence) return base;
     if (a.cadence === "hourly-or-daily") base.when = hourlySeen ? "Every hour" : "Once a day, in the morning";
@@ -155,6 +155,8 @@ export async function loadAutomationOverview(): Promise<AutomationOverview> {
       .where(gt(automationEvents.createdAt, since7))
       .groupBy(automationEvents.kind);
     for (const e of events) {
+      // NPA price-data alerts belong to the owner-only Analytics product.
+      if (!opts.isOwner && e.kind.startsWith("npa_sync")) continue;
       const label = EVENT_LABELS[e.kind];
       if (label) tally.set(label, (tally.get(label) ?? 0) + e.n);
     }

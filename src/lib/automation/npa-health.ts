@@ -22,7 +22,7 @@ function weekKey(): string {
 
 async function alertStaff(type: string, title: string, lines: string[]): Promise<void> {
   await notifyStaffBoth({
-    roles: ["administrator", "superadmin"],
+    ownerOnly: true,
     type,
     title,
     body: lines[0],

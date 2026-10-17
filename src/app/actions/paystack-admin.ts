@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { requireStaffRole } from "@/lib/staff-auth";
+import { getOwnerStaff, requireStaffRole } from "@/lib/staff-auth";
 import { getPaystackConfig, isPaystackConfigured, savePaystackConfig } from "@/lib/paystack";
 import { getPlanCode } from "@/lib/analytics-billing";
 import { logAudit } from "@/lib/audit";
@@ -75,7 +75,7 @@ export async function syncAnalyticsPlanCodes(
   _prev: FormState,
   _formData: FormData,
 ): Promise<FormState> {
-  if (!(await requireStaffRole(["superadmin"]))) return { ok: false, message: "Unauthorized" };
+  if (!(await getOwnerStaff())) return { ok: false, message: "Unauthorized" };
 
   const [depot, trader] = await Promise.all([getPlanCode("depot"), getPlanCode("trader")]);
   if (!depot.ok || !trader.ok) {

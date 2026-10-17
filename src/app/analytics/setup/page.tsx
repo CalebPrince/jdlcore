@@ -8,6 +8,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const metadata: Metadata = { title: "Activate Access | JDL Core Analytics" };
 
@@ -16,6 +17,7 @@ export default async function AnalyticsSetupPage({
 }: {
   searchParams: Promise<{ token?: string }>;
 }) {
+  await requireOwnerOr404();
   const { token } = await searchParams;
   const validShape = typeof token === "string" && /^[a-f0-9]{48}$/.test(token);
 

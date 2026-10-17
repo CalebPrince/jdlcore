@@ -13,6 +13,7 @@ import {
 } from "@/lib/analytics-auth";
 import { verifyPassword, hashPassword } from "@/lib/portal-auth";
 import { sendSubscriptionManageLink } from "@/lib/paystack";
+import { getOwnerStaff } from "@/lib/staff-auth";
 import type { FormState } from "./submissions";
 
 const loginSchema = z.object({
@@ -24,6 +25,7 @@ export async function analyticsLogin(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  if (!(await getOwnerStaff())) return { ok: false, message: "Unauthorized" };
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Enter your email and password." };
 
@@ -71,6 +73,7 @@ export async function completeSetup(
   _prev: FormState,
   formData: FormData,
 ): Promise<FormState> {
+  if (!(await getOwnerStaff())) return { ok: false, message: "Unauthorized" };
   const parsed = setupSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return {

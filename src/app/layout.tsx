@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     template: "%s | JDL Core",
   },
   description:
-    "JDL Core is a group of three oil & gas focused businesses: independent inspection services, an industry-data analytics platform, and an education academy.",
+    "JDL Core is a group of two oil & gas focused businesses: independent inspection services and an education academy.",
 };
 
 export default function RootLayout({

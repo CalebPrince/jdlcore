@@ -35,7 +35,6 @@ export default async function ContactPage() {
         navLinks={[
           { href: "/", label: "JDL Core Home" },
           { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
-          { href: "https://analytics.jdlcore.com", label: "Analytics" },
           { href: "https://academy.jdlcore.com", label: "Academy" },
           { href: "/contact", label: "Contact" },
         ]}
@@ -155,11 +154,10 @@ export default async function ContactPage() {
 
       <SiteFooter
         settings={settings}
-        brandLine="Independent inspection, industry data analytics, and oil & gas education — one standard of integrity, three divisions."
+        brandLine="Independent inspection and oil & gas education. One standard of integrity, two divisions."
         columnLabel="Divisions"
         divisionLinks={[
           { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
-          { href: "https://analytics.jdlcore.com", label: "Analytics" },
           { href: "https://academy.jdlcore.com", label: "Academy" },
         ]}
         thisDivision={[

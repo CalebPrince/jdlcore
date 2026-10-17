@@ -4,6 +4,7 @@ import { analyticsChats, analyticsDailyUsage, analyticsMessages } from "@/db/sch
 import { getAnalyticsUser } from "@/lib/analytics-auth";
 import { getSuggestedPrompts } from "@/lib/analytics-knowledge";
 import { ChatWorkspace } from "@/components/analytics/chat-workspace";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function AnalyticsAppPage({
 }: {
   searchParams: Promise<{ c?: string; new?: string }>;
 }) {
+  await requireOwnerOr404();
   const user = await getAnalyticsUser();
   if (!user) return null;
   const { c, new: startNew } = await searchParams;

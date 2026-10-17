@@ -28,7 +28,6 @@ export function LegalPage({
         homeHref="/"
         navLinks={[
           { href: "https://inspect.jdlcore.com", label: "Inspection" },
-          { href: "https://analytics.jdlcore.com", label: "Analytics" },
           { href: "https://academy.jdlcore.com", label: "Academy" },
           { href: "/contact", label: "Contact" },
         ]}
@@ -70,11 +69,10 @@ export function LegalPage({
       </main>
       <SiteFooter
         settings={settings}
-        brandLine="Independent inspection, industry data analytics, and oil & gas education — one standard of integrity."
+        brandLine="Independent inspection and oil & gas education. One standard of integrity."
         columnLabel="Divisions"
         divisionLinks={[
           { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
-          { href: "https://analytics.jdlcore.com", label: "Analytics" },
           { href: "https://academy.jdlcore.com", label: "Academy" },
         ]}
         thisDivision={[

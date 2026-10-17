@@ -9,6 +9,7 @@ import { WaitlistForm } from "@/components/forms/waitlist-form";
 import { submitWaitlist } from "@/app/actions/submissions";
 import { getContactSettings } from "@/lib/settings";
 import { getAnalyticsPlans } from "@/lib/analytics-plans";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const metadata: Metadata = {
   title: "JDL Core Analytics | Data. Insight. Performance.",
@@ -29,6 +30,7 @@ function StepIcon({ children }: { children: React.ReactNode }) {
 }
 
 export default async function AnalyticsPage() {
+  await requireOwnerOr404();
   const settings = await getContactSettings();
   const plans = await getAnalyticsPlans();
   const planHref = (planId: "depot" | "trader" | "enterprise") =>

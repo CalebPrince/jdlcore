@@ -1,13 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireStaffRole } from "@/lib/staff-auth";
+import { getOwnerStaff } from "@/lib/staff-auth";
 import { getAnalyticsPlan, saveAnalyticsPlan, type AnalyticsPlanId } from "@/lib/analytics-plans";
 import { invalidatePlanCode } from "@/lib/analytics-billing";
 import { logAudit } from "@/lib/audit";
 import type { FormState } from "./submissions";
 
-const ADMIN_ROLES = ["superadmin"] as const;
 const PLAN_IDS: AnalyticsPlanId[] = ["depot", "trader", "enterprise"];
 
 function field(raw: Record<string, FormDataEntryValue>, key: string): string {
@@ -28,7 +27,7 @@ function parseOptionalPriceCents(v: string): number | null {
 }
 
 export async function saveAnalyticsPricing(_prev: FormState, formData: FormData): Promise<FormState> {
-  const current = await requireStaffRole([...ADMIN_ROLES]);
+  const current = await getOwnerStaff();
   if (!current) return { ok: false, message: "Unauthorized" };
 
   const raw = Object.fromEntries(formData);

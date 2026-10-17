@@ -10,6 +10,7 @@ import { hashPassword } from "@/lib/portal-auth";
 import { getAnalyticsPlan, isSelfServePlanId } from "@/lib/analytics-plans";
 import { getPlanCode } from "@/lib/analytics-billing";
 import { initializeTransaction } from "@/lib/paystack";
+import { getOwnerStaff } from "@/lib/staff-auth";
 import type { FormState } from "./submissions";
 
 async function siteOrigin(): Promise<string> {
@@ -29,6 +30,7 @@ const schema = z.object({
 });
 
 export async function startAnalyticsSubscription(_prev: FormState, formData: FormData): Promise<FormState> {
+  if (!(await getOwnerStaff())) return { ok: false, message: "Unauthorized" };
   const parsed = schema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false, message: "Enter valid details and a password of at least 8 characters." };
   const f = parsed.data;

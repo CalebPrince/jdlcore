@@ -2,10 +2,12 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AnalyticsLoginForm } from "@/components/analytics/auth-forms";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const metadata: Metadata = { title: "Sign In | JDL Core Analytics" };
 
-export default function AnalyticsLoginPage() {
+export default async function AnalyticsLoginPage() {
+  await requireOwnerOr404();
   return (
     <AuthShell
       brand="JDL Core Analytics"

@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getStaff } from "@/lib/staff-auth";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import type { StaffRole } from "@/lib/staff-auth";
 import { recentNotifications, unreadCount } from "@/lib/notifications";
@@ -26,6 +26,7 @@ export default async function AdminDashboardLayout({
       <AdminShell
         name={staff.name}
         role={staff.role as StaffRole}
+        isOwner={isOwnerStaff(staff)}
         unreadCount={unread}
         notifications={notifs}
       >

@@ -40,6 +40,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: "Analytics Access | JDL Core Admin" };
@@ -57,6 +58,7 @@ export default async function AdminAnalyticsPage({
 }: {
   searchParams: Promise<{ kpage?: string }>;
 }) {
+  await requireOwnerOr404();
   const sp = await searchParams;
   const knowledgePage = Math.max(1, Number.parseInt(sp.kpage ?? "1", 10) || 1);
   let knowledgeTotal = 0;

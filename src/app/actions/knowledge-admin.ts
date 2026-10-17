@@ -4,10 +4,10 @@ import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { requireDb } from "@/db";
 import { settings } from "@/db/schema";
-import { requireStaffRole } from "@/lib/staff-auth";
+import { isOwnerStaff, requireStaffRole } from "@/lib/staff-auth";
 import { logAudit } from "@/lib/audit";
 import { knowledgeSchema } from "@/lib/ai/platform-knowledge";
-import { initialRegistry, KNOWLEDGE_KEY, MAX_HISTORY_ENTRIES, registrySchema, type KnowledgeRegistry } from "@/lib/ai/knowledge-store";
+import { initialRegistry, keepAnalyticsDivision, KNOWLEDGE_KEY, MAX_HISTORY_ENTRIES, registrySchema, type KnowledgeRegistry } from "@/lib/ai/knowledge-store";
 
 export async function savePlatformKnowledge(_previous: { ok: boolean; message: string; revision: number }, data: FormData) {
   const revision = Number(data.get("revision"));
@@ -25,9 +25,11 @@ export async function savePlatformKnowledge(_previous: { ok: boolean; message: s
     const rows = await database.select().from(settings).where(eq(settings.key, KNOWLEDGE_KEY)).limit(1);
     const previous = rows[0] ? registrySchema.parse(JSON.parse(rows[0].value)) : initialRegistry();
     if (previous.revision !== revision) return fail("Another administrator updated this knowledge. Reload the page before saving.");
-    const next = { ...previous, draft: parsed.data, revision: revision + 1, updatedBy: current.name,
+    // Non-owners edit a copy without the owner-only Analytics division; keep the stored one.
+    const knowledge = isOwnerStaff(current) ? parsed.data : keepAnalyticsDivision(parsed.data, previous.draft);
+    const next = { ...previous, draft: knowledge, revision: revision + 1, updatedBy: current.name,
       ...(intent === "publish" ? {
-        published: parsed.data,
+        published: knowledge,
         publishedVersion: previous.publishedVersion + 1,
         publishedAt: new Date().toISOString(),
         publishedBy: current.name,

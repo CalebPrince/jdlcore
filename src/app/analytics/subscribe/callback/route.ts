@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { finalizeAnalyticsCheckout } from "@/lib/analytics-billing";
 import { applyAnalyticsSessionCookie } from "@/lib/analytics-auth";
+import { getOwnerStaff } from "@/lib/staff-auth";
 
 /**
  * Where Paystack redirects the browser back to after a subscription checkout attempt.
@@ -9,6 +10,7 @@ import { applyAnalyticsSessionCookie } from "@/lib/analytics-auth";
  * processed this same reference first.
  */
 export async function GET(req: Request) {
+  if (!(await getOwnerStaff())) return new NextResponse("Not found", { status: 404 });
   const url = new URL(req.url);
   const reference = url.searchParams.get("reference") || url.searchParams.get("trxref");
   if (!reference) return NextResponse.redirect(new URL("/analytics", req.url));

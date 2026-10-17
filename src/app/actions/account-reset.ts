@@ -6,7 +6,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { z } from "zod";
 import { requireDb } from "@/db";
 import { academyLearners, analyticsUsers, clients, inspectors, passwordResetTokens, staff } from "@/db/schema";
-import { requireStaffRole } from "@/lib/staff-auth";
+import { isOwnerStaff, requireStaffRole } from "@/lib/staff-auth";
 import { hashPassword } from "@/lib/portal-auth";
 import { getEmailConfig, isEmailConfigured, sendNotification } from "@/lib/email";
 import { logAudit } from "@/lib/audit";
@@ -98,6 +98,9 @@ export async function resetAccounts(
 
   const parsed = inputSchema.safeParse({ mode: formData.get("mode"), emailPassword: formData.get("emailPassword") === "on", targets: parsedTargets });
   if (!parsed.success) return { ok: false, message: "Select at least one account." };
+  if (!isOwnerStaff(current) && parsed.data.targets.some((t) => t.accountType === "analytics")) {
+    return { ok: false, message: "Unauthorized" };
+  }
 
   const database = requireDb();
   const { mode } = parsed.data;

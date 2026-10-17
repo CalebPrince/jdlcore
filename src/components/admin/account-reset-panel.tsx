@@ -47,9 +47,11 @@ function accountKey(accountType: AccountType, id: number): string {
 export function AccountResetPanel({
   accounts,
   currentStaffId,
+  showAnalytics,
 }: {
   accounts: DirectoryAccount[];
   currentStaffId: number;
+  showAnalytics: boolean;
 }) {
   const [state, formAction, pending] = useActionState(resetAccounts, initial);
   const [search, setSearch] = useState("");
@@ -127,7 +129,7 @@ export function AccountResetPanel({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All types</SelectItem>
-                {Object.entries(TYPE_LABEL).map(([value, label]) => (
+                {Object.entries(TYPE_LABEL).filter(([value]) => showAnalytics || value !== "analytics").map(([value, label]) => (
                   <SelectItem key={value} value={value}>
                     {label}
                   </SelectItem>

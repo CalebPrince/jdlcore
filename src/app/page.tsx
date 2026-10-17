@@ -9,7 +9,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ChatWidget } from "@/components/chat-widget";
 import { Reveal } from "@/components/reveal";
-import { OverviewMockup, AnalyticsChatMockup, AcademyMockup } from "@/components/mockups";
+import { OverviewMockup, AcademyMockup } from "@/components/mockups";
 import { ContactForm } from "@/components/forms/contact-form";
 import { WaitlistForm } from "@/components/forms/waitlist-form";
 import { WhatsAppIcon } from "@/components/whatsapp-icon";
@@ -36,9 +36,9 @@ function ComingSoonBadge({ icon, store }: { icon: React.ReactNode; store: string
 }
 
 export const metadata: Metadata = {
-  title: "JDL Core | Independent Oil and Gas Inspection, Collateral Management, Analytics & Training",
+  title: "JDL Core | Independent Oil and Gas Inspection, Collateral Management & Training",
   description:
-    "JDL Core is a West African oil & gas group with three divisions: independent inspection and quantity verification, an on-demand industry-data analytics platform, and a technical training academy, held to one standard of integrity.",
+    "JDL Core is a West African oil & gas group with two divisions: independent inspection and quantity verification, and a technical training academy, held to one standard of integrity.",
   keywords: [
     "oil and gas inspection",
     "independent stock monitoring",
@@ -46,7 +46,6 @@ export const metadata: Metadata = {
     "collateral verification",
     "quantity verification",
     "petroleum inspection Ghana",
-    "oil and gas analytics",
     "oil and gas training academy",
     "JDL Core",
   ],
@@ -55,9 +54,9 @@ export const metadata: Metadata = {
     type: "website",
     url: "https://jdlcore.com",
     siteName: "JDL Core",
-    title: "JDL Core | Independent Oil and Gas Inspection, Collateral Management, Analytics & Training",
+    title: "JDL Core | Independent Oil and Gas Inspection, Collateral Management & Training",
     description:
-      "One oil & gas group, three divisions: independent inspection and quantity verification, on-demand industry-data analytics, and a technical training academy.",
+      "One oil & gas group, two divisions: independent inspection and quantity verification, and a technical training academy.",
   },
 };
 
@@ -77,22 +76,6 @@ const DIVISIONS = [
     ],
     cta: "Visit Inspection Services",
     comingSoon: false,
-  },
-  {
-    href: "https://analytics.jdlcore.com",
-    name: "Analytics",
-    tag: "Coming Soon",
-    logo: "/logo-analytics.png",
-    logoAlt: "JDL Core Analytics",
-    blurb:
-      "Industry-data intelligence you query on demand. Ask a question in plain language and get an answer backed by real inspection data, not a static quarterly report.",
-    points: [
-      "Ask questions in plain language",
-      "Answers grounded in field data",
-      "Track variance and trends over time",
-    ],
-    cta: "Coming Soon",
-    comingSoon: true,
   },
   {
     href: "https://academy.jdlcore.com",
@@ -123,7 +106,7 @@ const APPROACH = [
   },
   {
     title: "One standard across divisions",
-    body: "The discipline that governs an inspection also governs the data we publish and the courses we teach. Integrity at the core is the operating model, not a tagline.",
+    body: "The discipline that governs an inspection also governs the courses we teach. Integrity at the core is the operating model, not a tagline.",
   },
 ];
 
@@ -148,13 +131,12 @@ export default async function HomePage() {
     url: "https://jdlcore.com",
     slogan: "Integrity at the Core",
     description:
-      "West African oil & gas group operating three divisions: independent inspection and quantity verification, an on-demand industry-data analytics platform, and a technical training academy.",
+      "West African oil & gas group operating two divisions: independent inspection and quantity verification, and a technical training academy.",
     email: settings.emailInfo,
     telephone: settings.phoneDisplay,
     address: { "@type": "PostalAddress", addressLocality: settings.address },
     subOrganization: [
       { "@type": "Organization", name: "JDL Core Inspection Services", url: "https://inspect.jdlcore.com" },
-      { "@type": "Organization", name: "JDL Core Analytics", url: "https://analytics.jdlcore.com" },
       { "@type": "Organization", name: "JDL Core Academy", url: "https://academy.jdlcore.com" },
     ],
   };
@@ -190,14 +172,13 @@ export default async function HomePage() {
               <h1 className="text-[clamp(1.75rem,3.4vw,2.6rem)] font-bold">
                 Independent Oil and Gas{" "}
                 <span className="text-gold-600">Inspection</span>, Collateral
-                Management, Analytics &amp; Training
+                Management &amp; Training
               </h1>
               <p className="mt-4 max-w-[560px] text-[1.1rem] text-ink-soft">
-                JDL Core is one group with three divisions: a flagship inspection
-                practice that verifies stock and quantities, an analytics
-                platform that turns that field data into answers, and an academy
-                that trains the next set of inspectors. One standard of integrity
-                runs through all three.
+                JDL Core is one group with two divisions: a flagship inspection
+                practice that verifies stock and quantities, and an academy that
+                trains the next set of inspectors. One standard of integrity runs
+                through both.
               </p>
               <div className="mt-7 mb-2 flex flex-wrap gap-3.5">
                 <Link href="/inspection#quote" className="btn-gold btn-gold-lg">
@@ -219,17 +200,17 @@ export default async function HomePage() {
           </div>
         </section>
 
-        {/* ============ DIVISIONS (the three cards) ============ */}
+        {/* ============ DIVISIONS (the two cards) ============ */}
         <section id="divisions" className="scroll-mt-20 bg-paper-deep py-21">
           <div className="wrap">
             <Reveal className="mb-11 max-w-[680px]">
-              <p className="eyebrow">Three Divisions, One Standard</p>
+              <p className="eyebrow">Two Divisions, One Standard</p>
               <h2 className="mb-4 text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
                 Pick the Division You Need
               </h2>
               <p className="text-ink-soft">
                 Each division runs as its own business. Inspection Services is
-                available now; Analytics and Academy are coming soon.
+                available now; the Academy is coming soon.
               </p>
               <div className="group-home-hint mt-5">
                 <ExternalLink aria-hidden="true" size={14} strokeWidth={1.8} />
@@ -237,7 +218,7 @@ export default async function HomePage() {
               </div>
             </Reveal>
 
-            <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
               {DIVISIONS.map((d, i) => (
                 <Reveal key={d.href} className="h-full">
                   {(() => {
@@ -316,11 +297,10 @@ export default async function HomePage() {
                 numbers that actually hold up.
               </p>
               <p className="mt-4">
-                The Analytics platform grew out of that inspection work. Once you
-                have years of verified field data, the natural next step is to
-                let people question it directly. The Academy closes the loop by
-                training the inspectors and stock controllers the industry keeps
-                asking for. Three divisions, one chain of custody for the truth.
+                The Academy grew out of that inspection work. It closes the loop
+                by training the inspectors and stock controllers the industry
+                keeps asking for, using the same methods our people apply in the
+                field. Two divisions, one chain of custody for the truth.
               </p>
               <Link href="#contact" className="link-arrow mt-2 inline-block">
                 Talk to us about your operation &rarr;
@@ -354,8 +334,8 @@ export default async function HomePage() {
               >
                 <h4 className="font-display font-bold">The Group</h4>
                 <p className="m-0 text-[0.92rem] text-ink-soft">
-                  Inspection Services (flagship), with Analytics and the Academy
-                  coming soon, all built around a shared operating standard.
+                  Inspection Services (flagship), with the Academy coming soon,
+                  both built around a shared operating standard.
                 </p>
               </div>
             </Reveal>
@@ -372,7 +352,7 @@ export default async function HomePage() {
               </h2>
               <p className="text-ink-soft">
                 The value of a JDL Core report is that it isn&apos;t ours to
-                shade. The same principle carries into the data and the training.
+                shade. The same principle carries into the training.
               </p>
             </Reveal>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -397,26 +377,21 @@ export default async function HomePage() {
             <Reveal>
               <p className="eyebrow">From the Divisions</p>
               <h2 className="text-[clamp(1.6rem,3vw,2.2rem)] font-bold">
-                The Same Field Data, Put to Work Two Ways
+                The Methods Behind the Field Data, Taught
               </h2>
               <p className="mt-4 max-w-[560px] text-ink-soft">
-                Analytics will let you interrogate verified inspection data in
-                plain language. The Academy will turn the methods behind that
-                data into courses. Both divisions are coming soon.
+                The Academy will turn the methods behind every verified
+                inspection into practical courses, with certificates on
+                completion. The Academy is coming soon.
               </p>
               <div className="mt-6 flex flex-wrap gap-3.5">
                 <span aria-disabled="true" className="btn-ghost cursor-not-allowed px-7 py-3.5 text-base opacity-60">
-                  Analytics — Coming Soon
-                  <Ban aria-hidden="true" size={16} strokeWidth={1.8} className="text-red-600" />
-                </span>
-                <span aria-disabled="true" className="btn-ghost cursor-not-allowed px-7 py-3.5 text-base opacity-60">
-                  Academy — Coming Soon
+                  Academy: Coming Soon
                   <Ban aria-hidden="true" size={16} strokeWidth={1.8} className="text-red-600" />
                 </span>
               </div>
             </Reveal>
-            <Reveal className="grid gap-5 sm:grid-cols-2 max-lg:max-w-[560px] max-lg:mx-auto">
-              <AnalyticsChatMockup />
+            <Reveal className="w-full max-w-[420px] justify-self-center">
               <AcademyMockup />
             </Reveal>
           </div>
@@ -463,8 +438,8 @@ export default async function HomePage() {
                 Tell Us About the Job
               </h2>
               <p className="text-ink-soft">
-                Whether you need an inspection scheduled, access to the analytics
-                beta, or a team trained, one message reaches the whole group and
+                Whether you need an inspection scheduled or a team trained, one
+                message reaches the whole group and
                 we&apos;ll point you to the right division.
               </p>
             </Reveal>
@@ -550,13 +525,12 @@ export default async function HomePage() {
         settings={settings}
         logo="/logo-jdlcore.png"
         logoAlt="JDL Core"
-        brandLine="Independent inspection, industry-data analytics, and oil & gas education. One standard of integrity, three divisions."
+        brandLine="Independent inspection and oil & gas education. One standard of integrity, two divisions."
         copyrightName="JDL Core"
         homeHref="/"
         columnLabel="Divisions"
         divisionLinks={[
           { href: "https://inspect.jdlcore.com", label: "Inspection Services" },
-          { href: "https://analytics.jdlcore.com", label: "Analytics" },
           { href: "https://academy.jdlcore.com", label: "Academy" },
         ]}
         thisDivision={[

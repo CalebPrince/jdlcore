@@ -19,7 +19,7 @@ export type DirectoryAccount = {
  * Every account that can be targeted by the superadmin "Reset Accounts" tool,
  * flattened from the five separate account tables into one shape.
  */
-export async function listResettableAccounts(): Promise<DirectoryAccount[]> {
+export async function listResettableAccounts(opts: { includeAnalytics?: boolean } = {}): Promise<DirectoryAccount[]> {
   const database = requireDb();
 
   const [clientRows, staffRows, inspectorRows, academyRows, analyticsRows] = await Promise.all([
@@ -96,7 +96,8 @@ export async function listResettableAccounts(): Promise<DirectoryAccount[]> {
       statusLabel: a.status,
       lastLoginAt: a.lastLoginAt,
     })),
-    ...analyticsRows.map((a) => ({
+    // Analytics accounts belong to the withdrawn Analytics product: owner only.
+    ...(opts.includeAnalytics ? analyticsRows : []).map((a) => ({
       accountType: "analytics" as const,
       id: a.id,
       name: a.name,

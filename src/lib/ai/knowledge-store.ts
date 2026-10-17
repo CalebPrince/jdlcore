@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { settings } from "@/db/schema";
 import { z } from "zod";
-import { DEFAULT_KNOWLEDGE, knowledgeSchema, renderPlatformKnowledge } from "./platform-knowledge";
+import { DEFAULT_KNOWLEDGE, knowledgeSchema, renderPlatformKnowledge, type PlatformKnowledge } from "./platform-knowledge";
 
 export const KNOWLEDGE_KEY = "ai_platform_knowledge_v1";
 // Bounds how many past published snapshots are retained for rollback.
@@ -41,9 +41,46 @@ export async function loadKnowledgeRegistry(): Promise<KnowledgeRegistry> {
   return rows[0] ? registrySchema.parse(JSON.parse(rows[0].value)) : initialRegistry();
 }
 
-export async function buildPlatformContext(question?: string): Promise<string> {
+/**
+ * Analytics was withdrawn from JDL Core and is kept for the platform owner only. Every assistant
+ * except the owner-only Analytics one gets the knowledge without it, so none of them offer it.
+ * The stored registry is left as is.
+ */
+function withoutAnalytics(knowledge: PlatformKnowledge): PlatformKnowledge {
+  return {
+    ...knowledge,
+    company: knowledge.company.replace(/, industry analytics,/i, "").replace(/analytics subscribers, /i, ""),
+    divisions: knowledge.divisions.filter((d) => d.id !== "analytics"),
+  };
+}
+
+/** The registry as a non-owner superadmin sees it in AI Settings: no Analytics division anywhere. */
+export function registryWithoutAnalytics(registry: KnowledgeRegistry): KnowledgeRegistry {
+  return {
+    ...registry,
+    draft: withoutAnalytics(registry.draft),
+    published: withoutAnalytics(registry.published),
+    history: registry.history.map((h) => ({ ...h, knowledge: withoutAnalytics(h.knowledge) })),
+  };
+}
+
+/** A non-owner's save never sees the Analytics division, so carry the stored one over unchanged. */
+export function keepAnalyticsDivision(next: PlatformKnowledge, previous: PlatformKnowledge): PlatformKnowledge {
+  const kept = previous.divisions.find((d) => d.id === "analytics");
+  const divisions = next.divisions.filter((d) => d.id !== "analytics");
+  // An untouched company line keeps its stored wording; an edited one is the editor's.
+  const company = next.company === withoutAnalytics(previous).company ? previous.company : next.company;
+  return { ...next, company, divisions: kept ? [...divisions, kept] : divisions };
+}
+
+export async function buildPlatformContext(question?: string, opts: { includeAnalytics?: boolean } = {}): Promise<string> {
   try {
-    return renderPlatformKnowledge((await loadKnowledgeRegistry()).published, { question });
+    const published = (await loadKnowledgeRegistry()).published;
+    if (opts.includeAnalytics) return renderPlatformKnowledge(published, { question });
+    return [
+      renderPlatformKnowledge(withoutAnalytics(published), { question }),
+      "JDL Core has two divisions: Inspection Services and the Academy. It does not offer an analytics product or subscription; if asked, say so and point to those two divisions.",
+    ].join("\n");
   } catch {
     // Do not resurrect obsolete published knowledge when storage is unavailable.
     return "Platform knowledge is temporarily unavailable. Do not rely on persona text for division capabilities or launch status. Say you cannot verify platform details and direct the user to the relevant division page or contact team.";

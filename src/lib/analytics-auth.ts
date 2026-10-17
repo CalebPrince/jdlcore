@@ -5,6 +5,7 @@ import { createHmac, timingSafeEqual, randomBytes } from "node:crypto";
 import { eq, and, gt } from "drizzle-orm";
 import { requireDb } from "@/db";
 import { analyticsUsers } from "@/db/schema";
+import { getOwnerStaff } from "@/lib/staff-auth";
 
 export const ANALYTICS_SESSION_COOKIE = "jdl_analytics";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 24 * 14; // two weeks
@@ -73,6 +74,9 @@ async function sessionUserId(): Promise<number | null> {
 }
 
 export async function getAnalyticsUser() {
+  // Analytics is withdrawn from JDL Core and kept for the platform owner only: no
+  // subscriber session counts unless the owner is also signed in to /admin.
+  if (!(await getOwnerStaff())) return null;
   const userId = await sessionUserId();
   if (!userId) return null;
   try {

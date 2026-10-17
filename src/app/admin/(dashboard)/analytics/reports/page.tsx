@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { ArrowLeft, Download } from "lucide-react";
 import { getAnalyticsReport } from "@/lib/analytics-reporting";
+import { requireOwnerOr404 } from "@/lib/staff-auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function AnalyticsReportsPage() {
+  await requireOwnerOr404();
   const report = await getAnalyticsReport(14);
   const maximum = Math.max(1, ...report.daily.map((day) => day.count));
   const utilization = report.metrics.todayCapacity ? Math.round((report.metrics.todayUsed / report.metrics.todayCapacity) * 100) : 0;

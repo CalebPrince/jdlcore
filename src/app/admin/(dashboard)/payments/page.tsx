@@ -5,7 +5,7 @@ import { PaystackSettingsForm, SyncAnalyticsPlansForm, TestPaystackConnectionFor
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { getStaff } from "@/lib/staff-auth";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import { getPaystackConfig, isPaystackConfigured, maskKeyLike } from "@/lib/paystack";
 import { paymentTransactionTotals, recentPaymentTransactions } from "@/lib/payment-transactions";
 import { formatMoney } from "@/lib/jobs";
@@ -26,7 +26,12 @@ export default async function AdminPaymentsPage() {
   const current = await getStaff();
   if (!current || !["administrator", "superadmin"].includes(current.role)) notFound();
 
-  const [config, transactions, totals] = await Promise.all([getPaystackConfig(), recentPaymentTransactions(50), paymentTransactionTotals()]);
+  const isOwner = isOwnerStaff(current);
+  const [config, transactions, totals] = await Promise.all([
+    getPaystackConfig(),
+    recentPaymentTransactions(50, { includeAnalytics: isOwner }),
+    paymentTransactionTotals({ includeAnalytics: isOwner }),
+  ]);
   const mode: PaystackSettingsView["mode"] = config.secretKey?.startsWith("sk_live_") ? "live" : config.secretKey?.startsWith("sk_test_") ? "test" : null;
   const view: PaystackSettingsView = { enabled: config.enabled, configured: isPaystackConfigured(config), secretKeyMasked: maskKeyLike(config.secretKey), publicKey: config.publicKey ?? "", mode };
   const unsuccessful = transactions.filter((tx) => ["failed", "canceled", "cancelled"].includes(tx.status));
@@ -62,7 +67,7 @@ export default async function AdminPaymentsPage() {
       ) : null}
 
       <Card>
-        <CardHeader><CardTitle>All payment activity</CardTitle><CardDescription>The 50 most recent invoice, Analytics, and Academy payment outcomes.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>All payment activity</CardTitle><CardDescription>The 50 most recent invoice{isOwner ? ", Analytics," : ""} and Academy payment outcomes.</CardDescription></CardHeader>
         <CardContent>{transactions.length === 0 ? <EmptyState>Payments will appear here as soon as the first attempt comes through.</EmptyState> : <PaymentTable transactions={transactions} />}</CardContent>
       </Card>
 
@@ -74,7 +79,7 @@ export default async function AdminPaymentsPage() {
         </CardContent>
       </Card>
 
-      {view.configured ? <Card><CardHeader><CardTitle>Analytics subscription plans</CardTitle><CardDescription>Sync Depot and Trader plans after changing subscription prices.</CardDescription></CardHeader><CardContent><SyncAnalyticsPlansForm /></CardContent></Card> : null}
+      {view.configured && isOwner ? <Card><CardHeader><CardTitle>Analytics subscription plans</CardTitle><CardDescription>Sync Depot and Trader plans after changing subscription prices.</CardDescription></CardHeader><CardContent><SyncAnalyticsPlansForm /></CardContent></Card> : null}
     </div>
   );
 }

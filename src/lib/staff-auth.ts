@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { notFound } from "next/navigation";
 import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { and, eq, gt } from "drizzle-orm";
 import { requireDb } from "@/db";
@@ -80,6 +81,32 @@ export async function requireStaffRole(roles: StaffRole[]) {
   if (!current) return null;
   if (!roles.includes(current.role as StaffRole)) return null;
   return current;
+}
+
+/**
+ * The platform owner (Prince Caleb). Analytics was withdrawn from JDL Core but is kept
+ * for reference, visible only to this one account; JDL's own superadmins don't see it.
+ */
+const OWNER_EMAIL = "akakpo.c.benjamin@gmail.com";
+
+export function isOwnerStaff(row: { role: string; email: string } | null | undefined): boolean {
+  return Boolean(row && row.role === "superadmin" && row.email.trim().toLowerCase() === OWNER_EMAIL);
+}
+
+/** The owner's staff row when the current session is the owner, otherwise null. */
+export async function getOwnerStaff() {
+  const current = await getStaff();
+  return isOwnerStaff(current) ? current : null;
+}
+
+/**
+ * First line of every owner-only page. A layout's notFound() alone isn't enough: Next.js
+ * renders the page in parallel and its payload would still reach the browser.
+ */
+export async function requireOwnerOr404() {
+  const owner = await getOwnerStaff();
+  if (!owner) notFound();
+  return owner;
 }
 
 export function staffCookieName(): string {

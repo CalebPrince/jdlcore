@@ -33,7 +33,6 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [
         { source: "/", has: [{ type: "host", value: "inspect.jdlcore.com" }], destination: "/inspection" },
-        { source: "/", has: [{ type: "host", value: "analytics.jdlcore.com" }], destination: "/analytics" },
         { source: "/", has: [{ type: "host", value: "academy.jdlcore.com" }], destination: "/academy" },
       ],
       afterFiles: [],
@@ -48,17 +47,13 @@ const nextConfig: NextConfig = {
         destination: "https://inspect.jdlcore.com",
         permanent: true,
       },
+      // Analytics was withdrawn from JDL Core; the subdomain now lands on the main site.
+      // The product itself is kept at jdlcore.com/analytics for the platform owner only.
       {
-        source: "/analytics",
-        has: [{ type: "host", value: ROOT_HOST }],
-        destination: "https://analytics.jdlcore.com/analytics",
-        permanent: true,
-      },
-      {
-        source: "/analytics/:path+",
-        has: [{ type: "host", value: ROOT_HOST }],
-        destination: "https://analytics.jdlcore.com/analytics/:path+",
-        permanent: true,
+        source: "/:path*",
+        has: [{ type: "host", value: "analytics.jdlcore.com" }],
+        destination: "https://jdlcore.com",
+        permanent: false,
       },
       {
         source: "/academy",

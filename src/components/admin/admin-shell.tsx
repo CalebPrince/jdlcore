@@ -47,6 +47,7 @@ const NAV: {
   exact?: boolean;
   roles?: StaffRole[]; // omit = visible to every role
   superadminOnly?: boolean;
+  ownerOnly?: boolean; // hidden entirely unless the platform owner is signed in
 }[] = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
   { href: "/admin/jobs", label: "Jobs", icon: ClipboardList },
@@ -58,7 +59,7 @@ const NAV: {
   { href: "/admin/inspectors", label: "Inspectors", icon: Users, roles: ["administrator", "superadmin"] },
   { href: "/admin/services", label: "Services", icon: ClipboardList, roles: ["administrator", "superadmin"] },
   { href: "/admin/tanks", label: "Tanks", icon: Droplets, roles: ["administrator", "superadmin"] },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, superadminOnly: true },
+  { href: "/admin/analytics", label: "Analytics", icon: BarChart3, ownerOnly: true },
   { href: "/admin/academy", label: "Academy", icon: GraduationCap, superadminOnly: true },
   { href: "/admin/academy/credentials", label: "Credentials", icon: Award, roles: ["superadmin"] },
   { href: "/admin/settings", label: "Site Settings", icon: Settings2, roles: ["administrator", "superadmin"] },
@@ -71,9 +72,9 @@ const NAV: {
   { href: "/admin/account", label: "My Account", icon: UserCog },
 ];
 
-function NavLinks({ role, onNavigate }: { role: StaffRole; onNavigate?: () => void }) {
+function NavLinks({ role, isOwner, onNavigate }: { role: StaffRole; isOwner: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const visible = NAV.filter((item) => !item.roles || item.roles.includes(role));
+  const visible = NAV.filter((item) => (!item.roles || item.roles.includes(role)) && (!item.ownerOnly || isOwner));
   return (
     <nav className="flex flex-col gap-1">
       {visible.map((item) => {
@@ -124,12 +125,14 @@ const ROLE_LABEL: Record<StaffRole, string> = {
 function SidebarInner({
   name,
   role,
+  isOwner,
   unreadCount,
   notifications,
   onNavigate,
 }: {
   name: string;
   role: StaffRole;
+  isOwner: boolean;
   unreadCount: number;
   notifications: BellNotification[];
   onNavigate?: () => void;
@@ -159,7 +162,7 @@ function SidebarInner({
       </div>
 
       <div className="px-4">
-        <NavLinks role={role} onNavigate={onNavigate} />
+        <NavLinks role={role} isOwner={isOwner} onNavigate={onNavigate} />
       </div>
 
       <div className="mt-auto flex flex-col gap-1 px-4 pb-6">
@@ -189,12 +192,14 @@ function SidebarInner({
 export function AdminShell({
   name,
   role,
+  isOwner,
   unreadCount,
   notifications,
   children,
 }: {
   name: string;
   role: StaffRole;
+  isOwner: boolean;
   unreadCount: number;
   notifications: BellNotification[];
   children: React.ReactNode;
@@ -205,7 +210,7 @@ export function AdminShell({
     <div className="backend-shell min-h-dvh bg-[#f4f5f2] lg:grid lg:grid-cols-[264px_1fr]">
       {/* Desktop sidebar */}
       <aside className="backend-sidebar sticky top-0 hidden h-dvh overflow-y-auto border-r border-white/8 bg-navy-950 lg:block">
-        <SidebarInner name={name} role={role} unreadCount={unreadCount} notifications={notifications} />
+        <SidebarInner name={name} role={role} isOwner={isOwner} unreadCount={unreadCount} notifications={notifications} />
       </aside>
 
       <div className="flex min-h-dvh flex-col overflow-x-hidden">
@@ -235,6 +240,7 @@ export function AdminShell({
                 <SidebarInner
                   name={name}
                   role={role}
+                  isOwner={isOwner}
                   unreadCount={unreadCount}
                   notifications={notifications}
                   onNavigate={() => setMobileOpen(false)}

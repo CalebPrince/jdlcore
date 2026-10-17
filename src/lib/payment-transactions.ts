@@ -1,5 +1,5 @@
 import "server-only";
-import { and, desc, eq, sql } from "drizzle-orm";
+import { and, desc, eq, ne, sql } from "drizzle-orm";
 import { db, requireDb } from "@/db";
 import { paymentTransactions } from "@/db/schema";
 
@@ -59,10 +59,15 @@ export async function logPaymentTransaction(input: {
   }
 }
 
-export async function recentPaymentTransactions(limit = 50) {
+/** Analytics is withdrawn from JDL Core; its rows only show for the platform owner. */
+const withoutAnalytics = ne(paymentTransactions.kind, "analytics_subscription");
+
+export async function recentPaymentTransactions(limit = 50, opts: { includeAnalytics?: boolean } = {}) {
   if (!db) return [];
   try {
-    return await db.select().from(paymentTransactions).orderBy(desc(paymentTransactions.createdAt)).limit(limit);
+    return await db.select().from(paymentTransactions)
+      .where(opts.includeAnalytics ? undefined : withoutAnalytics)
+      .orderBy(desc(paymentTransactions.createdAt)).limit(limit);
   } catch {
     return [];
   }
@@ -77,7 +82,7 @@ export async function academyPaymentsForEmail(email: string, limit = 20) {
   } catch { return []; }
 }
 
-export async function paymentTransactionTotals(): Promise<PaymentTransactionSummary> {
+export async function paymentTransactionTotals(opts: { includeAnalytics?: boolean } = {}): Promise<PaymentTransactionSummary> {
   if (!db) return { ...EMPTY_SUMMARY };
   try {
     const rows = await db
@@ -87,6 +92,7 @@ export async function paymentTransactionTotals(): Promise<PaymentTransactionSumm
         count: sql<number>`count(*)::int`,
       })
       .from(paymentTransactions)
+      .where(opts.includeAnalytics ? undefined : withoutAnalytics)
       .groupBy(paymentTransactions.status);
 
     const summary = { ...EMPTY_SUMMARY };

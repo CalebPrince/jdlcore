@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { clients, submissions } from "@/db/schema";
-import { getStaff } from "@/lib/staff-auth";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import {
   Card,
   CardContent,
@@ -54,15 +54,18 @@ export default async function AdminInboxPage({
   const current = await getStaff();
   if (!current) notFound();
 
+  const isOwner = isOwnerStaff(current);
   const { type } = await searchParams;
-  const activeType = type && type !== "all" ? type : null;
+  // The Analytics waitlist belongs to the withdrawn Analytics product: owner only.
+  const activeType = type && type !== "all" && (isOwner || type !== "waitlist_analytics") ? type : null;
+  const filters = FILTERS.filter((f) => isOwner || f.value !== "waitlist_analytics");
 
   let rows: Awaited<ReturnType<typeof loadRows>> = [];
   let clientOptions: Awaited<ReturnType<typeof loadClients>> = [];
   let error: string | null = null;
   let serviceOptions: Awaited<ReturnType<typeof listServiceOptions>> = [];
   try {
-    rows = await loadRows(activeType);
+    rows = await loadRows(activeType, isOwner);
     clientOptions = await loadClients();
     serviceOptions = await listServiceOptions();
   } catch {
@@ -82,7 +85,7 @@ export default async function AdminInboxPage({
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {FILTERS.map((f) => (
+        {filters.map((f) => (
           <Link
             key={f.value}
             href={f.value === "all" ? "/admin/inbox" : `/admin/inbox?type=${f.value}`}
@@ -200,13 +203,15 @@ export default async function AdminInboxPage({
   );
 }
 
-async function loadRows(type: string | null) {
+async function loadRows(type: string | null, isOwner: boolean) {
   if (!db) throw new Error("DATABASE_URL is not set.");
-  const query = db.select().from(submissions);
-  const rows = await (type
-    ? query.where(eq(submissions.type, type))
-    : query
-  ).orderBy(desc(submissions.createdAt)).limit(200);
+  const hidden = isOwner ? undefined : ne(submissions.type, "waitlist_analytics");
+  const rows = await db
+    .select()
+    .from(submissions)
+    .where(and(type ? eq(submissions.type, type) : undefined, hidden))
+    .orderBy(desc(submissions.createdAt))
+    .limit(200);
   return rows;
 }
 

@@ -7,7 +7,7 @@ import {
   DEFAULT_SETTINGS,
 } from "@/lib/settings";
 import { getAnalyticsPlans } from "@/lib/analytics-plans";
-import { getStaff } from "@/lib/staff-auth";
+import { getStaff, isOwnerStaff } from "@/lib/staff-auth";
 import { ContactSettingsForm } from "@/components/admin/contact-settings-form";
 import { InvoiceSettingsForm } from "@/components/admin/invoice-settings-form";
 import { AutomationSettingsForm } from "@/components/admin/automation-settings-form";
@@ -22,11 +22,13 @@ export default async function AdminSettingsPage() {
   const current = await getStaff();
   if (!current || (current.role !== "administrator" && current.role !== "superadmin")) notFound();
 
+  // Analytics pricing belongs to the withdrawn Analytics product: owner only.
+  const isOwner = isOwnerStaff(current);
   const [contactSettings, invoiceSettings, reportSettings, analyticsPlans] = await Promise.all([
     getContactSettings(),
     getInvoiceSettings(),
     getReportSettings(),
-    getAnalyticsPlans(),
+    isOwner ? getAnalyticsPlans() : null,
   ]);
   const defaults: Record<string, string> = { ...DEFAULT_SETTINGS, ...contactSettings };
   const automationSettings = await getAutomationSettings();
@@ -45,8 +47,8 @@ export default async function AdminSettingsPage() {
           Site Settings
         </h1>
         <p className="text-sm text-muted-foreground">
-          Contact details, invoicing, report template, and Analytics pricing — everything
-          editable without a code change. AI and email/SMTP/Paystack settings, which hold
+          Contact details, invoicing, and report template{isOwner ? ", plus Analytics pricing" : ""}.
+          Everything here is editable without a code change. AI and email/SMTP/Paystack settings, which hold
           API keys, live under their own super-admin-only pages.
         </p>
       </div>
@@ -54,7 +56,7 @@ export default async function AdminSettingsPage() {
       <InvoiceSettingsForm defaults={invoiceSettings} />
       <AutomationSettingsForm defaults={automationSettings} stats={stats} />
       <ReportSettingsForm defaults={reportSettings} />
-      <Card>
+      {analyticsPlans ? <Card>
         <CardHeader>
           <CardTitle>Analytics Pricing</CardTitle>
           <CardDescription>
@@ -65,7 +67,7 @@ export default async function AdminSettingsPage() {
         <CardContent>
           <AnalyticsPlansForm plans={analyticsPlans} />
         </CardContent>
-      </Card>
+      </Card> : null}
     </div>
   );
 }
